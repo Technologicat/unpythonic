@@ -47,16 +47,16 @@ assert (my_map, double, (q, 1, 2, 3)) == (ll, 2, 4, 6)
 
 ## Features
 
-In terms of ``unpythonic.syntax``, we implicitly enable ``prefix`` and ``curry`` for the whole module.
+In terms of `unpythonic.syntax`, we implicitly enable `prefix` and `curry` for the whole module.
 
 The following are dialect builtins:
 
-  - ``apply``, aliased to ``unpythonic.fun.apply``
-  - ``compose``, aliased to unpythonic's currying right-compose ``composerc``
-  - ``q``, ``u``, ``kw`` for the prefix syntax (note these are not `mcpyrate`'s
-    ``q`` and ``u``, but those from `unpythonic.syntax`, specifically for ``prefix``)
+  - `apply`, aliased to `unpythonic.fun.apply`
+  - `compose`, aliased to unpythonic's currying right-compose `composerc`
+  - `q`, `u`, `kw` for the prefix syntax (note these are not `mcpyrate`'s
+    `q` and `u`, but those from `unpythonic.syntax`, specifically for `prefix`)
 
-For detailed documentation of the language features, see [``unpythonic.syntax``](https://github.com/Technologicat/unpythonic/tree/master/doc/macros.md).
+For detailed documentation of the language features, see [`unpythonic.syntax`](https://github.com/Technologicat/unpythonic/tree/master/doc/macros.md).
 
 If you need more stuff, `unpythonic` is effectively the standard library of Listhell, on top of what Python itself already provides.
 
@@ -72,7 +72,7 @@ It's also a minimal example of how to make an AST-transforming dialect.
 
 ## Comboability
 
-Only outside-in macros that should expand after ``autocurry`` (currently, `unpythonic` provides no such macros) and inside-out macros that should expand before ``autocurry`` (there are two, namely ``tco`` and ``continuations``) can be used in programs written in the Listhell dialect.
+Only outside-in macros that should expand after `autocurry` (currently, `unpythonic` provides no such macros) and inside-out macros that should expand before `autocurry` (there are two, namely `tco` and `continuations`) can be used in programs written in the Listhell dialect.
 
 
 ## Notes

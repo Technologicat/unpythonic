@@ -70,29 +70,29 @@ assert x == 42
 
 ## Features
 
-In terms of ``unpythonic.syntax``, we implicitly enable ``autocurry`` and ``lazify`` for the whole module.
+In terms of `unpythonic.syntax`, we implicitly enable `autocurry` and `lazify` for the whole module.
 
 We also import some macros and functions to serve as dialect builtins:
 
-  - All ``let[]`` and ``do[]`` constructs from ``unpythonic.syntax``
-  - ``lazy[]`` and ``lazyrec[]`` for manual lazification of atoms and data structure literals, respectively
-  - If-elseif-else expression ``cond[]``
-  - Nondeterministic evaluation ``forall[]`` (do-notation in the List monad)
-  - Function composition, ``compose`` (like Haskell's ``.`` operator), aliased to `unpythonic`'s currying right-compose ``composerc``
-  - Linked list utilities ``cons``, ``car``, ``cdr``, ``ll``, ``llist``, ``nil``
-  - Folds and scans ``foldl``, ``foldr``, ``scanl``, ``scanr``
-  - Memoization ``memoize``, ``gmemoize``, ``imemoize``, ``fimemoize``
-  - Functional updates ``fup`` and ``fupdate``
-  - Immutable dict ``frozendict``
-  - Mathematical sequences ``s``, ``imathify``, ``gmathify``
-  - Iterable utilities ``islice`` (`unpythonic`'s version), ``take``, ``drop``, ``split_at``, ``first``, ``second``, ``nth``, ``last``
-  - Function arglist reordering utilities ``flip``, ``rotate``
+  - All `let[]` and `do[]` constructs from `unpythonic.syntax`
+  - `lazy[]` and `lazyrec[]` for manual lazification of atoms and data structure literals, respectively
+  - If-elseif-else expression `cond[]`
+  - Nondeterministic evaluation `forall[]` (do-notation in the List monad)
+  - Function composition, `compose` (like Haskell's `.` operator), aliased to `unpythonic`'s currying right-compose `composerc`
+  - Linked list utilities `cons`, `car`, `cdr`, `ll`, `llist`, `nil`
+  - Folds and scans `foldl`, `foldr`, `scanl`, `scanr`
+  - Memoization `memoize`, `gmemoize`, `imemoize`, `fimemoize`
+  - Functional updates `fup` and `fupdate`
+  - Immutable dict `frozendict`
+  - Mathematical sequences `s`, `imathify`, `gmathify`
+  - Iterable utilities `islice` (`unpythonic`'s version), `take`, `drop`, `split_at`, `first`, `second`, `nth`, `last`
+  - Function arglist reordering utilities `flip`, `rotate`
 
-For detailed documentation of the language features, see [``unpythonic.syntax``](https://github.com/Technologicat/unpythonic/tree/master/doc/macros.md).
+For detailed documentation of the language features, see [`unpythonic.syntax`](https://github.com/Technologicat/unpythonic/tree/master/doc/macros.md).
 
-The builtin ``let[]`` constructs are ``let``, ``letseq``, ``letrec``, the decorator versions ``dlet``, ``dletseq``, ``dletrec``, the block versions (decorator, call immediately, replace `def`'d name with result) ``blet``, ``bletseq``, ``bletrec``. Bindings may be made using any syntax variant supported by ``unpythonic.syntax``.
+The builtin `let[]` constructs are `let`, `letseq`, `letrec`, the decorator versions `dlet`, `dletseq`, `dletrec`, the block versions (decorator, call immediately, replace `def`'d name with result) `blet`, `bletseq`, `bletrec`. Bindings may be made using any syntax variant supported by `unpythonic.syntax`.
 
-The builtin ``do[]`` constructs are ``do`` and ``do0``.
+The builtin `do[]` constructs are `do` and `do0`.
 
 If you need more stuff, `unpythonic` is effectively the standard library of Pytkell, on top of what Python itself already provides.
 
@@ -108,9 +108,9 @@ It's also a minimal example of how to make an AST-transforming dialect.
 
 ## Comboability
 
-**Not** comboable with most of the block macros in ``unpythonic.syntax``, because ``autocurry`` and ``lazify`` appear in the dialect template, hence at the lexically outermost position.
+**Not** comboable with most of the block macros in `unpythonic.syntax`, because `autocurry` and `lazify` appear in the dialect template, hence at the lexically outermost position.
 
-Only outside-in macros that should expand after ``lazify`` has recorded its userlambdas (currently, `unpythonic` provides no such macros) and inside-out macros that should expand before ``autocurry`` (there are two, namely ``tco`` and ``continuations``) can be used in programs written in the Pytkell dialect.
+Only outside-in macros that should expand after `lazify` has recorded its userlambdas (currently, `unpythonic` provides no such macros) and inside-out macros that should expand before `autocurry` (there are two, namely `tco` and `continuations`) can be used in programs written in the Pytkell dialect.
 
 
 ## CAUTION

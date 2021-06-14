@@ -49,7 +49,7 @@ While on the topic of usability, why are lambdas strictly anonymous? In cases wh
 
 On a point raised [here by the BDFL](https://www.artima.com/weblogs/viewpost.jsp?thread=147358), with respect to indentation-sensitive vs. indentation-insensitive parser modes; having seen [SRFI-110: Sweet-expressions (t-expressions)](https://srfi.schemers.org/srfi-110/srfi-110.html), I think Python is confusing matters by linking the parser mode to statements vs. expressions. A workable solution is to make *everything* support both modes (or even preprocess the source code text to use only one of the modes), which *uniformly* makes parentheses an alternative syntax for grouping.
 
-It would be nice to be able to use indentation to structure expressions to improve their readability, like one can do in Racket with [sweet](https://docs.racket-lang.org/sweet/), but I suppose ``lambda x: [expr0, expr1, ...]`` will have to do for a multi-expression lambda. Unless I decide at some point to make a source filter for [`mcpyrate`](https://github.com/Technologicat/mcpyrate) to auto-convert between indentation and parentheses; but for Python this is somewhat difficult to do, because statements **must** use indentation whereas expressions **must** use parentheses, and this must be done before we can invoke the standard parser to produce an AST. (And I do not want to maintain a [Pyparsing](https://github.com/pyparsing/pyparsing) grammar to parse a modified version of Python.)
+It would be nice to be able to use indentation to structure expressions to improve their readability, like one can do in Racket with [sweet](https://docs.racket-lang.org/sweet/), but I suppose `lambda x: [expr0, expr1, ...]` will have to do for a multi-expression lambda. Unless I decide at some point to make a source filter for [`mcpyrate`](https://github.com/Technologicat/mcpyrate) to auto-convert between indentation and parentheses; but for Python this is somewhat difficult to do, because statements **must** use indentation whereas expressions **must** use parentheses, and this must be done before we can invoke the standard parser to produce an AST. (And I do not want to maintain a [Pyparsing](https://github.com/pyparsing/pyparsing) grammar to parse a modified version of Python.)
 
 As for true multi-shot continuations, `unpythonic.syntax` has `with continuations` for that, but I am not sure if I will ever use it in production code. Most of the time, it seems to me full continuations are a solution looking for a problem. (A very elegant solution, even if the usability of the `call/cc` interface leaves much to be desired.) For everyday use, one-shot continuations (a.k.a. resumable functions, a.k.a. generators in Python) are often all that is needed to simplify certain patterns, especially those involving backtracking. I am a big fan of the idea that, for example, you can make your anagram-making algorithm only yield valid anagrams, with the backtracking state (to eliminate dead-ends) implicitly stored in the paused generator! However, having multi-shot continuations is great for teaching the concept of continuations in a programming course, when teaching in Python.
 
@@ -113,7 +113,7 @@ To summarize; as someone already put it, `hoon` offers a glimpse into an alterna
 
 I think the perfect place to end this piece is to quote a few lines from the language definition [`hoon.hoon`](https://github.com/cgyarvin/urbit/blob/master/urb/zod/arvo/hoon.hoon), to give a flavor:
 
-```
+``
 ++  doos                                              ::  sleep until
   |=  hap=path  ^-  (unit ,@da)
   (doze:(wink:(vent bud (dink (dint hap))) now 0 (beck ~)) now [hap ~])
@@ -154,7 +154,7 @@ I think the perfect place to end this piece is to quote a few lines from the lan
       [p.i.mor t.i.q.i.mor t.q.i.mor r.i.mor]
   [p.yub [[p.i.naf ves:q.yub] t.naf]]
 --
-```
+``
 
 The Lisp family (particularly the Common Lisp branch) has a reputation for silly terminology, but I think `hoon` deserves the crown. All control structures are punctuation-only ASCII digraphs, and almost every name is a monosyllabic nonsense word. Still, this Lewis-Carroll-esque naming convention of making words mean what you define them to mean makes at least as much sense as the standard naming convention in mathematics, naming theorems after their discoverers! (Or at least, [after someone else](https://en.wikipedia.org/wiki/Stigler's_law_of_eponymy).)
 

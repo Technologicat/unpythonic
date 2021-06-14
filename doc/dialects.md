@@ -36,6 +36,6 @@ As examples of what can be done with a dialects system together with a kitchen-s
   - [**Listhell**: It's not Lisp, it's not Python, it's not Haskell](dialects/listhell.md)
   - [**Pytkell**: Because it's good to have a kell](dialects/pytkell.md)
 
-All three dialects support `unpythonic`'s ``continuations`` block macro, to add ``call/cc`` to the language; but it is not enabled automatically.
+All three dialects support `unpythonic`'s `continuations` block macro, to add `call/cc` to the language; but it is not enabled automatically.
 
 Mostly, these dialects are intended as a cross between teaching material and a (fully functional!) practical joke, but Lispython may occasionally come in handy.
