@@ -2762,6 +2762,22 @@ To return a final result, just `return` it normally. Returning anything but a `j
 
 Some *unclaimed jump* warnings may appear also if the process is terminated by Ctrl+C (`KeyboardInterrupt`). This is normal; it just means that the termination occurred after a jump object was instantiated but before it was claimed by a trampoline.
 
+For comparison, with the macro API, the example becomes:
+
+```python
+from unpythonic.syntax import macros, tco
+
+with tco:
+    def fact(n, acc=1):
+        if n == 0:
+            return acc
+        return fact(n - 1, n * acc)
+print(fact(4))  # 24
+fact(5000)  # no crash
+```
+
+*The `with tco` macro implicitly inserts the `@trampolined` decorator, and converts any regular call that appears in tail position into a `jump`. It also transforms lambdas in a similar way.*
+
 #### Tail recursion in a `lambda`
 
 To make a tail-recursive anonymous function, use `trampolined` together with `withself`. The `self` argument is declared explicitly, but passed implicitly, just like the `self` argument of a method:
@@ -2775,6 +2791,18 @@ print(t(4))  # 24
 ```
 
 Here the jump is just `jump` instead of `return jump`, because `lambda` does not use the `return` syntax.
+
+For comparison, with the macro API, this becomes:
+
+```python
+from unpythonic.syntax import macros, tco
+from unpythonic import withself
+
+with tco:
+    t = withself(lambda self, n, acc=1:
+                   acc if n == 0 else self(n - 1, n * acc))
+print(t(4))  # 24
+```
 
 #### Mutual recursion with TCO
 
