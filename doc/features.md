@@ -2505,9 +2505,9 @@ For convenience, we support some special cases:
 
 ### `s`, `imathify`, `gmathify`: lazy mathematical sequences with infix arithmetic
 
-**Changed in v0.14.3.** Added convenience mode to generate cyclic infinite sequences.
+**Changed in v0.14.3.** *Added convenience mode to generate cyclic infinite sequences.*
 
-**Changed in v0.14.3.** To improve descriptiveness, and for consistency with names of other abstractions in `unpythonic`, `m` has been renamed `imathify` and `mg` has been renamed `gmathify`. The old names will continue working in v0.14.x, and will be removed in v0.15.0. This is a one-time change; it is not likely that these names will be changed ever again.
+**Changed in v0.14.3.** *To improve descriptiveness, and for consistency with names of other abstractions in `unpythonic`, `m` has been renamed `imathify` and `mg` has been renamed `gmathify`. The old names work in v0.14.3, and have been removed in v0.15.0. This is a one-time change; it is not likely that these names will be changed ever again.*
 
 We provide a compact syntax to create lazy constant, cyclic, arithmetic, geometric and power sequences: `s(...)`. Numeric (`int`, `float`, `mpmath`) and symbolic (SymPy) formats are supported. We avoid accumulating roundoff error when used with floating-point formats.
 
