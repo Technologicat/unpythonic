@@ -127,6 +127,10 @@ def runtests():
         # cannot specify both indices and bindings
         test_raises[ValueError, fupdate(tup, slice(1, None, 2), (10,), somename="some value")]
 
+        # not memoized, cannot read a general iterable backwards
+        tup = (1, 2, 3, 4, 5)
+        test_raises[IndexError, fupdate(tup, slice(None, None, -1), count(start=10))]
+
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()
