@@ -3339,7 +3339,9 @@ last(take(10000, fibos()))  # no crash
 
 **Changed in v0.14.2.** *These constructs were previously named `setescape`, `escape`. The names have been changed to match the standard naming for this feature in several Lisps. The old names are now deprecated.*
 
-Escape continuations can be used as a *multi-return*:
+In a nutshell, an *escape continuation*, often abbreviated *ec*, transfers control outward on the call stack. Escape continuations are a generalization of `continue`, `break` and `return`. Those three constructs are essentially second-class ecs with a hard-coded escape point (respectively: end of iteration of loop; end of loop; end of function). A general escape continuation mechanism allows setting an escape point explicitly.
+
+For example, escape continuations can be used as a *multi-return*:
 
 ```python
 from unpythonic import catch, throw
@@ -3354,13 +3356,11 @@ def f():
 assert f() == "hello from g"
 ```
 
-**CAUTION**: The implementation is based on exceptions, so catch-all `except:` statements will intercept also throws, breaking the escape mechanism. As you already know, be specific in which exception types you catch in an `except` clause!
-
 In Lisp terms, `@catch` essentially captures the escape continuation (ec) of the function decorated with it. The nearest (dynamically) surrounding ec can then be invoked by `throw(value)`. When the `throw` is performed, the function decorated with `@catch` immediately terminates, returning `value`.
 
-In Python terms, a throw means just raising a specific type of exception; the usual rules concerning `try/except/else/finally` and `with` blocks apply. It is a function call, so it works also in lambdas.
+In Python terms, a throw (in the escape continuation sense) means just raising a specific type of exception; the usual rules concerning `try/except/else/finally` and `with` blocks apply. The `throw` is a function call, so it works also in lambdas.
 
-Escaping the function surrounding an FP loop, from inside the loop:
+For another example, here we return from the function surrounding an FP loop, from inside the loop:
 
 ```python
 @catch()
@@ -3394,24 +3394,28 @@ def foo():
 assert foo() == 15
 ```
 
-For details on tagging, especially how untagged and tagged throw and catch points interact, and how to make one-to-one connections, see the docstring for `@catch`.
+For details on tagging, especially how untagged and tagged throw and catch points interact, and how to make one-to-one connections, see the docstring for `@catch`. See also `call_ec` (below), which is a compact syntax to make a one-to-one connection.
+
+**CAUTION**: The implementation is based on exceptions, so catch-all `except:` statements will intercept also throws, breaking the escape mechanism. As you already know, be specific in which exception types you catch in an `except` clause!
 
 **Etymology**
 
-This feature is known as `catch`/`throw` in several Lisps, e.g. in Emacs Lisp and in Common Lisp (as well as some of its ancestors). This terminology is independent of the use of `throw`/`catch` in C++/Java for the exception handling mechanism. Common Lisp also provides a lexically scoped variant (`BLOCK`/`RETURN-FROM`) that is more idiomatic [according to Seibel](http://www.gigamonkeys.com/book/the-special-operators.html).
+This feature is known as `catch`/`throw` in several Lisps, e.g. in Emacs Lisp and in Common Lisp (as well as some of its ancestors). This terminology is independent of the use of `throw`/`catch` in C++/Java for the exception handling mechanism.
+
+Common Lisp also provides a lexically scoped variant (`BLOCK`/`RETURN-FROM`) that is more idiomatic ([according to Seibel](http://www.gigamonkeys.com/book/the-special-operators.html)), but we currently provide only this dynamic variant.
 
 
 #### `call_ec`: first-class escape continuations
 
-We provide `call/ec` (a.k.a. `call-with-escape-continuation`), in Python spelled as `call_ec`. It's a decorator that, like `@call`, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up a catch point, and hands a **first-class escape continuation** to the callee.
+We provide the function `call/ec` (a.k.a. [`call-with-escape-continuation`](https://docs.racket-lang.org/reference/cont.html#(def._((quote._~23~25kernel)._call-with-escape-continuation)))), in Python spelled as `call_ec`. It's a decorator that, like `@call`, immediately runs the function and replaces the def'd name with the return value. The twist is that it internally sets up a catch point, and hands a **first-class escape continuation** to the callee.
 
-The function to be decorated **must** take one positional argument, the ec instance.
+The function to be decorated **must** take one positional argument, the ec instance. The parameter is conventionally named `ec`.
 
-The ec instance itself is another function, which takes one positional argument: the value to send to the catch point. The ec instance and the catch point are connected one-to-one. No other `@catch` point will catch the ec instance, and the catch point catches only this particular ec instance and nothing else.
+The ec instance itself is another function, which takes one positional argument: the value to send to the catch point. That value can also be a `Values` object if you want to escape with multiple-return-values or named return values; the ec will send any argument given to it.
+
+The ec instance and the catch point are connected one-to-one. No other `@catch` point will catch the ec instance, and the catch point catches only the ec instances created by this invocation of `call_ec`, and nothing else.
 
 Any particular ec instance is only valid inside the dynamic extent of the `call_ec` invocation that created it. Attempting to call the ec later raises `RuntimeError`.
-
-This builds on `@catch` and `throw`, so the caution about catch-all `except:` statements applies here, too.
 
 ```python
 from unpythonic import call_ec
@@ -3438,7 +3442,7 @@ def result(ec):
 assert result == 42
 ```
 
-The ec doesn't have to be called from the lexical scope of the call_ec'd function, as long as the call occurs within the dynamic extent of the `call_ec`. It's essentially a *return from me* for the original function:
+The ec does not have to be called from the lexical scope of the `call_ec`'d function, as long as the call occurs *within the dynamic extent* of the `call_ec`. It's essentially a *return from me* for the original function:
 
 ```python
 def f(ec):
@@ -3466,7 +3470,7 @@ Normally `begin()` would return the last value, but the ec overrides that; it is
 
 But wait, doesn't Python evaluate all the arguments of `begin(...)` before the `begin` itself has a chance to run? Why doesn't the example print also *never reached*? This is because escapes are implemented using exceptions. Evaluating the ec call raises an exception, preventing any further elements from being evaluated.
 
-This usage is valid with named functions, too - `call_ec` is not only a decorator:
+This usage is valid with named functions, too, so strictly speaking, `call_ec` is not only a decorator:
 
 ```python
 def f(ec):
@@ -3479,6 +3483,10 @@ def f(ec):
 result = call_ec(f)
 assert result == 42
 ```
+
+*If you use the macro API of `unpythonic`, be aware that the macros cannot analyze this last example properly, because there is no lexical clue that `f` will actually be called using `call_ec`. To be safe in situations like this, name your ec parameter `ec`; then it will be recognized as an escape continuation. Also `brk` (defined by `@looped_over`) and `throw` are recognized by name.*
+
+**CAUTION**: The `call_ec` mechanism builds on `@catch` and `throw`, so the caution about catch-all `except:` statements applies here, too.
 
 
 ### `forall`: nondeterministic evaluation
