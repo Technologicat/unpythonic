@@ -500,7 +500,7 @@ class handlers(_Stacked):
         super().__init__(bindings)
         self.dq = _stacks.handlers
 
-class InvokeRestart(Exception):
+class InvokeRestart(BaseException):
     def __init__(self, restart, *args, **kwargs):  # e is the context
         self.restart, self.a, self.kw = restart, args, kwargs
         # message when uncaught

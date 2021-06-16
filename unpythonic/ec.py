@@ -59,7 +59,7 @@ def throw(value, tag=None, allow_catchall=True):
     """
     raise Escape(value, tag, allow_catchall)
 
-class Escape(Exception):
+class Escape(BaseException):
     """Exception that essentially represents the invocation of an escape continuation.
 
     Constructor parameters: see ``throw()``.
