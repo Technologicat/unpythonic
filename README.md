@@ -246,7 +246,7 @@ def my_range(start: int, step: int, stop: int):
 
 This is a purely run-time implementation, so it doesn't give performance benefits, but it can make code more readable, and easily allows adding support for new input types to an existing function without monkey-patching the original.
 
-*Holy traits* are also a possibility:
+[*Holy traits*](https://ahsmart.com/pub/holy-traits-design-patterns-and-best-practice-book/) are also a possibility:
 
 ```python
 import typing
