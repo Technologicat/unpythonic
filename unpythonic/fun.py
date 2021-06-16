@@ -322,6 +322,8 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
             # In order to decide what to do when the curried function is called, we must first compute
             # the parameter bindings. All of `f`'s parameters must be bound (whether by position or by
             # name) before calling `f`.
+            #
+            # The parameter binding analysis result is needed for passthrough.
             try:
                 action, analysis = _analyze_parameter_bindings(f, args, kwargs)
             except ValueError as err:  # inspection failed in inspect.signature()?
