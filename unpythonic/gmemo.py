@@ -172,8 +172,10 @@ def imemoize(iterable):
 
     If you need to take arguments to create the iterable, see ``fimemoize``.
     """
-    # The lambda is the gfunc; decorate it with gmemoize and return that.
-    return gmemoize(lambda: (yield from iterable))
+    @gmemoize
+    def iterable_as_gfunc():
+        yield from iterable
+    return iterable_as_gfunc
 
 @register_decorator(priority=10)
 def fimemoize(ifactory):
