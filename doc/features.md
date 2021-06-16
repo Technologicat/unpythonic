@@ -1463,7 +1463,7 @@ There are some **important differences** to the nearest equivalents in the stand
            return thrice_int(x)
         elif isinstance(x, float):
             return thrice_float(x)
-        raise TypeError(type(x))
+        raise TypeError(f"unsupported argument: {type(x)} with value {repr(x)}")
 
     @memoize
     def thrice_int(x):
