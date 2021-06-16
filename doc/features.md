@@ -69,12 +69,27 @@ The exception are the features marked **[M]**, which are primarily intended as a
 
 [**Control flow tools**](#control-flow-tools)
 - [`trampolined`, `jump`: tail call optimization (TCO) / explicit continuations](#trampolined-jump-tail-call-optimization-tco--explicit-continuations)
+  - [Tail recursion in a `lambda`](#tail-recursion-in-a-lambda)
+  - [Mutual recursion with TCO](#mutual-recursion-with-tco)
+  - [Mutual recursion in `letrec` with TCO](#mutual-recursion-in-letrec-with-tco)
+  - [Reinterpreting TCO as explicit continuations](#reinterpreting-tco-as-explicit-continuations)
 - [`looped`, `looped_over`: loops in FP style (with TCO)](#looped-looped_over-loops-in-fp-style-with-tco)
+  - [Relation to the TCO system](#relation-to-the-tco-system)
+  - [FP loop over an iterable](#fp-loop-over-an-iterable): the `looped_over` parametric decorator
+  - [Accumulator type and runtime cost](#accumulator-type-and-runtime-cost)
+  - [`break`](#break)
+  - [`continue`](#continue)
+  - [Prepackaged `break` and `continue`](#prepackaged-break-and-continue)
+  - [FP loops using a lambda as body](#fp-loops-using-a-lambda-as-body)
 - [`gtrampolined`: generators with TCO](#gtrampolined-generators-with-tco): tail-chaining; like `itertools.chain`, but from inside a generator.
 - [`catch`, `throw`: escape continuations (ec)](#catch-throw-escape-continuations-ec) (as in [Lisp's `catch`/`throw`](http://www.gigamonkeys.com/book/the-special-operators.html), unlike C++ or Java)
   - [`call_ec`: first-class escape continuations](#call_ec-first-class-escape-continuations), like Racket's `call/ec`.
 - [`forall`: nondeterministic evaluation](#forall-nondeterministic-evaluation), a tuple comprehension with multiple body expressions.
 - [`handlers`, `restarts`: conditions and restarts](#handlers-restarts-conditions-and-restarts), a.k.a. **resumable exceptions**.
+  - [Fundamental signaling protocol](#fundamental-signaling-protocol)
+  - [API summary](#api-summary)
+  - [High-level signaling protocols](#high-level-signaling-protocols)
+  - [Conditions vs. exceptions](#conditions-vs-exceptions)
 - [`generic`, `typed`, `isoftype`: multiple dispatch](#generic-typed-isoftype-multiple-dispatch): create generic functions with type annotation syntax; also some friendly utilities.
 
 [**Exception tools**](#exception-tools)
