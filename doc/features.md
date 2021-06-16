@@ -855,7 +855,7 @@ A `Shim` is an *attribute access proxy*. The shim holds a `box` (or a `ThreadLoc
 
 For example, `Shim` can combo with `ThreadLocalBox` to redirect standard output only in particular threads. Place the stream object in a `ThreadLocalBox`, shim that box, then replace `sys.stdout` with the shim. See the source code of `unpythonic.net.server` for an example that actually does (and cleanly undoes) this.
 
-Since deep down, attribute access is the whole point of objects, `Shim` is essentially a transparent object proxy. (For example, a method call is an attribute read (via a descriptor), followed by a function call.)
+Since deep down, attribute access is the whole point of objects, `Shim` is essentially a transparent object proxy. (For example, a method call is an attribute read (via a [descriptor](https://docs.python.org/3/howto/descriptor.html)), followed by a function call.)
 
 ```python
 from unpythonic import Shim, box, unbox
