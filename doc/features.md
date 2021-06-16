@@ -2163,7 +2163,7 @@ Inspired by Python itself.
 
 ### `gmemoize`, `imemoize`, `fimemoize`: memoize generators
 
-**Changed in v0.15.0.** *The generator instances created by the gfuncs returned by `gmemoize`, `imemoize`, and `fimemoize`, now support the `__len__` and `__getitem__` methods to access the already-yielded, memoized part. Note that they do **not** support all of the [`collections.abc.Sequence`](https://docs.python.org/3/library/collections.abc.html) API, because e.g. `__contains__` and `__reversed__` are missing, on purpose.*
+**Changed in v0.15.0.** *The generator instances created by the gfuncs returned by `gmemoize`, `imemoize`, and `fimemoize`, now support the `__len__` and `__getitem__` methods to access the already-yielded, memoized part. Asking for the `len` returns the current length of the memo. For subscripting, both a single `int` index and a slice are accepted. Note that memoized generators do **not** support all of the [`collections.abc.Sequence`](https://docs.python.org/3/library/collections.abc.html) API, because e.g. `__contains__` and `__reversed__` are missing, on purpose.*
 
 Make generator functions (gfunc, i.e. a generator definition) which create memoized generators, similar to how streams behave in Racket.
 
