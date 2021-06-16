@@ -3493,9 +3493,9 @@ assert result == 42
 
 We provide a simple variant of nondeterministic evaluation. This is essentially a toy that has no more power than list comprehensions or nested for loops. See also the easy-to-use [macro](macros.md) version with natural syntax and a clean implementation.
 
-An important feature of McCarthy's [`amb` operator](https://rosettacode.org/wiki/Amb) is its nonlocality - being able to jump back to a choice point, even after the dynamic extent of the function where that choice point resides. If that sounds a lot like `call/cc`, that's because that's how `amb` is usually implemented. See examples [in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/) and [in Racket](http://www.cs.toronto.edu/~david/courses/csc324_w15/extra/choice.html).
+An important feature of McCarthy's [`amb` operator](https://rosettacode.org/wiki/Amb) is its nonlocality - being able to jump back to a choice point, even after the dynamic extent of the function where that choice point resides. If that sounds a lot like `call/cc`, that is because that's how `amb` is usually implemented. See examples [in Ruby](http://www.randomhacks.net/2005/10/11/amb-operator/) and [in Racket](http://www.cs.toronto.edu/~david/courses/csc324_w15/extra/choice.html).
 
-Python can't do that, short of transforming the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style), while applying TCO everywhere to prevent stack overflow. **If that's what you want**, see `continuations` in [the macros](macros.md).
+Python cannot do that, short of transforming the whole program into [CPS](https://en.wikipedia.org/wiki/Continuation-passing_style), while applying TCO everywhere to prevent stack overflow. **If that is what you want**, see `continuations` in [the macros](macros.md).
 
 This `forall` is essentially a tuple comprehension that:
 
@@ -3505,7 +3505,7 @@ This `forall` is essentially a tuple comprehension that:
 
 The `unpythonic.amb` module defines four operators:
 
- - `forall` is the control structure, which marks a section with nondeterministic evaluation.
+ - `forall` is the control structure, which marks a section that uses nondeterministic evaluation.
  - `choice` binds a name: `choice(x=range(3))` essentially means `for e.x in range(3):`.
  - `insist` is a filter, which allows the remaining lines to run if the condition evaluates to truthy.
  - `deny` is `insist not`; it allows the remaining lines to run if the condition evaluates to falsey.
@@ -3544,13 +3544,13 @@ assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
 Beware:
 
 ```python
-out = forall(range(2),  # do the rest twice!
+out = forall(range(2),  # evaluate remaining items twice!
              choice(x=range(1, 4)),
              lambda e: e.x)
 assert out == (1, 2, 3, 1, 2, 3)
 ```
 
-The initial `range(2)` causes the remaining lines to run twice - because it yields two output values - regardless of whether we bind the result to a variable or not. In effect, each line, if it returns more than one output, introduces a new nested loop at that point.
+The initial `range(2)` causes the remaining items to run twice - because it yields two output values - regardless of whether we bind the result to a variable or not. In effect, each line, if it returns more than one output, introduces a new nested loop at that point.
 
 For more, see the docstring of `forall`.
 
