@@ -218,7 +218,7 @@ def _prepare_signal_instance(condition, *, cause, protocol, stacklevel):
                 return exc()  # instantiate with no args, like `raise` does
         except TypeError:  # "issubclass() arg 1 must be a class"
             pass
-        error(ControlError(f"Only exceptions and subclasses of Exception can {err_reason}; got {type(condition)} with value {repr(condition)}."))
+        error(ControlError(f"Only instances (derived too) and subclasses of BaseException can {err_reason}; got {type(condition)} with value {repr(condition)}."))
 
     condition = canonize(condition, "be signaled")
     cause = canonize(cause, "act as the cause of another signal")
