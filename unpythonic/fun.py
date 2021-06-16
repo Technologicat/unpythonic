@@ -325,7 +325,7 @@ def curry(f, *args, _curry_force_call=False, _curry_allow_uninspectable=False, *
             #
             # The parameter binding analysis result is needed for passthrough.
             try:
-                action, analysis = _analyze_parameter_bindings(f, args, kwargs)
+                action, analysis = _decide_curry_action(f, args, kwargs)
             except ValueError as err:  # inspection failed in inspect.signature()?
                 msg = err.args[0]
                 if "no signature found" in msg:
@@ -453,11 +453,18 @@ _keep_currying = sym("_keep_currying")
 
 _Analysis = namedtuple("_Analysis", ["bound_arguments", "unbound_parameters", "extra_args", "extra_kwargs"])
 
-# Internal helper for `curry`.
-#
 # For performance, it is important to have this function defined once at the top level
 # of the module, instead of defining it as a closure each time `curry` is called.
-def _analyze_parameter_bindings(f, args, kwargs):
+def _decide_curry_action(f, args, kwargs):
+    """ Internal helper for `curry`.
+
+    The `args` and `kwargs` are those added at this step of currying.
+
+    We detect if `f` is a `functools.partial` object, and automatically extract
+    any previously supplied `args` and `kwargs` for analysis.
+
+    Return value is `(action, analysis)`. See source code for details.
+    """
     # `functools.partial()` doesn't remove an already-set kwarg from the signature (as seen by
     # `inspect.signature`), but `functools.partial` objects have a `keywords` attribute, which
     # contains what we want.
