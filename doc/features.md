@@ -3902,7 +3902,7 @@ When using both `@generic` or `@typed` and OOP, important things to know are:
 
      This allows seeing registered multimethods also from linked dispatchers in the MRO.
 
-     If we instead call it as `methods(Thing.f)`, the `self` argument is not bound yet (because `Thing.f` is just a bare function), so the dispatch machinery cannot get a reference to the MRO. This is obviously not an issue when actually using `f`, since an instance method is pretty much always invoked on an instance.
+     If we instead call it as `methods(Thing.f)`, the `self` argument is not bound yet (because `Thing.f` is just a bare function), so the dispatch machinery cannot get a reference to the MRO. This is obviously not an issue when actually *using* `f`, since an instance method is pretty much always invoked on an instance.
 
      For class methods, `methods(Thing.g)` sees the MRO, because `cls` is already bound.
 
