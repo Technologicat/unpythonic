@@ -869,17 +869,23 @@ def _resignal_handler(mapping, condition):
 
     `mapping`: dict-like, `{LibraryExc0: ApplicationExc0, ...}`
 
-        Each `LibraryExc` must be a signal type.
+        Each `LibraryExc` must be an exception type or a tuple of
+        exception types. It will be matched using `isinstance`.
 
-        Each `ApplicationExc` can be a condition type or an instance.
-        If an instance, then that exact instance is signaled as the
-        converted condition.
+        Each `ApplicationExc` can be an exception type or an exception
+        instance. If an instance, then that exact instance is signaled
+        as the converted signal.
 
-    `libraryexc`: the signal instance to convert. It is
-                  automatically chained into `ApplicationExc`.
+    `condition`: the exception instance that was signaled, and is to
+                 be converted (if it matches an entry in `mapping`).
+                 When converted, it is automatically chained into
+                 an `ApplicationExc` signal.
 
-    This function never returns normally. If no key in the mapping
-    matches, this delegates to the next outer handler.
+    Conversions in `mapping` are tried in the order specified; hence,
+    just like in `with handlers`, place more specific types first.
+
+    If no key in the mapping matches, this delegates to the next outer
+    signal handler.
     """
     for LibraryExc, ApplicationExc in mapping.items():
         if isinstance(condition, LibraryExc):
