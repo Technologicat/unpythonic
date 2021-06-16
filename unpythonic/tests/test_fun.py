@@ -5,6 +5,9 @@ from ..test.fixtures import session, testset, returns_normally
 
 from collections import Counter
 import sys
+from queue import Queue
+import threading
+from time import sleep
 
 from ..dispatch import generic
 from ..fun import (memoize, partial, curry, apply,
@@ -16,6 +19,8 @@ from ..fun import (memoize, partial, curry, apply,
                    to1st, to2nd, tokth, tolast, to,
                    withself)
 from ..funutil import Values
+from ..it import allsame
+from ..misc import slurp
 
 from ..dynassign import dyn
 
@@ -134,6 +139,36 @@ def runtests():
             else:
                 fail["memoize should not prevent exception propagation."]  # pragma: no cover
         test[evaluations == 1]
+
+    with testset("@memoize thread-safety"):
+        def threadtest():
+            @memoize
+            def f(x):
+                # Sleep a "long" time to make actual concurrent operation more likely.
+                sleep(0.001)
+
+                # The trick here is that because only one thread will acquire the lock
+                # for the memo, then for the same `x`, all the results should be the same.
+                return (id(threading.current_thread()), x)
+
+            comm = Queue()
+            def worker(que):
+                # The value of `x` doesn't matter, as long as it's the same in all workers.
+                r = f(42)
+                que.put(r)
+
+            n = 1000
+            threads = [threading.Thread(target=worker, args=(comm,), kwargs={}) for _ in range(n)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+            # Test that all threads finished, and that the results from each thread are the same.
+            results = slurp(comm)
+            test[the[len(results)] == the[n]]
+            test[allsame(results)]
+        threadtest()
 
     with testset("partial (type-checking wrapper)"):
         def nottypedfunc(x):

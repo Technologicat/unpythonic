@@ -204,6 +204,8 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
 
 - Fix bug: `fup`/`fupdate`/`ShadowedSequence` now actually accept an infinite-length iterable as a replacement sequence (under the obvious usage limitations), as the documentation has always claimed.
 
+- Fix bug: `memoize` is now thread-safe.
+
 
 ---
 

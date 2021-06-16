@@ -20,6 +20,7 @@ __all__ = ["memoize", "curry", "iscurried",
 from collections import namedtuple
 from functools import wraps, partial as functools_partial
 from inspect import signature
+from threading import RLock
 from typing import get_type_hints
 
 from .arity import (_resolve_bindings, tuplify_bindings, _bind)
@@ -61,18 +62,35 @@ def memoize(f):
 
     **CAUTION**: ``f`` must be pure (no side effects, no internal state
     preserved between invocations) for this to make any sense.
+
+    Beginning with v0.15.0, `memoize` is thread-safe even when the same memoized
+    function instance is called concurrently from multiple threads. Exactly one
+    thread will compute the result. If `f` is recursive, the thread that acquired
+    the lock is the one that is allowed to recurse into the memoized `f`.
     """
+    # One lock per use site of `memoize`. We use an `RLock` to allow recursive calls
+    # to the memoized `f` in the thread that acquired the lock.
+    lock = RLock()
     memo = {}
     @wraps(f)
     def memoized(*args, **kwargs):
         k = tuplify_bindings(_resolve_bindings(f, args, kwargs, _partial=False))
-        if k not in memo:
-            try:
-                result = (_success, maybe_force_args(f, *args, **kwargs))
-            except BaseException as err:
-                result = (_fail, err)
-            memo[k] = result  # should yell separately if k is not a valid key
-        kind, value = memo[k]
+        try:  # EAFP to eliminate TOCTTOU.
+            kind, value = memo[k]
+        except KeyError:
+            # But we still need to be careful to avoid race conditions.
+            with lock:
+                if k not in memo:
+                    # We were the first thread to acquire the lock.
+                    try:
+                        result = (_success, maybe_force_args(f, *args, **kwargs))
+                    except BaseException as err:
+                        result = (_fail, err)
+                    memo[k] = result  # should yell separately if k is not a valid key
+                else:
+                    # Some other thread acquired the lock before us.
+                    pass
+            kind, value = memo[k]
         if kind is _fail:
             raise value
         return value
