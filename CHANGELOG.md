@@ -204,7 +204,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
 
 - Fix bug: `fup`/`fupdate`/`ShadowedSequence` now actually accept an infinite-length iterable as a replacement sequence (under the obvious usage limitations), as the documentation has always claimed.
 
-- Fix bug: `memoize` is now thread-safe.
+- Fix bug: `memoize` is now thread-safe. Even when the same memoized function instance is called concurrently from multiple threads. Exactly one thread will compute the result. If `f` is recursive, the thread that acquired the lock is the one that is allowed to recurse into the memoized `f`.
 
 
 ---
