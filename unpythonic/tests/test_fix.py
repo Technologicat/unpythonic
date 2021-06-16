@@ -119,9 +119,9 @@ def runtests():
                 return a(tid, (k + 1) % 3)
 
             comm = Queue()
-            def worker(q):
+            def worker(que):
                 r = a(id(threading.current_thread()), 0)
-                q.put(r is NoReturn)
+                que.put(r is NoReturn)
 
             n = 1000
             threads = [threading.Thread(target=worker, args=(comm,), kwargs={}) for _ in range(n)]

@@ -40,12 +40,12 @@ def runtests():
 
         with testset("thread-safety"):
             comm = Queue()
-            def threadtest(q):
+            def threadtest(que):
                 try:
                     dyn.c  # just access dyn.c
                 except AttributeError as err:
-                    q.put(err)
-                q.put(None)
+                    que.put(err)
+                que.put(None)
 
             with dyn.let(c=42):
                 t1 = threading.Thread(target=threadtest, args=(comm,), kwargs={})
