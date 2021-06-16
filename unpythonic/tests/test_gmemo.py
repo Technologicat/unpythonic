@@ -92,6 +92,23 @@ def runtests():
             fail["Should have raised at the second next() call."]  # pragma: no cover
         test[total_evaluations == 2]
 
+    with testset("subscripting to get already computed items"):
+        @gmemoize
+        def gen():
+            yield from range(5)
+        g3 = gen()
+        test[len(g3) == 0]
+        next(g3)
+        test[len(g3) == 1]
+        next(g3)
+        test[len(g3) == 2]
+        next(g3)
+        test[len(g3) == 3]
+        test[g3[0] == 0]
+        test[g3[1] == 1]
+        test[g3[2] == 2]
+        test_raises[IndexError, g3[3]]
+
     with testset("memoizing a sequence partially"):
         # To do this, build a chain of generators, then memoize only the last one:
         evaluations = Counter()
