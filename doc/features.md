@@ -3836,6 +3836,9 @@ assert kittify(x=1, y=2) == "int"
 assert kittify(x=1.0, y=2.0) == "float"
 ```
 
+See [the unit tests](../unpythonic/tests/test_dispatch.py) for more. For which features of the `typing` stdlib module are supported, see `isoftype` below.
+
+
 ##### `@generic` and OOP
 
 Beginning with v0.14.3, `@generic` and `@typed` can decorate instance methods, class methods and static methods (beside regular functions as in v0.14.2).
@@ -3946,8 +3949,6 @@ def laugh(traitvalue: IsNotFunny, x: typing.Any):
 assert laugh("that") == "Ha ha ha, that is funny!"
 assert laugh(42) == "42 is not funny."
 ```
-
-See [the unit tests](../unpythonic/tests/test_dispatch.py) for more. For which features of the `typing` stdlib module are supported, see `isoftype` below.
 
 **CAUTION**: `@augment` can be dangerous to the readability of your codebase. Keep in mind that the multiple-dispatch table is global state. If you add a new multimethod for a generic function defined elsewhere, for types defined elsewhere, this may lead to [*spooky action at a distance*](https://lexi-lambda.github.io/blog/2016/02/18/simple-safe-multimethods-in-racket/) (as in [action at a distance](https://en.wikipedia.org/wiki/Action_at_a_distance_(computer_programming))), because it may change the meaning of existing code. In the Julia community, this is known as [*type piracy*](https://docs.julialang.org/en/v1/manual/style-guide/#Avoid-type-piracy).
 
