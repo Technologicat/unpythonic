@@ -132,12 +132,24 @@ class _MemoizedGenerator:
             if kind is _fail:
                 raise value
             return value
-    # Support the `collections.abc.Sequence` API for already-computed items
+    # Support a subset of the `collections.abc.Sequence` API for already-computed items
     def __len__(self):
         return len(self.memo)
     def __getitem__(self, k):
-        if k >= len(self.memo):
-            raise IndexError(f"Attempted to access index {k} of memoized generator; only {len(self.memo)} items available (at least so far)")
+        if not isinstance(k, (int, slice)):
+            raise TypeError(f"Expected an int or slice index, got {type(k)} with value {repr(k)}")
+        length = len(self.memo)
+        if isinstance(k, slice):
+            # For slices where at least one item raises an exception, we raise the
+            # exception that is encountered first when walking the slice.
+            lst = []
+            for kind, value in self.memo[k]:
+                if kind is _fail:
+                    raise value
+                lst.append(value)
+            return lst
+        if k >= length or k < -length:
+            raise IndexError(f"memoized generator index out of range; got {k}, with {len(self.memo)} items currently available")
         kind, value = self.memo[k]
         if kind is _fail:
             raise value

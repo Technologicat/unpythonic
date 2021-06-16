@@ -97,6 +97,9 @@ def runtests():
         def gen():
             yield from range(5)
         g3 = gen()
+
+        # Any item that has entered the memo can be retrieved by subscripting.
+        # len() is the current length of the memo.
         test[len(g3) == 0]
         next(g3)
         test[len(g3) == 1]
@@ -107,7 +110,28 @@ def runtests():
         test[g3[0] == 0]
         test[g3[1] == 1]
         test[g3[2] == 2]
+
+        # Items not yet memoized cannot be retrieved from the memo.
         test_raises[IndexError, g3[3]]
+
+        # Negative indices work too, counting from the current end of the memo.
+        test[g3[-1] == 2]
+        test[g3[-2] == 1]
+        test[g3[-3] == 0]
+
+        # Counting back past the start is an error, just like in `list`.
+        test_raises[IndexError, g3[-4]]
+
+        # Slicing is supported.
+        test[g3[0:3] == [0, 1, 2]]
+        test[g3[0:2] == [0, 1]]
+        test[g3[::-1] == [2, 1, 0]]
+        test[g3[0::2] == [0, 2]]
+        test[g3[2::-2] == [2, 0]]
+
+        # Out-of-range slices produce the empty list, like in `list`.
+        test[g3[3:] == []]
+        test[g3[-4::-1] == []]
 
     with testset("memoizing a sequence partially"):
         # To do this, build a chain of generators, then memoize only the last one:
