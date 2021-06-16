@@ -105,7 +105,7 @@ def runtests():
         f, c = cosser2(1)  # f ends up in the return value because it's in the args of iterate1_rec.
         test[the[c] == the[cos(c)]]
 
-    with testset("multithreading"):
+    with testset("thread-safety"):
         def threadtest():
             a_calls = []
             @fix()

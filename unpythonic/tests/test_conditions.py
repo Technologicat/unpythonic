@@ -557,7 +557,7 @@ def runtests():
         cancel_and_delegate()
 
     # Multithreading. Threads behave independently.
-    with testset("multithreading"):
+    with testset("thread-safety"):
         def multithreading():
             comm = Queue()
             def lowlevel4(tag):

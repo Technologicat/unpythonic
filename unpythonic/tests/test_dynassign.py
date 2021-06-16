@@ -38,7 +38,7 @@ def runtests():
 
             test_raises[AttributeError, dyn.b]  # no longer exists
 
-        with testset("multithreading"):
+        with testset("thread-safety"):
             comm = Queue()
             def threadtest(q):
                 try:
@@ -112,7 +112,7 @@ def runtests():
             test[noimplicits(dyn.items()) == (("a", 10), ("b", 20))]
         test[noimplicits(dyn.items()) == ()]
 
-    with testset("mass update with multithreading"):
+    with testset("mass update, thread-safety"):
         comm = Queue()
         def worker():
             # test[] itself is thread-safe, but the worker threads don't have a
