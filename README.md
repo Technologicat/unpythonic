@@ -244,7 +244,7 @@ def my_range(start: int, step: int, stop: int):
     return start, step, stop
 ```
 
-This is a purely run-time implementation, so it doesn't give performance benefits, but it can make code more readable, and easily allows adding support for new input types to an existing function without monkey-patching the original.
+This is a purely run-time implementation, so it does **not** give performance benefits, but it can make code more readable, and makes it modular to add support for new input types (or different call signatures) to an existing function later.
 
 [*Holy traits*](https://ahsmart.com/pub/holy-traits-design-patterns-and-best-practice-book/) are also a possibility:
 
