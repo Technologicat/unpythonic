@@ -4770,7 +4770,9 @@ Convenience function. Like `issubclass(cls)`, but if `cls` is not a class, swall
 
 ### `pack`: multi-arg constructor for tuple
 
-The default `tuple` constructor accepts a single iterable. But sometimes one needs to pass in the elements separately. Most often a literal tuple such as `(1, 2, 3)` is then the right solution, but there are situations that do not admit a literal tuple. Enter `pack`:
+The default `tuple` constructor accepts a single iterable. But sometimes one needs to pass in the elements separately. Most often a literal tuple such as `(1, 2, 3)` is then the right solution, but there are situations that do not admit a literal tuple.
+
+In such cases it is possible to use `pack`:
 
 ```python
 from unpythonic import pack
@@ -4783,11 +4785,11 @@ assert tuple(myzip(lol)) == ((1, 3, 5), (2, 4, 6))
 
 ### `namelambda`: rename a function
 
-Rename any function object (including lambdas). The return value of `namelambda` is a modified copy; the original function object is not mutated. The input can be any function object (`isinstance(f, (types.LambdaType, types.FunctionType))`). It will be renamed even if it already has a name.
+Rename any function object, even a lambda. The return value of `namelambda` is a modified copy; the original function object is not mutated. The input can be any function object (`isinstance(f, (types.LambdaType, types.FunctionType))`). It will be renamed even if it already has a name.
 
 This is mainly useful in those situations where you return a lambda as a closure, call it much later, and it happens to crash - so you can tell from the stack trace *which* of the *N* lambdas in your codebase it is.
 
-For technical reasons, `namelambda` conforms to the parametric decorator API. Usage:
+`namelambda` conforms to the parametric decorator API. Usage:
 
 ```python
 from unpythonic import namelambda
@@ -4818,6 +4820,8 @@ The inner lambda does not see the outer's new name; the parent scope names are b
 
 ### `timer`: a context manager for performance testing
 
+This is a small convenience utility, used as follows:
+
 ```python
 from unpythonic import timer
 
@@ -4831,7 +4835,7 @@ with timer(p=True):  # if p, auto-print result
         pass
 ```
 
-The auto-print mode is a convenience feature to minimize bureaucracy if you just want to see the *Δt*. To instead access the *Δt* programmatically, name the timer instance using the `with ... as ...` syntax. After the context exits, the *Δt* is available in its `dt` attribute.
+The auto-print mode is a convenience feature to minimize bureaucracy if you just want to see the *Δt*. To instead access the *Δt* programmatically, name the timer instance using the `with ... as ...` syntax. After the context exits, the *Δt* is available in its `dt` attribute. The timer instance itself stays alive due to Python's scoping rules.
 
 
 ### `getattrrec`, `setattrrec`: access underlying data in an onion of wrappers
@@ -4861,9 +4865,9 @@ assert getattrrec(w, "x") == 23
 
 *Now `tuplify_bindings` accepts an `inspect.BoundArguments` object instead of its previous input format. The function is only ever intended to be used to postprocess the output of `resolve_bindings`, so this change shouldn't affect your own code.*
 
-**Added in v0.14.2**: `resolve_bindings`. *Get the parameter bindings a given callable would establish if it was called with the given args and kwargs. This is mainly of interest for implementing memoizers, since this allows them to see (e.g.) `f(1)` and `f(a=1)` as the same thing for `def f(a): pass`.*
+**Added in v0.14.2**: `resolve_bindings`. *Get the parameter bindings a given callable would establish if it was called with the given args and kwargs. This is mainly of interest for implementing memoizers, since this allows them to see (e.g.) `f(1)` and `f(a=1)` as the same thing for `def f(a): pass`. Thanks to Graham Dumpleton, the author of the [`wrapt`](https://pypi.org/project/wrapt/) library, for [noticing and documenting this gotcha](https://wrapt.readthedocs.io/en/latest/decorators.html#processing-function-arguments).*
 
-Convenience functions providing an easy-to-use API for inspecting a function's signature. The heavy lifting is done by `inspect`.
+These are convenience functions providing an easy-to-use API for inspecting a function's signature. The heavy lifting is done by `inspect`.
 
 Methods on objects and classes are treated specially, so that the reported arity matches what the programmer actually needs to supply when calling the method (i.e., implicit `self` and `cls` are ignored).
 
@@ -4924,7 +4928,7 @@ We special-case the builtin functions that either fail to return any arity (are 
 
 If the arity cannot be inspected, and the function is not one of the special-cased builtins, the `UnknownArity` exception is raised.
 
-These functions are internally used in various places in unpythonic, particularly `curry`, `fix`, and `@generic`. The `let` and FP looping constructs also use these to emit a meaningful error message if the signature of user-provided function does not match what is expected.
+Up to v0.14.3, various places in unpythonic used to internally use `arities`; particularly `curry`, `fix`, and `@generic`. As of v0.15.0, we have started to prefer `resolve_bindings`, because often what matters are the parameter bindings established, and performing the binding covers all possible ways to pass arguments. The `let` and FP looping constructs still use `arities` to emit a meaningful error message if the signature of user-provided function does not match what is expected.
 
 Inspired by various Racket functions such as `(arity-includes?)` and `(procedure-keywords)`.
 
@@ -4984,13 +4988,13 @@ assert inp == deque([])
 assert out == [(0, 1), (1, 2), (2, 10), (10, 11), (11, 12)]
 ```
 
-(Although `window` invokes `iter()` on the `Popper`, this works because the `Popper` never invokes `iter()` on the underlying container. Any mutations to the input container performed by the loop body will be understood by `Popper` and thus also seen by the `window`. The first `n` elements, though, are read before the loop body gets control, because the window needs them to initialize itself.)
+Although `window` invokes `iter()` on the `Popper` instance, this works because the `Popper` never invokes `iter()` on the underlying container. Any mutations to the input container performed by the loop body will be understood by `Popper` and thus also seen by the `window`. The first `n` elements, though, are read before the loop body gets control, because the window needs them to initialize itself.
 
 One possible real use case for `Popper` is to split sequences of items, stored as lists in a deque, into shorter sequences where some condition is contiguously `True` or `False`. When the condition changes state, just commit the current subsequence, and push the rest of that input sequence (still requiring analysis) back to the input deque, to be dealt with later.
 
-The argument to `Popper` (here `lst`) contains the **remaining** items. Each iteration pops an element **from the left**. The loop terminates when `lst` is empty.
+The argument to `Popper` contains the **remaining** items. Each iteration pops an element **from the left**. The loop terminates when, at the start of an iteration, there are no more items remaining.
 
-The input container must support either `popleft()` or `pop(0)`. This is fully duck-typed. At least `collections.deque` and any `collections.abc.MutableSequence` (including `list`) are fine.
+The input container must support either `popleft()` or `pop(0)`. This is fully duck-typed. At least `collections.deque` and any [`collections.abc.MutableSequence`](https://docs.python.org/3/library/collections.abc.html) (including `list`) are fine.
 
 Per-iteration efficiency is O(1) for `collections.deque`, and O(n) for a `list`.
 
