@@ -4683,9 +4683,10 @@ assert abs(sqrt_newton(2) - sqrt(2)) <= ulp(1.414)
 
 ### `partition_int`, `partition_int_triangular`: partition integers
 
+**Changed in v0.15.0.** *Added `partition_int_triangular`.*
+
 **Added in v0.14.2.**
 
-**Changed in v0.15.0.** *Added `partition_int_triangular`.*
 *Not to be confused with `unpythonic.partition`, which partitions an iterable based on a predicate.*
 
 The `partition_int` function [partitions](https://en.wikipedia.org/wiki/Partition_(number_theory)) a small positive integer, i.e., splits it in all possible ways, into smaller integers that sum to it. This is useful e.g. to determine the number of letters to allocate for each component of an anagram that may consist of several words.
@@ -4753,9 +4754,9 @@ Stuff that didn't fit elsewhere.
 
 ### `callsite_filename`
 
-**Added in v0.14.3**.
-
 **Changed in v0.15.0.** *This utility now ignores `unpythonic`'s call helpers, and gives the filename from the deepest stack frame that does not match one of our helpers. This allows the testing framework report the source code filename correctly when testing code using macros that make use of these helpers (e.g. `autocurry`, `lazify`).*
+
+**Added in v0.14.3**.
 
 Return the filename from which this function is being called. Useful as a building block for debug utilities and similar.
 
@@ -4856,11 +4857,11 @@ assert getattrrec(w, "x") == 23
 
 ### `arities`, `kwargs`, `resolve_bindings`: Function signature inspection utilities
 
-**Added in v0.14.2**: `resolve_bindings`. *Get the parameter bindings a given callable would establish if it was called with the given args and kwargs. This is mainly of interest for implementing memoizers, since this allows them to see (e.g.) `f(1)` and `f(a=1)` as the same thing for `def f(a): pass`.*
-
 **Changed in v0.15.0.** *Now `resolve_bindings` is a thin wrapper on top of `inspect.Signature.bind`, which was added in Python 3.5. In `unpythonic` 0.14.2 and 0.14.3, we used to have our own implementation of the parameter binding algorithm (that ran also on Python 3.4), but it is no longer needed, since now we support only Python 3.6 and later. Now `resolve_bindings` returns an `inspect.BoundArguments` object.*
 
 *Now `tuplify_bindings` accepts an `inspect.BoundArguments` object instead of its previous input format. The function is only ever intended to be used to postprocess the output of `resolve_bindings`, so this change shouldn't affect your own code.*
+
+**Added in v0.14.2**: `resolve_bindings`. *Get the parameter bindings a given callable would establish if it was called with the given args and kwargs. This is mainly of interest for implementing memoizers, since this allows them to see (e.g.) `f(1)` and `f(a=1)` as the same thing for `def f(a): pass`.*
 
 Convenience functions providing an easy-to-use API for inspecting a function's signature. The heavy lifting is done by `inspect`.
 
