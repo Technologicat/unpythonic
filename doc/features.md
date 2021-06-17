@@ -4525,9 +4525,9 @@ Inspired by *Function application with $* in [LYAH: Higher Order Functions](http
 
 `Values` is a structured multiple-return-values type.
 
-With `Values`, you can return multiple values positionally and by name. This completes the symmetry between passing function arguments and returning values from a function: Python itself allows passing arguments by name, but has no concept of returning values by name. This class adds that concept.
+With `Values`, you can return multiple values positionally, and **return values by name**. This completes the symmetry between passing function arguments and returning values from a function. Python itself allows passing arguments by name, but has no concept of returning values by name. This class adds that concept.
 
-Having a `Values` type separate from `tuple` also helps with semantic accuracy. In `unpythonic` 0.15.0 and later, a `tuple` return value now means just that - one value that is a `tuple`. It is different from a `Values` that contains several positional return values (that are meant to be treated separately e.g. by a function composition utility).
+Having a `Values` type separate from `tuple` helps with semantic accuracy. In `unpythonic` 0.15.0 and later, a `tuple` return value means just that - one value that is a `tuple`. It is distinct from a `Values` that contains several positional return values (that are meant to be treated separately e.g. by a function composition utility).
 
 Inspired by the [`values`](https://docs.racket-lang.org/reference/values.html) form of Racket.
 
@@ -4541,7 +4541,9 @@ Accordingly, various parts of `unpythonic` that deal with function composition u
 
 #### Behavior
 
-`Values` is a duck-type with some features of both sequences and mappings, but not the full `collections.abc` API of either.
+`Values` is a duck-type with some features of both sequences and mappings, but not the full [`collections.abc`](https://docs.python.org/3/library/collections.abc.html) API of either.
+
+If there are no named return values in a `Values` object, it can be unpacked like a tuple. This covers the common use case of multiple positional return values with a minimum of fuss.
 
 Each operation that obviously and without ambiguity makes sense only for the positional or named part, accesses that part.
 
@@ -4553,9 +4555,13 @@ If you need to explicitly access either part (and its full API), use the `rets` 
 
 `Values` objects can be compared for equality. Two `Values` objects are equal if both their `rets` and `kwrets` (respectively) are.
 
+See the docstrings, [the source code](../unpythonic/funutil.py), and [the unit tests](../unpythonic/tests/test_funutil.py) for full details.
+
 Examples:
 
 ```python
+from unpythonic import Values
+
 def f():
     return Values(1, 2, 3)
 result = f()
@@ -4602,13 +4608,15 @@ The last example is silly, but legal, because it is preferable to just omit the 
 
 ### `valuify`
 
-We also provide `valuify`, a decorator that converts the pythonic tuple-as-multiple-return-values idiom into `Values`, for compatibility with our function composition utilities.
+The `valuify` decorator converts the pythonic tuple-as-multiple-return-values idiom into `Values`, to easily use existing code with our function composition utilities.
 
 It converts a `tuple` return value, exactly; no subclasses.
 
-Demonstrating just the conversion:
+Demonstrating only the conversion:
 
 ```python
+from unpythonic import valuify, Values
+
 @valuify
 def f(x, y, z):
     return x, y, z
