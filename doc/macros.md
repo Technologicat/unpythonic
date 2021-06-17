@@ -694,16 +694,16 @@ The naming is performed using the function `unpythonic.misc.namelambda`, which w
 
  - Single-item assignment to a local name, `f = lambda ...: ...`
 
- - **Added in v0.15.0**: Named expressions (a.k.a. walrus operator, Python 3.8+), `f := lambda ...: ...`
+ - Named expressions (a.k.a. walrus operator, Python 3.8+), `f := lambda ...: ...`. **Added in v0.15.0.**
 
  - Expression-assignment to an unpythonic environment, `f << (lambda ...: ...)`
    - Env-assignments are processed lexically, just like regular assignments. This should not cause problems, because left-shifting by a literal lambda most often makes no sense (whence, that syntax is *almost* guaranteed to mean an env-assignment).
 
  - Let bindings, `let[[f << (lambda ...: ...)] in ...]`, using any let syntax supported by unpythonic (here using the haskelly let-in with env-assign style bindings just as an example).
 
- - **Added in v0.14.2**: Named argument in a function call, as in `foo(f=lambda ...: ...)`.
+ - Named argument in a function call, as in `foo(f=lambda ...: ...)`. **Added in v0.14.2.**
 
- - **Added in v0.14.2**: In a dictionary literal `{...}`, an item with a literal string key, as in `{"f": lambda ...: ...}`.
+ - In a dictionary literal `{...}`, an item with a literal string key, as in `{"f": lambda ...: ...}`. **Added in v0.14.2.**
 
 Support for other forms of assignment may or may not be added in a future version. We will maintain a list here; but if you want the gritty details, see the `_namedlambda` syntax transformer in [`unpythonic.syntax.lambdatools`](../unpythonic/syntax/lambdatools.py).
 
@@ -2055,7 +2055,7 @@ Look at the implementation of `testset` as an example.
 
 Because `unpythonic` is effectively a language extension, the standard options were not applicable.
 
-The standard library's [`unittest`](https://docs.python.org/3/library/unittest.html) fails with `unpythonic` due to technical reasons related to `unpythonic`'s unfortunate choice of module names. The `unittest` framework chokes if a module in a library exports anything that has the same name as the module itself, and the library's top-level init then `from`-imports that construct into its namespace, causing the *module reference*, that was [implicitly brought in](http://python-notes.curiousefficiency.org/en/latest/python_concepts/import_traps.html#the-submodules-are-added-to-the-package-namespace-trap) by the `from`-import itself, to be overwritten with what was explicitly imported: a reference to the construct that has the same name as the module. (Bad naming on my part, yes, but we're stuck with it at least until v0.15.0. As of v0.14.3, I see no reason to cross that particular bridge yet.)
+The standard library's [`unittest`](https://docs.python.org/3/library/unittest.html) fails with `unpythonic` due to technical reasons related to `unpythonic`'s unfortunate choice of module names. The `unittest` framework chokes if a module in a library exports anything that has the same name as the module itself, and the library's top-level init then `from`-imports that construct into its namespace, causing the *module reference*, that was [implicitly brought in](http://python-notes.curiousefficiency.org/en/latest/python_concepts/import_traps.html#the-submodules-are-added-to-the-package-namespace-trap) by the `from`-import itself, to be overwritten with what was explicitly imported: a reference to the construct that has the same name as the module. (Bad naming on my part, yes, but as of v0.15.0, I see no reason to cross that particular bridge yet.)
 
 Also, in my opinion, `unittest` is overly verbose to use; automated tests are already a particularly verbose kind of program, even if the testing syntax is minimal.
 
