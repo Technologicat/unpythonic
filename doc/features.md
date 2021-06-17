@@ -4628,15 +4628,15 @@ assert f(1, 2, 3) == Values(1, 2, 3)
 
 ## Numerical tools
 
-We briefly introduce the functions below. More details and examples can be found in the docstrings and [the unit tests](../unpythonic/tests/test_numutil.py).
+We briefly introduce the functions below. More details and examples can be found in the docstrings and in [the unit tests](../unpythonic/tests/test_numutil.py).
 
 **CAUTION** for anyone new to numerics:
 
-When working with floating-point numbers, keep in mind that they are, very roughly speaking, a finite-precision logarithmic representation of [ℝ](https://en.wikipedia.org/wiki/Real_line). They are, necessarily, actually a subset of [ℚ](https://en.wikipedia.org/wiki/Rational_number), that's not even [dense](https://en.wikipedia.org/wiki/Dense_set). The spacing between adjacent floats depends on where you are on the real line; see `ulp` below.
+When working with floating-point numbers, keep in mind that they are, very roughly speaking, a finite-precision logarithmic representation of [ℝ](https://en.wikipedia.org/wiki/Real_line). They are, necessarily, actually a subset of [ℚ](https://en.wikipedia.org/wiki/Rational_number), that is not even [dense](https://en.wikipedia.org/wiki/Dense_set). The spacing between adjacent floats depends on where you are on the real line; see `ulp` below.
 
 For finer points concerning the behavior of floating-point numbers, see [David Goldberg (1991): What every computer scientist should know about floating-point arithmetic](https://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html), or for a [tl;dr](http://catplanet.org/tldr-cat-meme/) version, [the floating point guide](https://floating-point-gui.de/).
 
-Or you could look at [my lecture slides from 2018](https://github.com/Technologicat/python-3-scicomp-intro/tree/master/lecture_slides); particularly, [lecture 7](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/lecture_slides/lectures_tut_2018_7.pdf) covers the floating-point representation. It collects the most important details, and some more links to further reading.
+Or you could look at [my lecture slides from 2018](https://github.com/Technologicat/python-3-scicomp-intro/tree/master/lecture_slides); particularly, [lecture 7](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/lecture_slides/lectures_tut_2018_7.pdf) covers the floating-point representation. It collects the most important details in a few slides, and contains some more links to further reading.
 
 
 ### `almosteq`: floating-point almost-equality
@@ -4658,7 +4658,7 @@ For `float`, we use the strategy suggested in [the floating point guide](https:/
 
 Compute the (arithmetic) fixed point of a function, starting from a given initial guess. The fixed point must be attractive for this to work. See the [Banach fixed point theorem](https://en.wikipedia.org/wiki/Banach_fixed-point_theorem).
 
-If the fixed point is attractive, and the values are represented in floating point (hence finite precision), the computation should eventually converge down to the last bit (barring roundoff or catastrophic cancellation in the final few steps). Hence the default tolerance is zero; but a desired tolerance can be passed as an argument.
+If the fixed point is attractive, and the values are represented in floating point (hence finite precision), the computation should eventually converge down to the last bit (barring roundoff or catastrophic cancellation in the final few steps). Hence the default tolerance is zero; but any desired tolerance can be passed as an argument.
 
 **CAUTION**: an arbitrary function from ℝ to ℝ **does not** necessarily have a fixed point. Limit cycles and chaotic behavior of the function will cause non-termination. Keep in mind the classic example, [the logistic map](https://en.wikipedia.org/wiki/Logistic_map).
 
@@ -4710,7 +4710,7 @@ assert (frozenset(tuple(sorted(c)) for c in partition_int_triangular(78, lower=1
                    (78,)}))
 ```
 
-As the first example demonstrates, most of the splits are a ravioli consisting mostly of ones. It is much faster to not generate such splits than to filter them out from the result. Use the `lower` parameter to set the smallest acceptable value for one component of the split; the default value `lower=1` generates all splits. Similarly, the `upper` parameter sets the largest acceptable value for one component of the split. The default `upper=None` sets no upper limit.
+As the first example demonstrates, most of the splits are a ravioli consisting mostly of ones. It is much faster to not generate such splits than to filter them out from the result. Use the `lower` parameter to set the smallest acceptable value for one component of the split; the default value `lower=1` generates all splits. Similarly, the `upper` parameter sets the largest acceptable value for one component of the split. The default `upper=None` sets no upper limit, so in effect the upper limit becomes `n`.
 
 In `partition_int_triangular`, the `lower` and `upper` parameters work exactly the same. The only difference to `partition_int` is that each component of the split must be a triangular number.
 
