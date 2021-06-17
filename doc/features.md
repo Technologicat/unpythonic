@@ -4654,9 +4654,9 @@ For `float`, we use the strategy suggested in [the floating point guide](https:/
 
 **Added in v0.14.2.**
 
-Compute the (arithmetic) fixed point of a function, starting from a given initial guess. The fixed point must be attractive for this to work. See the [Banach fixed point theorem](https://en.wikipedia.org/wiki/Banach_fixed-point_theorem).
+*Not to be confused with the logical fixed point with respect to the definedness ordering, which is what Haskell's `fix` function relates to.*
 
-(Not to be confused with the logical fixed point with respect to the definedness ordering, which is what Haskell's `fix` function relates to.)
+Compute the (arithmetic) fixed point of a function, starting from a given initial guess. The fixed point must be attractive for this to work. See the [Banach fixed point theorem](https://en.wikipedia.org/wiki/Banach_fixed-point_theorem).
 
 If the fixed point is attractive, and the values are represented in floating point (hence finite precision), the computation should eventually converge down to the last bit (barring roundoff or catastrophic cancellation in the final few steps). Hence the default tolerance is zero; but a desired tolerance can be passed as an argument.
 
@@ -4686,12 +4686,11 @@ assert abs(sqrt_newton(2) - sqrt(2)) <= ulp(1.414)
 **Added in v0.14.2.**
 
 **Changed in v0.15.0.** *Added `partition_int_triangular`.*
+*Not to be confused with `unpythonic.partition`, which partitions an iterable based on a predicate.*
 
 The `partition_int` function [partitions](https://en.wikipedia.org/wiki/Partition_(number_theory)) a small positive integer, i.e., splits it in all possible ways, into smaller integers that sum to it. This is useful e.g. to determine the number of letters to allocate for each component of an anagram that may consist of several words.
 
 The `partition_int_triangular` function is like `partition_int`, but accepts only triangular numbers (1, 3, 6, 10, ...) as components of the partition. This function answers a timeless question: if I have `n` stackable plushies, what are the possible stack configurations?
-
-(These are not to be confused with `unpythonic.partition`, which partitions an iterable based on a predicate.)
 
 Examples:
 
