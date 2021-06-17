@@ -4125,11 +4125,13 @@ Utilities for dealing with exceptions.
 
 ### `raisef`, `tryf`: `raise` and `try` as functions
 
+**Changed in v0.15.0.** *Deprecated parameters for `raisef` removed.*
+
 **Changed in v0.14.3**. *Now we have also `tryf`.*
 
-**Changed in v0.14.2**. *The parameters of `raisef` now more closely match what would be passed to `raise`. See examples below. Old-style parameters are now deprecated, and support for them will be dropped in v0.15.0.*
+**Changed in v0.14.2**. *The parameters of `raisef` now more closely match what would be passed to `raise`. See examples below. Old-style parameters are now deprecated.*
 
-Raise an exception from an expression position:
+The `raisef` function allows to raise an exception from an expression position:
 
 ```python
 from unpythonic import raisef
@@ -4142,7 +4144,7 @@ exc = TypeError("oof")
 g = lambda x: raisef(RuntimeError("I'm in ur lambda raising exceptions"), cause=exc)
 ```
 
-Catch an exception in an expression position:
+The `tryf` function is a `try`/`except`/`else`/`finally` construct for an expression position:
 
 ```python
 from unpythonic import raisef, tryf
@@ -4152,16 +4154,18 @@ test[tryf(lambda: raise_instance(),
          (ValueError, lambda err: f"got a ValueError: '{err.args[0]}'")) == "got a ValueError: 'all ok'"]
 ```
 
-The exception handler is a function. It may optionally accept one argument, the exception instance.
+The exception handler is a function. It may optionally accept one argument, the exception instance. Just like in an `except` clause, the exception specification can be either an exception type, or a `tuple` of exception types.
 
-Functions can also be specified for the `else` and `finally` behavior; see the docstring of `unpythonic.misc.tryf` for details.
+Functions can also be specified to represent the `else` and `finally` blocks; the keyword parameters to do this are `elsef` and `finallyf`. Each of them is a thunk (a 0-argument function). See the docstring of `unpythonic.misc.tryf` for details.
+
+Examples can be found in [the unit tests](../unpythonic/tests/test_excutil.py).
 
 
 ### `equip_with_traceback`
 
 **Added in v0.14.3**.
 
-In Python 3.7 and later, equip a manually created exception instance with a traceback. This is useful mainly in special cases, where `raise` cannot be used for some reason. (The `signal` function in the conditions-and-restarts system uses this.)
+In Python 3.7 and later, the `equip_with_traceback` function equips a manually created exception instance with a traceback. This is useful mainly in special cases, where `raise` cannot be used for some reason. (The `signal` function in the conditions-and-restarts system uses this.)
 
 ```python
 e = SomeException(...)
@@ -4170,22 +4174,24 @@ e = equip_with_traceback(e)
 
 The traceback is automatically extracted from the call stack of the calling thread.
 
-Optionally, you can cull a number of the topmost frames by passing the optional argument `stacklevel=...`. Typically, for direct use of this function `stacklevel` should be the default `1` (so it excludes `equip_with_traceback` itself, but shows all stack levels from your code), and for use in a utility function that itself is called from your code, it should be `2` (so it excludes the utility function, too).
+Optionally, you can cull a number of the topmost frames by passing the optional argument `stacklevel=...`. Typically, for direct use of this function `stacklevel` should be the default `1` (so it excludes `equip_with_traceback` itself, but shows all stack levels from your code), and for use in a utility function that itself is called from your code, it should be `2` (so it excludes the utility function, too). If the utility function itself calls a separate low-level utility, `3` can be useful (see [the source code](../unpythonic/conditions.py) of the conditions-and-restarts system for an example).
 
 
 ### `async_raise`: inject an exception to another thread
 
 **Added in v0.14.2**.
 
-*Currently CPython only, because as of this writing (March 2020) PyPy3 does not expose the required functionality to the Python level, nor there seem to be any plans to do so.*
+**CAUTION**: *Currently this is supported by CPython only, because as of June 2021, PyPy3 does not expose the required functionality to the Python level, nor there seem to be any plans to do so.*
 
-Usually injecting an exception into an unsuspecting thread makes absolutely no sense. But there are special cases, such as a REPL server which needs to send a `KeyboardInterrupt` into a REPL session thread that's happily stuck waiting for input at [`InteractiveConsole.interact()`](https://docs.python.org/3/library/code.html#code.InteractiveConsole.interact) - while the client that receives the actual `Ctrl+C` is running in a separate process. This and similar awkward situations in network programming are pretty much the only legitimate use case for this feature.
+Usually injecting an exception into an unsuspecting thread makes absolutely no sense. But there are special cases, notably `KeyboardInterrupt`. Especially, a REPL server may need to send a `KeyboardInterrupt` into a REPL session thread that is happily stuck waiting for input inside [`InteractiveConsole.interact`](https://docs.python.org/3/library/code.html#code.InteractiveConsole.interact) - while the client that receives the actual `Ctrl+C` is running in a separate process, possibly even on a different machine. This and similar awkward situations in network programming are pretty much the only use case for this feature.
 
-The name is `async_raise`, because it injects an *asynchronous exception*. This has nothing to do with `async`/`await`. Synchronous vs. asynchronous exceptions [mean something different](https://en.wikipedia.org/wiki/Exception_handling#Exception_synchronicity).
+The function is named `async_raise`, because it injects an *asynchronous exception*. This has nothing to do with `async`/`await`. Synchronous vs. asynchronous exceptions [mean something different](https://en.wikipedia.org/wiki/Exception_handling#Exception_synchronicity).
 
-In a nutshell, a *synchronous* exception (which is the usual kind of exception) has an explicit `raise` somewhere in the code that the thread that encountered the exception is running. In contrast, an *asynchronous* exception **doesn't**, it just suddenly magically materializes from the outside. As such, it can in principle happen *anywhere*, with absolutely no hint about it in any obvious place in the code.
+In a nutshell, a *synchronous* exception (which is the usual kind of exception) has an explicit `raise` somewhere in the code that the thread that encountered the exception is running. In contrast, an *asynchronous* exception **does not**, it just suddenly magically materializes from the outside. As such, it can in principle happen *anywhere*, with absolutely no hint about it in any obvious place in the code.
 
-Needless to say this can be very confusing, so this feature should be used sparingly, if at all. **We only have it because the REPL server needs it.**
+Obviously, this can be very confusing, so this feature should be used sparingly, if at all. **We only provide it because the REPL server needs it**, and it would be silly to have such a feature but not make it public.
+
+Here is an example:
 
 ```python
 from unpythonic import async_raise, box
@@ -4201,16 +4207,16 @@ def worker():
 t = threading.Thread(target=worker)
 t.start()
 sleep(0.1)  # make sure the worker has entered the loop
-async_raise(t, KeyboardInterrupt)
+async_raise(t, KeyboardInterrupt)  # CPython only! This will gracefully error out on PyPy.
 t.join()
 assert unbox(out) < 9  # thread terminated early due to the injected KeyboardInterrupt
 ```
 
-#### So this is how KeyboardInterrupt works under the hood?
+#### Is this how KeyboardInterrupt works under the hood?
 
-No, this is **not** how `KeyboardInterrupt` usually works. Rather, the OS sends a [SIGINT](https://en.wikipedia.org/wiki/Signal_(IPC)#SIGINT), which is then trapped by an [OS signal handler](https://docs.python.org/3/library/signal.html) that runs in the main thread.
+**No, it is not.** The way `KeyboardInterrupt` usually works is, the OS sends a [SIGINT](https://en.wikipedia.org/wiki/Signal_(IPC)#SIGINT), which is then trapped by an [OS signal handler](https://docs.python.org/3/library/signal.html) that runs in the main thread.
 
-(Note OS signal, in the *nix sense; this is unrelated to the Lisp sense, as in conditions-and-restarts.)
+Note that it is an OS signal, in the *nix sense; which is unrelated to the Lisp/`unpythonic` sense, as in conditions-and-restarts.
 
 At that point the magic has already happened: the control of the main thread is now inside the signal handler, as if the signal handler was called from the otherwise currently innermost point on the call stack. All the handler needs to do is to perform a regular `raise`, and the exception will propagate correctly.
 
@@ -4218,9 +4224,11 @@ At that point the magic has already happened: the control of the main thread is 
 
 Original detective work by [Federico Ficarelli](https://gist.github.com/nazavode/84d1371e023bccd2301e) and [LIU Wei](https://gist.github.com/liuw/2407154).
 
-Raising async exceptions is a [documented feature of Python's public C API](https://docs.python.org/3/c-api/init.html#c.PyThreadState_SetAsyncExc), but it was never meant to be invoked from within pure Python code. But then the CPython devs gave us [ctypes.pythonapi](https://docs.python.org/3/library/ctypes.html#accessing-values-exported-from-dlls), which allows access to Python's C API from within Python. (If you think ctypes.pythonapi is too quirky, the [pycapi](https://pypi.org/project/pycapi/) PyPI package smooths over the rough edges.) Combining the two gives `async_raise` without the need to compile a C extension.
+Raising async exceptions is a [documented feature of Python's public C API](https://docs.python.org/3/c-api/init.html#c.PyThreadState_SetAsyncExc), but it was never meant to be invoked from within pure Python code. But then the CPython devs gave us [ctypes.pythonapi](https://docs.python.org/3/library/ctypes.html#accessing-values-exported-from-dlls), which allows access to CPython's C API from within Python. Combining the two gives `async_raise` without the need to compile a C extension.
 
-Unfortunately PyPy doesn't currently (March 2020) implement this function in its CPython C API emulation layer, `cpyext`. See `unpythonic` issue [#58](https://github.com/Technologicat/unpythonic/issues/58).
+(If you think `ctypes.pythonapi` is too quirky, the [pycapi](https://pypi.org/project/pycapi/) PyPI package smooths over the rough edges.)
+
+Unfortunately PyPy does **not** currently (June 2021) implement this function in its CPython C API emulation layer, `cpyext`. See `unpythonic` issue [#58](https://github.com/Technologicat/unpythonic/issues/58).
 
 
 ### `reraise_in`, `reraise`: automatically convert exception types
@@ -4290,13 +4298,15 @@ except ApplicationException:
 
 ```
 
-If that's not much shorter than the hand-written `try`/`except`/`raise from`, consider that you can create the mapping once and then use it from a variable - this shortens it to just `with reraise(my_mapping)`.
+If that does not seem much shorter than a hand-written `try`/`except`/`raise from`, consider that you can create the mapping once and then use it from a variable - this shortens it to just `with reraise(my_mapping)`.
 
-Any exceptions that don't match anything in the mapping are passed through. When no exception occurs, `reraise_in` passes the return value of `thunk` through, and `reraise` does nothing.
+Any exceptions that do not match anything in the mapping are passed through. When no exception occurs, `reraise_in` passes the return value of `thunk` through, and `reraise` does nothing.
 
 Full details in docstrings.
 
 If you use the conditions-and-restarts system, see also `resignal_in`, `resignal`, which perform the same job for conditions. The new signal is sent using the same error handling protocol as the original signal, so e.g. an `error` will remain an `error` even if re-signaling changes its type.
+
+Examples can be found in [the unit tests](../unpythonic/tests/test_excutil.py).
 
 
 ## Function call and return value tools
