@@ -4313,11 +4313,15 @@ Examples can be found in [the unit tests](../unpythonic/tests/test_excutil.py).
 
 ### `def` as a code block: `@call`
 
-Fuel for different thinking. Compare `call-with-something` in Lisps - but without parameters, so just `call`. A `def` is really just a new lexical scope to hold code to run later... or right now!
+Fuel for different thinking. Compare `call-with-something` in Lisps - but without parameters, so just `call`. A `def` is really just a new lexical scope to hold code to run later... or as `@call` does, right now!
 
 At the top level of a module, this is seldom useful, but keep in mind that Python allows nested function definitions. Used with an inner `def`, this becomes a versatile tool.
 
-*Make temporaries fall out of scope as soon as no longer needed*:
+Note that beside use as a decorator, `call` can also be used as a normal function: `call(f, *a, **kw)` is the same as `f(*a, **kw)`. This is occasionally useful.
+
+Let us consider some example use cases of `@call`.
+
+#### Make temporaries fall out of scope as soon as no longer needed
 
 ```python
 from unpythonic import call
@@ -4331,9 +4335,13 @@ def x():
 print(x)  # 30
 ```
 
-*Multi-break out of nested loops* - `continue`, `break` and `return` are really just second-class [ec](https://docs.racket-lang.org/reference/cont.html#%28def._%28%28lib._racket%2Fprivate%2Fletstx-scheme..rkt%29._call%2Fec%29%29)s. So `def` to make `return` escape to exactly where you want:
+#### Multi-break out of nested loops
+
+As was noted in the section on escape continuations, `continue`, `break` and `return` are really just second-class [ec](https://docs.racket-lang.org/reference/cont.html#%28def._%28%28lib._racket%2Fprivate%2Fletstx-scheme..rkt%29._call%2Fec%29%29)s. So use a `def` to make `return` escape to exactly where you want:
 
 ```python
+from unpythonic import call
+
 @call
 def result():
     for x in range(10):
@@ -4343,7 +4351,7 @@ def result():
 print(result)  # (6, 7)
 ```
 
-(But see `@catch`, `throw`, and `call_ec`.)
+But if you need a *multi-return*, see `@catch`, `throw`, and `call_ec`.
 
 Compare the sweet-exp Racket:
 
@@ -4361,6 +4369,8 @@ displayln result  ; (6 7)
 Noting [what `let/ec` does](https://docs.racket-lang.org/reference/cont.html#%28form._%28%28lib._racket%2Fprivate%2Fletstx-scheme..rkt%29._let%2Fec%29%29), using `call_ec` we can make the Python even closer to the Racket:
 
 ```python
+from unpythonic import call_ec
+
 @call_ec
 def result(rtn):
     for x in range(10):
@@ -4370,20 +4380,24 @@ def result(rtn):
 print(result)  # (6, 7)
 ```
 
-*Twist the meaning of `def` into a "let statement"*:
+#### Twist the meaning of `def` into a "let statement"
 
 ```python
+from unpythonic import call
+
 @call
 def result(x=1, y=2, z=3):
     return x * y * z
 print(result)  # 6
 ```
 
-(But see `blet`, `bletrec` if you want an `env` instance.)
+If you want an `env` instance, see `blet` and `bletrec`.
 
-*Letrec without `letrec`*, when it doesn't have to be an expression:
+#### Letrec without `letrec`*, when a statement is acceptable
 
 ```python
+from unpythonic import call
+
 @call
 def t():
     def evenp(x): return x == 0 or oddp(x - 1)
@@ -4392,22 +4406,22 @@ def t():
 print(t)  # True
 ```
 
-Essentially the implementation is just `def call(thunk): return thunk()`. The point is to:
+#### Notes
 
- - Make it explicit right at the definition site that this block is *going to be called now* (in contrast to an explicit call and assignment *after* the definition). Centralize the related information. Align the presentation order with the thought process.
+Essentially the implementation is just `def call(thunk): return thunk()`. The point of this seemingly trivial construct is to:
 
- - Help eliminate errors, in the same way as the habit of typing parentheses only in pairs. No risk of forgetting to call the block after writing the definition.
+ - Make it explicit right at the definition site that this block is *going to be called now*, in contrast to an explicit call and assignment *after* the definition. This centralizes the related information, and aligns the presentation order with the thought process.
 
- - Document that the block is going to be used only once. Tell the reader there's no need to remember this definition.
+ - Help eliminate errors, in the same way as the habit of typing parentheses only in pairs (or using a tool like Emacs's `smartparens-mode` to enforce that). With `@call`, there is no risk of forgetting to call the block after writing the definition.
+
+ - Document that the block is going to be used only once. Tell your readers there is no need to remember this definition.
 
 Note [the grammar](https://docs.python.org/3/reference/grammar.html) requires a newline after a decorator.
-
-**NOTE**: `call` can also be used as a normal function: `call(f, *a, **kw)` is the same as `f(*a, **kw)`. This is occasionally useful.
 
 
 ### `@callwith`: freeze arguments, choose function later
 
-If you need to pass arguments when using `@call` as a decorator, use its cousin `@callwith`:
+If you need to pass arguments when using `@call` as a decorator, use its sister `@callwith`:
 
 ```python
 from unpythonic import callwith
@@ -4418,9 +4432,11 @@ def result(x):
 assert result == 9
 ```
 
-Like `call`, it can also be called normally. It's essentially an argument freezer:
+Like `call`, beside use as a decorator, `callwith` can also be called normally. It is essentially an argument freezer:
 
 ```python
+from unpythonic import callwith
+
 def myadd(a, b):
     return a + b
 def mymul(a, b):
@@ -4430,16 +4446,17 @@ assert apply23(myadd) == 5
 assert apply23(mymul) == 6
 ```
 
-When called normally, the two-step application is mandatory. The first step stores the given arguments. It returns a function `f(callable)`. When `f` is called, it calls its `callable` argument, passing in the arguments stored in the first step.
+When `callwith` is called normally, the two-step application is mandatory. The first step stores the given arguments. It then returns a function `f(callable)`. When `f` is called, it calls its `callable` argument, passing in the arguments stored in the first step.
 
 In other words, `callwith` is similar to `functools.partial`, but without specializing to any particular function. The function to be called is given later, in the second step.
 
-Hence, `callwith(2, 3)(myadd)` means "make a function that passes in two positional arguments, with values `2` and `3`. Then call this function for the callable `myadd`". But if we instead write`callwith(2, 3, myadd)`, it means "make a function that passes in three positional arguments, with values `2`, `3` and `myadd` - not what we want in the above example.
+Hence, `callwith(2, 3)(myadd)` means *make a function that passes in two positional arguments, with values `2` and `3`. Then call this function for the callable `myadd`*. But if we instead write `callwith(2, 3, myadd)`, it means *make a function that passes in three positional arguments, with values `2`, `3` and `myadd`* - not what we want in the above example.
 
-If you want to specialize some arguments now and some later, combine with `partial`:
+If you want to specialize some arguments now and some later, combine `callwith` with `partial`:
 
 ```python
 from functools import partial
+from unpythonic import callwith
 
 p1 = partial(callwith, 2)
 p2 = partial(p1, 3)
@@ -4458,11 +4475,13 @@ If the code above feels weird, it should. Arguments are gathered first, and the 
 Another use case of `callwith` is `map`, if we want to vary the function instead of the data:
 
 ```python
+from unpythonic import callwith
+
 m = map(callwith(3), [lambda x: 2*x, lambda x: x**2, lambda x: x**(1/2)])
 assert tuple(m) == (6, 9, 3**(1/2))
 ```
 
-If you use the quick lambda macro `f[]` (underscore notation for Python), this combines nicely:
+If you use the quick lambda macro `f[]` (underscore notation for Python), these features combine nicely:
 
 ```python
 from unpythonic.syntax import macros, f
