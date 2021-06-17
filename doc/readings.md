@@ -84,10 +84,19 @@ The common denominator is programming. Some relate to language design, some to c
 
 - [PyPy3](http://pypy.org/), fast, JIT-ing Python 3 that's mostly a drop-in replacement for CPythons 3.6 and 3.7. As of April 2021, support for 3.8 is in the works. Macro expanders (`macropy`, `mcpyrate`) work, too.
 
-- [Brython](https://brython.info/): Python 3 in the browser, as a replacement for JavaScript.
-  - No separate compile step - the compiler is implemented in JS. Including a script tag of type text/python invokes it.
-  - Doesn't have the `ast` module, so no way to run macro expanders.
-  - Also quite a few other parts are missing, understandably. Keep in mind the web client is rather different as an environment from the server side or the desktop. So for new apps, Brython is ok, but if you have some existing Python code you want to move into the browser, it might or might not work, depending on what your code needs.
+- [Pyodide](https://github.com/pyodide/pyodide): Python with the scientific stack, compiled to WebAssembly.
+  - [Docs](https://pyodide.org/en/stable/).
+  - [Online REPL](https://pyodide.org/en/stable/console.html).
+  - Has **the scientific Python stack**, and also supports **any pure-Python PyPI wheel**.
+  - The `ast` module works. This should be able to run `mcpyrate` and `unpythonic` in the browser!
+
+- Historical Python-in-the-browser efforts:
+  - [Brython](https://brython.info/): Python 3 in the browser, as a replacement for JavaScript.
+    - No separate compile step - the compiler is implemented in JS. Including a script tag of type text/python invokes it.
+    - Doesn't have the `ast` module, so no way to run macro expanders.
+    - Also quite a few other parts are missing, understandably. Keep in mind the web client is rather different as an environment from the server side or the desktop. So for new apps, Brython is ok, but if you have some existing Python code you want to move into the browser, it might or might not work, depending on what your code needs.
+  - [PyPy.js](http://pypyjs.org/): PyPy python interpreter, compiled for the web via [emscripten](http://emscripten.org/), with a custom JIT backend that emits [asm.js](http://asmjs.org/) code at runtime.
+    - Last updated in 2015, no longer working.
 
 - Counterpoint: [Eric Torreborre (2019): When FP does not save us](https://medium.com/barely-functional/when-fp-does-not-save-us-92b26148071f)
 
