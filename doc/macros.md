@@ -15,11 +15,11 @@
 
 Our extensions to the Python language are built on [`mcpyrate`](https://github.com/Technologicat/mcpyrate), from the PyPI package [`mcpyrate`](https://pypi.org/project/mcpyrate/).
 
-Because in Python macro expansion occurs *at import time*, Python programs whose main module uses macros, such as [our unit tests that contain usage examples](../unpythonic/syntax/test/), cannot be run directly. Instead, run them via `macropython`, included in `mcpyrate`.
+Because in Python macro expansion occurs *at import time*, Python programs whose main module uses macros, such as [our unit tests that contain usage examples](../unpythonic/syntax/tests/), cannot be run directly by `python3`. Instead, run them via the `macropython` bootstrapper, included in `mcpyrate`.
 
 **Our macros expect a from-import style** for detecting uses of `unpythonic` constructs, *even when those constructs are regular functions*. For example, the function `curry` is detected from its bare name. So if you intend to use these macros, then, for regular imports from `unpythonic`, use `from unpythonic import ...` and avoid renaming (`as`).
 
-*This document doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out of date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this guide) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
+*This document doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out of date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this guide) should agree with the unit tests. So if something fails to work as advertised, check what the tests do - and optionally file an issue on GitHub so that the documentation can be fixed.*
 
 **Changed in v0.15.0.** *To run macro-enabled programs, use the [`macropython`](https://github.com/Technologicat/mcpyrate/blob/master/doc/repl.md#macropython-the-universal-bootstrapper) bootstrapper from [`mcpyrate`](https://github.com/Technologicat/mcpyrate).*
 
@@ -686,7 +686,7 @@ with namedlambda:
 
 Lexically inside a `with namedlambda` block, any literal `lambda` that is assigned to a name using one of the supported assignment forms is named to have the name of the LHS of the assignment. The name is captured at macro expansion time.
 
-Decorated lambdas are also supported, as is a `curry` (manual or auto) where the last argument is a lambda. The latter is a convenience feature, mainly for applying parametric decorators to lambdas. See [the unit tests](../unpythonic/syntax/test/test_lambdatools.py) for detailed examples.
+Decorated lambdas are also supported, as is a `curry` (manual or auto) where the last argument is a lambda. The latter is a convenience feature, mainly for applying parametric decorators to lambdas. See [the unit tests](../unpythonic/syntax/tests/test_lambdatools.py) for detailed examples.
 
 The naming is performed using the function `unpythonic.misc.namelambda`, which will return a modified copy with its `__name__`, `__qualname__` and `__code__.co_name` changed. The original function object is not mutated.
 
@@ -1127,7 +1127,7 @@ Observe that while our outermost `call_cc` already somewhat acts like a prompt (
 
 For various possible program topologies that continuations may introduce, see [these clarifying pictures](callcc_topology.pdf).
 
-For full documentation, see the docstring of `unpythonic.syntax.continuations`. The unit tests [[1]](../unpythonic/syntax/test/test_conts.py) [[2]](../unpythonic/syntax/test/test_conts_escape.py) [[3]](../unpythonic/syntax/test/test_conts_gen.py) [[4]](../unpythonic/syntax/test/test_conts_topo.py) may also be useful as usage examples.
+For full documentation, see the docstring of `unpythonic.syntax.continuations`. The unit tests [[1]](../unpythonic/syntax/tests/test_conts.py) [[2]](../unpythonic/syntax/tests/test_conts_escape.py) [[3]](../unpythonic/syntax/tests/test_conts_gen.py) [[4]](../unpythonic/syntax/tests/test_conts_topo.py) may also be useful as usage examples.
 
 **Note on debugging**: If a function containing a `call_cc[]` crashes below the `call_cc[]`, the stack trace will usually have the continuation function somewhere in it, containing the line number information, so you can pinpoint the source code line where the error occurred. (For a function `f`, it is named `f_cont_<some_uuid>`) But be aware that especially in complex macro combos (e.g. `continuations, curry, lazify`), the other block macros may spit out many internal function calls *after* the relevant stack frame that points to the actual user program. So check the stack trace as usual, but check further up than usual.
 
@@ -1233,7 +1233,7 @@ Code within a `with continuations` block is treated specially.
 
 #### Differences between `call/cc` and certain other language features
 
- - Unlike **generators**, `call_cc[]` allows resuming also multiple times from an earlier checkpoint, even after execution has already proceeded further. Generators can be easily built on top of `call/cc`. [Python version](../unpythonic/syntax/test/test_conts_gen.py), [Racket version](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/generator.rkt).
+ - Unlike **generators**, `call_cc[]` allows resuming also multiple times from an earlier checkpoint, even after execution has already proceeded further. Generators can be easily built on top of `call/cc`. [Python version](../unpythonic/syntax/tests/test_conts_gen.py), [Racket version](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/generator.rkt).
    - The Python version is a pattern that could be packaged into a macro with `mcpyrate`; the Racket version has been packaged as a macro.
    - Both versions are just demonstrations for teaching purposes. In production code, use the language's native functionality.
      - Python's built-in generators have no restriction on where `yield` can be placed, and provide better performance.
@@ -1723,7 +1723,7 @@ Nested autoref blocks are allowed (lookups are lexically scoped).
 
 Reading with `autoref` can be convenient e.g. for data returned by [SciPy's `.mat` file loader](https://docs.scipy.org/doc/scipy/reference/generated/scipy.io.loadmat.html).
 
-See the [unit tests](../unpythonic/syntax/test/test_autoref.py) for more usage examples.
+See the [unit tests](../unpythonic/syntax/tests/test_autoref.py) for more usage examples.
 
 This is similar to the JavaScript [`with` construct](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/with), which is nowadays [deprecated](https://2ality.com/2011/06/with-statement.html). See also [the ES6 reference on `with`](https://www.ecma-international.org/ecma-262/6.0/#sec-with-statement).
 
@@ -2005,7 +2005,7 @@ The `the[]` mechanism is smart enough to skip reporting trivialities for literal
 
 If nothing but such trivialities were captured, the failure message will instead report the value of the whole expression. (The captures still remain inspectable in the exception instance.)
 
-To make testing/debugging macro code more convenient, the `the[]` mechanism automatically unparses an AST value into its source code representation for display in the test failure message. This is meant for debugging macro utilities, to which a test case hands some quoted code (i.e. code lifted into its AST representation using mcpyrate's `q[]` macro). See [`unpythonic.syntax.test.test_letdoutil`](unpythonic/syntax/test/test_letdoutil.py) for some examples. (Note the unparsing is done for display only; the raw value remains inspectable in the exception instance.)
+To make testing/debugging macro code more convenient, the `the[]` mechanism automatically unparses an AST value into its source code representation for display in the test failure message. This is meant for debugging macro utilities, to which a test case hands some quoted code (i.e. code lifted into its AST representation using mcpyrate's `q[]` macro). See [`unpythonic.syntax.tests.test_letdoutil`](unpythonic/syntax/tests/test_letdoutil.py) for some examples. (Note the unparsing is done for display only; the raw value remains inspectable in the exception instance.)
 
 **CAUTION**: The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See `mcpyrate.unparse`.
 
