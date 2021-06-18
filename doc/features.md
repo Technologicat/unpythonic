@@ -4928,7 +4928,7 @@ We special-case the builtin functions that either fail to return any arity (are 
 
 If the arity cannot be inspected, and the function is not one of the special-cased builtins, the `UnknownArity` exception is raised.
 
-Up to v0.14.3, various places in unpythonic used to internally use `arities`; particularly `curry`, `fix`, and `@generic`. As of v0.15.0, we have started to prefer `resolve_bindings`, because often what matters are the parameter bindings established, and performing the binding covers all possible ways to pass arguments. The `let` and FP looping constructs still use `arities` to emit a meaningful error message if the signature of user-provided function does not match what is expected.
+Up to v0.14.3, various places in `unpythonic` used to internally use `arities`; particularly `curry`, `fix`, and `@generic`. As of v0.15.0, we have started to prefer `resolve_bindings`, because often what matters are the parameter bindings established, and performing the binding covers all possible ways to pass arguments. The `let` and FP looping constructs still use `arities` to emit a meaningful error message if the signature of user-provided function does not match what is expected.
 
 Inspired by various Racket functions such as `(arity-includes?)` and `(procedure-keywords)`.
 
