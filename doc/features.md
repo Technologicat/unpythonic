@@ -4481,13 +4481,13 @@ m = map(callwith(3), [lambda x: 2*x, lambda x: x**2, lambda x: x**(1/2)])
 assert tuple(m) == (6, 9, 3**(1/2))
 ```
 
-If you use the quick lambda macro `f[]` (underscore notation for Python), these features combine nicely:
+If you use the quick lambda macro `fn[]` (underscore notation for Python), these features combine nicely:
 
 ```python
-from unpythonic.syntax import macros, f
+from unpythonic.syntax import macros, fn
 from unpythonic import callwith
 
-m = map(callwith(3), [f[2 * _], f[_**2], f[_**(1/2)]])
+m = map(callwith(3), [fn[2 * _], fn[_**2], fn[_**(1/2)]])
 assert tuple(m) == (6, 9, 3**(1/2))
 ```
 
