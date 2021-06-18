@@ -4603,7 +4603,7 @@ assert result.rets[0] == 42
 assert result.ret == 42  # shorthand for single-value case
 ```
 
-The last example is silly, but legal, because it is preferable to just omit the `Values` if it is known that there is only one return value. (This also applies when that value is a `tuple`, when the intent is to return it as a single `tuple`, in contexts where this distinction matters.)
+The last example is silly, but legal, because it is preferable to just omit the `Values` if it is known that there is only one return value. This also applies when that value is a `tuple`, when the intent is to return it as a single `tuple`, in contexts where this distinction matters.
 
 
 ### `valuify`
