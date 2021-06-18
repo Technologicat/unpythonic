@@ -214,6 +214,9 @@ The common denominator is programming. Some relate to language design, some to c
   - Discussion on how programming languages *have* improved.
   - Contains interesting viewpoints, such as dmbarbour's suggestion that much of modern hardware is essentially "compiled" from a hardware description language such as VHDL.
 
+- [Matthew Might: First-class (run-time) macros and meta-circular evaluation](https://matt.might.net/articles/metacircular-evaluation-and-first-class-run-time-macros/)
+  - *First-class macros are macros that can be bound to variables, passed as arguments and returned from functions. First-class macros expand and evaluate syntax at run-time.*
+
 
 # Python-related FP resources
 
