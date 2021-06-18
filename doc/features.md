@@ -4393,7 +4393,7 @@ print(result)  # 6
 
 If you want an `env` instance, see `blet` and `bletrec`.
 
-#### Letrec without `letrec`*, when a statement is acceptable
+#### Letrec without `letrec`, when a statement is acceptable
 
 ```python
 from unpythonic import call
