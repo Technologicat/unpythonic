@@ -126,7 +126,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 
 For many examples, see [the unit tests](unpythonic/tests/), the docstrings of the individual features, and this guide.
 
-*This document doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out-of-date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this guide) should agree with the unit tests. So if something fails to work as advertised, check what the tests say - and optionally file an issue on GitHub so that the documentation can be fixed.*
+*This document doubles as the API reference, but despite maintenance on a best-effort basis, may occasionally be out-of-date at places. In case of conflicts in documentation, believe the unit tests first; specifically the code, not necessarily the comments. Everything else (comments, docstrings and this guide) should agree with the unit tests. So if something fails to work as advertised, check what the tests do - and optionally file an issue on GitHub so that the documentation can be fixed.*
 
 **This document is up-to-date for v0.15.0.**
 
