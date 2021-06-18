@@ -101,7 +101,7 @@ Macros that introduce new ways to bind identifiers.
 
 **Changed in v0.15.0.** *Added support for env-assignment syntax in the bindings subform. For consistency with other env-assignments, this is now the preferred syntax to establish let bindings. Additionally, the old lispy syntax now accepts also brackets, for consistency with the use of brackets for macro invocations.*
 
-Properly lexically scoped `let` constructs, no boilerplate:
+These macros provide properly lexically scoped `let` constructs, no boilerplate:
 
 ```python
 from unpythonic.syntax import macros, let, letseq, letrec
@@ -111,7 +111,7 @@ let[x << 17,  # parallel binding, i.e. bindings don't see each other
       print(x, y)]
 
 letseq[x << 1,  # sequential binding, i.e. Scheme/Racket let*
-       y << x+1][
+       y << x + 1][
          print(x, y)]
 
 letrec[evenp << (lambda x: (x == 0) or oddp(x - 1)),  # mutually recursive binding, sequentially evaluated
@@ -133,12 +133,13 @@ The same syntax for the bindings subform is used by:
 
 - `let`, `letseq`, `letrec` (expressions)
 - `dlet`, `dletseq`, `dletrec`, `blet`, `bletseq`, `bletrec` (decorators)
+  - As of v0.15.0, it is possible to use `@dlet(...)` instead of `@dlet[...]` in Python 3.8 and earlier.
 - `let_syntax`, `abbrev` (expression mode)
 
 
 #### Haskelly let-in, let-where
 
-The following Haskell-inspired, perhaps more pythonic alternate syntaxes are also available:
+The following Haskell-inspired, perhaps more pythonic alternative syntaxes are also available:
 
 ```python
 let[[x << 21,
@@ -170,16 +171,16 @@ The `where` operator, if used, must be macro-imported. It may only appear at the
 >
 >In the first variant above (the *let-in*), note that even there, the bindings block needs the brackets. This is due to Python's precedence rules; `in` binds more strongly than the comma (which makes sense almost everywhere else), so to make the `in` refer to all of the bindings, the bindings block must be bracketed. If the `let` expander complains your code does not look like a `let` form and you have used *let-in*, check your brackets.
 >
->In the second variant (the *let-where*), note the comma between the body and `where`; it is compulsory to make the expression into syntactically valid Python. (It's however semi-easyish to remember, since also English requires the comma for a where-expression. It's not only syntactically valid Python, it's also syntactically valid English (at least for mathematicians).)
+>In the second variant (the *let-where*), note the comma between the body and `where`; it is compulsory to make the expression into syntactically valid Python. (It's however semi-easyish to remember, since also English requires the comma for a where-expression. It's not only syntactically valid Python, it is also syntactically valid English, at least for mathematicians.)
 </details>
 
-#### Alternate syntaxes for the bindings subform
+#### Alternative syntaxes for the bindings subform
 
 **Changed in v0.15.0.**
 
-Beginning with v0.15.0, the env-assignment syntax presented above is the preferred syntax to establish let bindings, for consistency with other env-assignments. (Let variables live in an `env`, which is created by the `let`.)
+Beginning with v0.15.0, the env-assignment syntax presented above is the preferred syntax to establish let bindings, for consistency with other env-assignments. This reminds that let variables live in an `env`, which is created by the `let` form.
 
-There is also an alternate, lispy notation for the bindings subform, where each name-value pair is given using brackets:
+There is also an alternative, lispy notation for the bindings subform, where each name-value pair is given using brackets:
 
 ```python
 let[[x, 42], [y, 9001]][...]
@@ -218,7 +219,7 @@ The issue has been fixed in Python 3.9. If you already only use 3.9 and later, p
 
 #### Multiple expressions in body
 
-The `let` constructs can now use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body ([like in `multilambda`](#multilambda-supercharge-your-lambdas)):
+The `let` constructs can use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body ([like in `multilambda`](#multilambda-supercharge-your-lambdas)):
 
 ```python
 let[x << 1,
@@ -237,9 +238,9 @@ let[[y << x + y,
           y << 2]]
 ```
 
-The let macros implement this by inserting a `do[...]` (see below). In a multiple-expression body, also an internal definition context exists for local variables that are not part of the `let`; see [`do` for details](#do-as-a-macro-stuff-imperative-code-into-an-expression-with-style).
+The let macros implement this by inserting a `do[...]` (see below). In a multiple-expression body, a separate internal definition context exists for local variables that are not part of the `let`; see [the `do` macro for details](#do-as-a-macro-stuff-imperative-code-into-an-expression-with-style).
 
-Only the outermost set of extra brackets is interpreted as a multiple-expression body. The rest are interpreted as usual, as lists. If you need to return a literal list from a `let` form with only one body expression, use three sets of brackets:
+Only the outermost set of extra brackets is interpreted as a multiple-expression body. The rest are interpreted as usual, as lists. If you need to return a literal list from a `let` form with only one body expression, double the brackets on the *body* part:
 
 ```python
 let[x << 1,
@@ -255,7 +256,7 @@ let[[[x, y]],
           y << 2]]
 ```
 
-The outermost brackets delimit the `let` form, the middle ones activate multiple-expression mode, and the innermost ones denote a list.
+The outermost brackets delimit the `let` form itself, the middle ones activate multiple-expression mode, and the innermost ones denote a list.
 
 Only brackets are affected; parentheses are interpreted as usual, so returning a literal tuple works as expected:
 
@@ -275,11 +276,11 @@ let[(x, y),
 
 #### Notes
 
-The main difference of the `let` family to Python's own named expressions (a.k.a. walrus operator, added in Python 3.8) is that `x := 42` does not create a scope, but `let[(x, 42)][...]` does. The walrus operator assigns to the name `x` in the scope it appears in, whereas in the `let` expression, the `x` only exists in that expression.
+The main difference of the `let` family to Python's own named expressions (a.k.a. the walrus operator, added in Python 3.8) is that `x := 42` does not create a scope, but `let[x << 42][...]` does. The walrus operator assigns to the name `x` in the scope it appears in, whereas in the `let` expression, the `x` only exists in that expression.
 
 `let` and `letrec` expand into the `unpythonic.lispylet` constructs, implicitly inserting the necessary boilerplate: the `lambda e: ...` wrappers, quoting variable names in definitions, and transforming `x` to `e.x` for all `x` declared in the bindings. Assignment syntax `x << 42` transforms to `e.set('x', 42)`. The implicit environment parameter `e` is actually named using a gensym, so lexically outer environments automatically show through. `letseq` expands into a chain of nested `let` expressions.
 
-Nesting utilizes an inside-out macro expansion order:
+All the `let` macros respect lexical scope, so this works as expected:
 
 ```python
 letrec[z << 1][[
@@ -288,12 +289,12 @@ letrec[z << 1][[
                   print(z)]]]
 ```
 
-Hence the `z` in the inner scope expands to the inner environment's `z`, which makes the outer expansion leave it alone. (This works by transforming only `ast.Name` nodes, stopping recursion when an `ast.Attribute` is encountered.)
+The `z` in the inner `letrec` expands to the inner environment's `z`, and the `z` in the outer `letrec` to the outer environment's `z`.
 
 
 ### `dlet`, `dletseq`, `dletrec`, `blet`, `bletseq`, `bletrec`: decorator versions
 
-Similar to `let`, `letseq`, `letrec`, these sugar the corresponding `unpythonic.lispylet` constructs, with the `dletseq` and `bletseq` constructs existing only as macros (expanding to nested `dlet` or `blet`, respectively).
+Similar to `let`, `letseq`, `letrec`, these macros sugar the corresponding `unpythonic.lispylet` constructs, with the `dletseq` and `bletseq` constructs existing only as macros. They expand to nested `dlet` or `blet`, respectively.
 
 Lexical scoping is respected; each environment is internally named using a gensym. Nesting is allowed.
 
@@ -304,7 +305,7 @@ from unpythonic.syntax import macros, dlet, dletseq, dletrec, blet, bletseq, ble
 
 @dlet[x << 0]  # up to Python 3.8, use `@dlet(x << 0)` instead
 def count():
-    x << x + 1
+    x << x + 1  # update `x` in let env
     return x
 assert count() == 1
 assert count() == 2
@@ -351,7 +352,7 @@ The write of a `name << value` always occurs to the lexically innermost environm
 
 As an exception to the rule, for the purposes of the scope analysis performed by `unpythonic.syntax`, creations and deletions *of lexical local variables* take effect from the next statement, and remain in effect for the **lexically** remaining part of the current scope. This allows `x = ...` to see the old bindings on the RHS, as well as allows the client code to restore access to a surrounding env's `x` (by deleting a local `x` shadowing it) when desired.
 
-To clarify, here's a sampling from the unit tests:
+To clarify, here is a sampling from [the unit tests](../unpythonic/syntax/tests/test_letdo.py):
 
 ```python
 @dlet[x << "the env x"]
@@ -408,7 +409,7 @@ else:
 
 *To rename existing macros, you can as-import them. As of `unpythonic` v0.15.0, doing so for `unpythonic.syntax` constructs is not recommended, though, because there is still a lot of old analysis code in the macro implementations that may scan for the original name. This may or may not be fixed in a future release.*
 
-These constructs allow to locally splice code at macro expansion time (it's almost like inlining functions):
+These constructs allow to locally splice code at macro expansion time. It is almost like inlining functions.
 
 #### `let_syntax`
 
@@ -482,9 +483,9 @@ The `expr` and `block` operators, if used, must be macro-imported. They may only
 >
 >Note each instance of the same formal parameter (in the definition) gets a fresh copy of the corresponding argument value. In other words, in the example above, each `a` in the body of `twice` separately expands to a copy of whatever code was given as the macro argument `a`.
 >
->When used as a block macro, there are furthermore two capture modes: *block of statements*, and *single expression*. (The single expression can be an explicit `do[]` if multiple expressions are needed.) When invoking substitutions, keep in mind Python's usual rules regarding where statements or expressions may appear.
+>When used as a block macro, there are furthermore two capture modes: *block of statements*, and *single expression*. The single expression can be an explicit `do[]`, if multiple expressions are needed. When invoking substitutions, keep in mind Python's usual rules regarding where statements or expressions may appear.
 >
->(If you know about Python ASTs, don't worry about the `ast.Expr` wrapper needed to place an expression in a statement position; this is handled automatically.)
+>(If you know about Python ASTs, do not worry about the `ast.Expr` wrapper needed to place an expression in a statement position; this is handled automatically.)
 </details>
 <p>
 
@@ -507,13 +508,13 @@ The `expr` and `block` operators, if used, must be macro-imported. They may only
 </details>
 <p>
 
-Nesting `let_syntax` is allowed. Lexical scoping is supported (inner definitions of substitutions shadow outer ones).
+Nesting `let_syntax` is allowed. Lexical scoping is respected. Inner definitions of substitutions shadow outer ones.
 
-When used as an expr macro, all bindings are registered first, and then the body is evaluated. When used as a block macro, a new binding (substitution declaration) takes effect from the next statement onward, and remains active for the lexically remaining part of the `with let_syntax:` block.
+When used as an expr macro, all bindings are registered first, and then the body is evaluated. When used as a block macro, a new binding (substitution declaration) takes effect from the next statement onward, and remains active for the lexically remaining part of the `with let_syntax` block.
 
 #### `abbrev`
 
-The `abbrev` macro is otherwise exactly like `let_syntax`, but it expands outside-in. Hence, no lexically scoped nesting, but it has the power to locally rename also macros, because the `abbrev` itself expands before any macros invoked in its body. This allows things like:
+The `abbrev` macro is otherwise exactly like `let_syntax`, but it expands outside-in. Hence, it has no lexically scoped nesting support, but it has the power to locally rename also macros, because the `abbrev` itself expands before any macros invoked in its body. This allows things like:
 
 ```python
 abbrev[m << macrowithverylongname][
@@ -524,18 +525,18 @@ abbrev[m[tree1] if m[tree2] else m[tree3],
        where[m << macrowithverylongname]]
 ```
 
-which can be useful when writing macros.
+which is sometimes useful when writing macros. (But using `mcpyrate`, note that you can just as-import a macro if you need to rename it.)
 
 **CAUTION**: `let_syntax` is essentially a toy macro system within the real macro system. The usual caveats of macro systems apply. Especially, `let_syntax` and `abbrev` support absolutely no form of hygiene. Be very, very careful to avoid name conflicts.
 
 The `let_syntax` macro is meant for simple local substitutions where the elimination of repetition can shorten the code and improve its readability, in cases where the final "unrolled" code should be written out at compile time. If you need to do something complex (or indeed save a definition and reuse it somewhere else, non-locally), write a real macro directly in `mcpyrate`.
 
-This was inspired by Racket's [`let-syntax`](https://docs.racket-lang.org/reference/let.html) and [`with-syntax`](https://docs.racket-lang.org/reference/stx-patterns.html).
+This was inspired by Racket's [`let-syntax`](https://docs.racket-lang.org/reference/let.html) and [`with-syntax`](https://docs.racket-lang.org/reference/stx-patterns.html) forms.
 
 
 ### Bonus: barebones `let`
 
-As a bonus, we provide classical simple `let` and `letseq`, wholly implemented as AST transformations, providing true lexical variables but no assignment support (because in Python, assignment is a statement) or multi-expression body support. Just like in Lisps, this version of `letseq` (Scheme/Racket `let*`) expands into a chain of nested `let` expressions, which expand to lambdas.
+As a bonus, we provide classical simple `let` and `letseq`, wholly implemented as AST transformations, providing true lexical variables, but no multi-expression body support. Just like in some Lisps, this version of `letseq` (Scheme/[Racket `let*`](https://docs.racket-lang.org/reference/let.html#%28form._%28%28lib._racket%2Fprivate%2Fletstx-scheme..rkt%29._let%2A%29%29)) expands into a chain of nested `let` expressions, which expand to lambdas.
 
 These are provided in the separate module `unpythonic.syntax.simplelet`, and are not part of the `unpythonic.syntax` macro API. For simplicity, they support only the lispy list syntax in the bindings subform (using brackets, specifically!), and no haskelly syntax at all:
 
@@ -547,6 +548,16 @@ let[[x, 42]][...]
 letseq[[x, 1], [x, x + 1]][...]
 letseq[[x, 1]][...]
 ```
+
+Starting with Python 3.8, assignment (rebinding) is possible also in these barebones `let` constructs via the walrus operator. For example:
+
+```python
+assert let[[x, 42]][x] == 42
+assert let[[x, 42]][(x := 5)] == 5
+```
+
+However, this only works for variables created by the innermost `let` (viewed from the point where the assignment happens), because `nonlocal` is a statement and so cannot be used in expressions.
+
 
 ## Sequencing
 
