@@ -31,6 +31,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
 [**Bindings**](#bindings)
 - [`let`, `letseq`, `letrec` as macros](#let-letseq-letrec-as-macros); proper lexical scoping, no boilerplate.
 - [`dlet`, `dletseq`, `dletrec`, `blet`, `bletseq`, `bletrec`: decorator versions](#dlet-dletseq-dletrec-blet-bletseq-bletrec-decorator-versions)
+- [Caution on name resolution and scoping](#caution-on-name-resolution-and-scoping)
 - [`let_syntax`, `abbrev`: syntactic local bindings](#let_syntax-abbrev-syntactic-local-bindings); splice code at macro expansion time.
 - [Bonus: barebones `let`](#bonus-barebones-let): pure AST transformation of `let` into a `lambda`.
 
@@ -399,6 +400,49 @@ except NameError:
 else:
     assert False, "should have tried to access the deleted global x"
 ```
+
+
+### Caution on name resolution and scoping
+
+The name resolution behavior described above **does not fully make sense**, because to define things this way is to conflate static (lexical) and dynamic (run-time) concepts. This feature unfortunately got built before I understood the matter clearly.
+
+Python itself performs name resolution purely lexically, which is arguably the right thing to do. In any given lexical scope, an identifier such as `x` always refers to the same variable. Whether that variable has been initialized, or has already been deleted, is another matter, which has to wait until run time - but `del x` will **not** cause the identifier `x` to point to a different variable for the remainder of the same scope, like `delete[x]` **does** in the body of an `unpythonic` `let[]` or `do[]`.
+
+#### Aside: Names and variables
+
+To be technically correct, in Python, an identifier `x` refers to a *name*, not to a "variable". Python, like Lisp, has [*names and values*](https://nedbatchelder.com/text/names.html).
+
+Roughly, an *identifier* is a certain kind of token in the source code text - something that everyday English calls a "name". However, in programming, a *name* is technically the *key* component of a key-value pair that is stored in a particular *environment*.
+
+Very roughly speaking, an *environment* is just a place to store such pairs, for the purposes of "the variables subsystem" of the language. There are important details, such as that each *activation* of a function (think: "a particular call of the function") will create a new environment instance, to hold the local variables of that activation; this detail allows [lexical closures](https://en.wikipedia.org/wiki/Closure_(computer_programming)) to work. The piece of bookkeeping for this is termed an *activation record*. But the important point here is, an environment stores name-value pairs.
+
+An identifier *refers to* a name. Scoping rules concern themselves with the details of mapping identifiers to names. In *lexical scoping* (like in Python), the position of the identifier in the source code text determines the search order of environments for the target name, when resolving a particular instance of an identifier in the source code text. Python uses the LEGB ordering (local, enclosing, global, builtin).
+
+Finally, *values* are the run-time things names point to. They are the *value* component of the key-value pair.
+
+In this simple example:
+
+```python
+def outer():
+    x = 17
+    def inner():
+        x = 23
+```
+
+ - The piece of source code text `x` is an *identifier*.
+ - *The outer `x`* and *the inner `x`* are *names*, both of which have the textual representation `x`.
+   - *Which one of these the identifier `x` refers to depends on where it appears.* 
+ - The integers `17` and `23` are *values*.
+
+Note that classically, names have no type; values do.
+
+Nowadays, a name may have a type annotation, which reminds the programmer about the type of *value* that is safe to bind to that particular name. In other words, the code that defines that name (e.g. as a function parameter) promises (in the sense of a contract) that the code knows how to behave if a value of that type is bound to that name (e.g. by passing such a value as a function argument that will be bound to that name).
+
+Here *type* may be a concrete [nominal type](https://en.wikipedia.org/wiki/Nominal_type_system) such as `int`, or for example, it may represent a particular interface (such as the types in [`collections.abc`](https://docs.python.org/3/library/collections.abc.html)), or it may allow multiple mutually exclusive options (a *union*).
+
+By default, Python treats type annotations as a form of comments; to actually statically type-check Python, [Mypy](http://mypy-lang.org/) can be used.
+
+Compare the *name*/*value* concept to the concept of a *variable* in the classical sense, such as in C, or `cdef` in Cython. In such *low-level* [HLLs](https://en.wikipedia.org/wiki/High-level_programming_language), a *variable* is a named, fixed memory location, with a static data type determining how to interpret the bits at that memory location. The contents of the memory location can be changed, hence "variable" is an apt description.
 
 
 ### `let_syntax`, `abbrev`: syntactic local bindings
