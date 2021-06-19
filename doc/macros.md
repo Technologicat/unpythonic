@@ -611,7 +611,7 @@ Macros that run multiple expressions, in sequence, in place of one expression.
 
 We provide an `expr` macro wrapper for `unpythonic.seq.do`, with some extra features.
 
-This essentially allows writing imperative code in any expression position. For an `if-elif-else` conditional, [see `cond`](#cond-the-missing-elif-for-a-if-p-else-b); for loops, see [the functions in `unpythonic.fploop`](../unpythonic/fploop.py) (esp. `looped`).
+This essentially allows writing imperative code in any expression position. For an `if-elif-else` conditional, [see `cond`](#cond-the-missing-elif-for-a-if-p-else-b); for loops, see [the functions in `unpythonic.fploop`](../unpythonic/fploop.py) (`looped` and `looped_over`).
 
 ```python
 from unpythonic.syntax import macros, do, local, delete
@@ -630,7 +630,7 @@ y = do[local[a << 17],
        True]
 ```
 
-Local variables are declared and initialized with `local[var << value]`, where `var` is a bare name. To explicitly denote "no value", just use `None`.  `delete[...]` allows deleting a `local[...]` binding. This uses `env.pop()` internally, so a `delete[...]` returns the value the deleted local variable had at the time of deletion. (So if you manually use the `do()` function in some code without macros, feel free to `env.pop()` in a do-item if needed.)
+Local variables are declared and initialized with `local[var << value]`, where `var` is a bare name. To explicitly denote "no value", just use `None`. The syntax `delete[...]` allows deleting a `local[...]` binding. This uses `env.pop()` internally, so a `delete[...]` returns the value the deleted local variable had at the time of deletion. (This also means that if you manually use the `do()` function in some code without macros, you can `env.pop(...)` in a do-item if needed.)
 
 The `local[]` and `delete[]` declarations may only appear at the top level of a `do[]`, `do0[]`, or implicit `do` (extra bracket syntax, e.g. for the body of a `let` form). In any invalid position, `local[]` and `delete[]` are considered a syntax error at macro expansion time.
 
@@ -659,7 +659,8 @@ Already declared local variables are updated with `var << value`. Updating varia
 </details>
 <p>
 
-**CAUTION**: `do[]` supports local variable deletion, but the `let[]` constructs don't, by design. When `do[]` is used implicitly with the extra bracket syntax, any `delete[]` refers to the scope of the implicit `do[]`, not any surrounding `let[]` scope.
+**CAUTION**: `do[]` supports local variable deletion, but the `let[]` constructs do **not**, by design. When `do[]` is used implicitly with the extra bracket syntax, any `delete[]` refers to the scope of the implicit `do[]`, not any surrounding `let[]` scope.
+
 
 ## Tools for lambdas
 
