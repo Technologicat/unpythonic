@@ -3,13 +3,13 @@
 
 __all__ = ["almosteq", "ulp",
            "fixpoint",
-           "partition_int", "partition_int_triangular"]
+           "partition_int", "partition_int_triangular", "partition_int_custom"]
 
 from itertools import takewhile
 from math import floor, log2
 import sys
 
-from .it import iterate1, last, within
+from .it import iterate1, last, within, rev
 from .symbol import sym
 
 # HACK: break dependency loop mathseq -> numutil -> mathseq
@@ -162,7 +162,7 @@ def partition_int(n, lower=1, upper=None):
     if lower < 1 or upper < 1 or lower > n or upper > n or lower > upper:
         raise ValueError(f"it must hold that 1 <= lower <= upper <= n; got lower={lower}, upper={upper}")
 
-    return _partition_int(n, range(min(n, upper), lower - 1, -1))  # instantiate the generator
+    return partition_int_custom(n, range(min(n, upper), lower - 1, -1))  # instantiate the generator
 
 def partition_int_triangular(n, lower=1, upper=None):
     """Like `partition_int`, but allow only triangular numbers in the result.
@@ -199,26 +199,39 @@ def partition_int_triangular(n, lower=1, upper=None):
 
     triangulars_upto_n = takewhile(lambda m: m <= n,
                                    triangular())
-    return _partition_int(n, filter(lambda m: lower <= m <= upper,
-                                    triangulars_upto_n))
+    return partition_int_custom(n, rev(filter(lambda m: lower <= m <= upper,
+                                              triangulars_upto_n)))
 
-def _partition_int(n, components):
-    """Implementation for `partition_int`, `partition_triangular`.
+def partition_int_custom(n, components):
+    """Partition an integer in a custom way.
 
     `n`: integer to partition.
     `components`: iterable of ints; numbers that are allowed to appear
                   in the partitioning result. Each number `m` must
                   satisfy `1 <= m <= n`.
+
+    See `partition_int`, `partition_triangular`.
     """
-    # TODO: Check contracts on input? This is an internal function for now, so no validation.
+    if not isinstance(n, int):
+        raise TypeError(f"n must be integer; got {type(n)} with value {repr(n)}")
+    if n < 1:
+        raise ValueError(f"n must be positive; got {n}")
     components = tuple(components)
-    for k in components:
-        m = n - k
-        if m == 0:
-            yield (k,)
-        else:
-            out = []
-            for item in _partition_int(m, (x for x in components if x <= m)):
-                out.append((k,) + item)
-            for term in out:
-                yield term
+    invalid_components = [not isinstance(x, int) for x in components]
+    if any(invalid_components):
+        raise TypeError(f"each component must be an integer; got invalid components {invalid_components}")
+    invalid_components = [not (1 <= x <= n) for x in components]
+    if any(invalid_components):
+        raise ValueError(f"each component x must be 1 <= x <= n; got n = {n}, with invalid components {invalid_components}")
+    def rec(components):
+        for k in components:
+            m = n - k
+            if m == 0:
+                yield (k,)
+            else:
+                out = []
+                for item in partition_int_custom(m, tuple(x for x in components if x <= m)):
+                    out.append((k,) + item)
+                for term in out:
+                    yield term
+    return rec(components)

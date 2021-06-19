@@ -111,7 +111,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 [**Numerical tools**](#numerical-tools)
   - [`almosteq`: floating-point almost-equality](#almosteq-floating-point-almost-equality)
   - [`fixpoint`: arithmetic fixed-point finder](#fixpoint-arithmetic-fixed-point-finder)
-  - [`partition_int`, `partition_int_triangular`: partition integers](#partition_int-partition_int_triangular-partition-integers)
+  - [`partition_int`: partition integers](#partition_int-partition-integers)
   - [`ulp`: unit in last place](#ulp-unit-in-last-place)
 
 [**Other**](#other)
@@ -4681,9 +4681,9 @@ assert abs(sqrt_newton(2) - sqrt(2)) <= ulp(1.414)
 ```
 
 
-### `partition_int`, `partition_int_triangular`: partition integers
+### `partition_int`: partition integers
 
-**Changed in v0.15.0.** *Added `partition_int_triangular`.*
+**Changed in v0.15.0.** *Added `partition_int_triangular` and `partition_int_custom`.*
 
 **Added in v0.14.2.**
 
@@ -4693,10 +4693,13 @@ The `partition_int` function [partitions](https://en.wikipedia.org/wiki/Partitio
 
 The `partition_int_triangular` function is like `partition_int`, but accepts only triangular numbers (1, 3, 6, 10, ...) as components of the partition. This function answers a timeless question: if I have `n` stackable plushies, what are the possible stack configurations?
 
+The `partition_int_custom` function is like `partition_int`, but lets you specify which numbers are acceptable as components of the partition.
+
 Examples:
 
 ```python
-from unpythonic import partition_int, partition_int_triangular
+from itertools import count, takewhile
+from unpythonic import partition_int, partition_int_triangular, rev
 
 assert tuple(partition_int(4)) == ((4,), (3, 1), (2, 2), (2, 1, 1), (1, 3), (1, 2, 1), (1, 1, 2), (1, 1, 1, 1))
 assert tuple(partition_int(5, lower=2)) == ((5,), (3, 2), (2, 3))
@@ -4708,13 +4711,18 @@ assert (frozenset(tuple(sorted(c)) for c in partition_int_triangular(78, lower=1
                    (15, 21, 21, 21),
                    (21, 21, 36),
                    (78,)}))
+
+evens_upto_n = lambda n: takewhile(lambda m: m <= n, count(start=2, step=2))
+assert tuple(partition_int_custom(6, rev(evens_upto_n(6)))) == ((6,), (4, 2), (2, 4), (2, 2, 2))
 ```
 
 As the first example demonstrates, most of the splits are a ravioli consisting mostly of ones. It is much faster to not generate such splits than to filter them out from the result. Use the `lower` parameter to set the smallest acceptable value for one component of the split; the default value `lower=1` generates all splits. Similarly, the `upper` parameter sets the largest acceptable value for one component of the split. The default `upper=None` sets no upper limit, so in effect the upper limit becomes `n`.
 
 In `partition_int_triangular`, the `lower` and `upper` parameters work exactly the same. The only difference to `partition_int` is that each component of the split must be a triangular number.
 
-**CAUTION**: The number of possible partitions grows very quickly with `n`, so in practice these functions are only useful for small numbers, or with a lower limit that is not too much smaller than `n / 2`.
+In `partition_int_custom`, the components are given as an iterable, which is immediately forced (so if it is consumable, it will be completely consumed; and if it is infinite, the function will use up all available RAM and not terminate). Each component `x` must be an integer that satisfies `1 <= x <= n`.
+
+**CAUTION**: The number of possible partitions grows very quickly with `n`, so in practice these functions are only useful for small numbers, or when the smallest allowed component is not too much smaller than `n / 2`.
 
 
 ### `ulp`: unit in last place

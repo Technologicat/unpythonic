@@ -3,10 +3,13 @@
 from ..syntax import macros, test, test_raises, error, the  # noqa: F401
 from ..test.fixtures import session, testset
 
+from itertools import count, takewhile
 from math import cos, sqrt
 import sys
 
-from ..numutil import almosteq, fixpoint, partition_int, partition_int_triangular, ulp
+from ..numutil import (almosteq, fixpoint, ulp,
+                       partition_int, partition_int_triangular, partition_int_custom)
+from ..it import rev
 
 def runtests():
     with testset("ulp (unit in the last place; float utility)"):
@@ -86,6 +89,22 @@ def runtests():
                         (15, 21, 21, 21),
                         (21, 21, 36),
                         (78,)})]
+
+    # partition_int_custom: like partition_int, but lets you specify allowed components manually.
+    # Can be used to build other functions like `partition_int` and `partition_int_triangular`.
+    with testset("partition_int_custom"):
+        test[tuple(partition_int_custom(4, [1])) == ((1, 1, 1, 1),)]
+        test[tuple(partition_int_custom(4, [1, 3])) == ((1, 1, 1, 1), (1, 3), (3, 1))]
+
+        evens_upto_n = lambda n: takewhile(lambda m: m <= n, count(start=2, step=2))
+        test[tuple(partition_int_custom(4, rev(evens_upto_n(4)))) == ((4,), (2, 2))]
+        test[tuple(partition_int_custom(6, rev(evens_upto_n(6)))) == ((6,), (4, 2), (2, 4), (2, 2, 2))]
+
+        test_raises[TypeError, partition_int_custom("not a number", evens_upto_n("blah"))]
+        test_raises[TypeError, tuple(partition_int_custom(4, [2.0]))]
+        test_raises[ValueError, partition_int_custom(-3, evens_upto_n(-3))]
+        test_raises[ValueError, tuple(partition_int_custom(4, [-1]))]
+        test_raises[ValueError, tuple(partition_int_custom(4, [1, -1]))]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

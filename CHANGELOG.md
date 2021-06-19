@@ -98,6 +98,7 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
   - Add `resolve_bindings_partial`, useful for analyzing partial application.
   - Add `triangular`, to generate the triangular numbers (1, 3, 6, 10, ...).
   - Add `partition_int_triangular` to answer a timeless question concerning stackable plushies.
+  - Add `partition_int_custom` to answer unanticipated similar questions.
   - All documentation files now have a quick navigation section to skip to another part of the docs. (For all except the README, it's at the top.)
   - Python 3.8 and 3.9 support added.
 
