@@ -192,7 +192,10 @@ The common denominator is programming. Some relate to language design, some to c
   - [Example of Wat in Manuel Simoni's blog (2013)](http://axisofeval.blogspot.com/2013/05/green-threads-in-browser-in-20-lines-of.html)
 
 - [Richard P. Gabriel, Kent M. Pitman (2001): Technical Issues of Separation in Function Cells and Value Cells](https://dreamsongs.com/Separation.html)
-  - A discussion of [Lisp-1 vs. Lisp-2](https://en.wikipedia.org/wiki/Lisp-1_vs._Lisp-2).
+  - A discussion of [Lisp-1 vs. Lisp-2](https://en.wikipedia.org/wiki/Lisp-1_vs._Lisp-2), particularly of historical interest.
+  - Summary: Lisp-1 often leads to more readable code than Lisp-2, but by the time this became clear, for Common Lisp that train had already sailed. The authors suggest that instead of fixing CL with a backward compatibility breaking change, future Lisps would do well to take lessons learned from both Scheme and Common Lisp. In my own opinion, [Racket](https://racket-lang.org/) indeed has.
+  - Interestingly, there are more namespaces in Lisps than just values and functions, so, as the authors note, the popular names "Lisp-1" and "Lisp-2" are actually misnomers. For example, the labels for the Common Lisp construct `TAGBODY`/`GO` live in their own namespace.
+  - If explained using Python terminology, a Common Lisp symbol instance essentially has one attribute for each namespace, that stores the value bound to that symbol in that namespace.
 
 - [`hoon`: The C of Functional Programming](https://urbit.org/docs/hoon/)
   - Interesting take on an alternative computing universe where the functional camp won systems programming. These people have built [a whole operating system](https://github.com/urbit/urbit) on a Turing-complete non-lambda automaton, Nock.
