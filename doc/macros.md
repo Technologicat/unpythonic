@@ -920,7 +920,7 @@ assert add3(1)(2)(3) == 6
 
  - Function calls are autocurried, and run `unpythonic.fun.curry` in a special mode that no-ops on uninspectable functions (triggering a standard function call with the given args immediately) instead of raising `TypeError` as usual.
 
-**CAUTION**: Some built-ins are uninspectable or may report their arities incorrectly; in those cases, `curry` may fail, occasionally in mysterious ways. The function `unpythonic.arity.arities`, which `unpythonic.fun.curry` internally uses, has a workaround for the inspectability problems of all built-ins in the top-level namespace (as of Python 3.7), but e.g. methods of built-in types are not handled.
+**CAUTION**: Some built-ins are uninspectable or may report their call signature incorrectly; in those cases, `curry` may fail, occasionally in mysterious ways. When inspection fails, `curry` raises ``ValueError``, like `inspect.signature` does.
 
 Manual uses of the `curry` decorator (on both `def` and `lambda`) are detected, and in such cases the macro skips adding the decorator.
 
