@@ -1110,8 +1110,20 @@ The reason we have this hack is that it allows the performance of strict code us
 
 ### `tco`: automatic tail call optimization for Python
 
+*This is the macro that applies tail call optimization (TCO) automatically. See the manual section on [`trampolined` and `jump`](features.md#trampolined-jump-tail-call-optimization-tco--explicit-continuations) on what TCO is and where it is useful.*
+
+Using `with tco`, there is no need to manually use `trampolined` or `jump`:
+
 ```python
 from unpythonic.syntax import macros, tco
+
+with tco:
+    def fact(n, acc=1):
+        if n == 0:
+            return acc
+        return fact(n - 1, n * acc)
+    print(fact(4))  # 24
+    fact(5000)  # no crash
 
 with tco:
     evenp = lambda x: (x == 0) or oddp(x - 1)
