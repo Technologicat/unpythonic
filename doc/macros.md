@@ -1130,37 +1130,53 @@ with tco:
     assert evenp(10000) is True
 ```
 
-All function definitions (`def` and `lambda`) lexically inside the block undergo TCO transformation. The functions are automatically `@trampolined`, and any tail calls in their return values are converted to `jump(...)` for the TCO machinery. Here *return value* is defined as:
+All function definitions (`def` and `lambda`) lexically inside the `with tco` block undergo TCO transformation. The functions are automatically `@trampolined`, and any tail calls in their return values are converted to `jump(...)` for the TCO machinery. Here *return value* is defined as:
 
  - In a `def`, the argument expression of `return`, or of a call to a known escape continuation.
 
  - In a `lambda`, the whole body, as well as the argument expression of a call to a known escape continuation.
 
-What is a *known escape continuation* is explained below, in the section [TCO and `call_ec`](#tco-and-call_ec).
+What is considered a *known escape continuation* is explained below, in the section [TCO and `call_ec`](#tco-and-call_ec).
 
-To find the tail position inside a compound return value, this recursively handles any combination of `a if p else b`, `and`, `or`; and from `unpythonic.syntax`, `do[]`, `let[]`, `letseq[]`, `letrec[]`. Support for `do[]` includes also any `multilambda` blocks that have already expanded when `tco` is processed. The macros `aif[]` and `cond[]` are also supported, because they expand into a combination of `let[]`, `do[]`, and `a if p else b`.
+To find the tail position inside a compound return value, we recursively handle any combination of `a if p else b`, `and`, `or`; and from `unpythonic.syntax`, `do[]`, `let[]`, `letseq[]`, `letrec[]`. Support for `do[]` includes also any `multilambda` blocks that have already expanded when `tco` is processed. The macros `aif[]` and `cond[]` are also supported, because they expand into a combination of `let[]`, `do[]`, and `a if p else b`.
 
 **CAUTION**: In an `and`/`or` expression, only the last item of the whole expression is in tail position. This is because in general, it is impossible to know beforehand how many of the items will be evaluated.
 
-**CAUTION**: In a `def` you still need the `return`; it marks a return value. If you want the tail position to imply a `return`, use the combo `with autoreturn, tco` (on `autoreturn`, see below).
+**CAUTION**: In a `def` you still need the `return`; it marks a return value. If you want tail position to imply a `return`, use the combo `with autoreturn, tco` (on `autoreturn`, see below).
 
 TCO is based on a strategy similar to MacroPy's `tco` macro, but using unpythonic's TCO machinery, and working together with the macros introduced by `unpythonic.syntax`. The semantics are slightly different; by design, `unpythonic` requires an explicit `return` to mark tail calls in a `def`. A call that is strictly speaking in tail position, but lacks the `return`, is not TCO'd, and Python's implicit `return None` then shuts down the trampoline, returning `None` as the result of the TCO chain.
 
 #### TCO and continuations
 
-The `tco` macro detects and skips any `with continuations` blocks inside the `with tco` block, because `continuations` already implies TCO. This is done **for the specific reason** of allowing the [Lispython dialect](https://github.com/Technologicat/pydialect) to use `with continuations`, because the dialect itself implies a `with tco` for the whole module (so the user code has no way to exit the TCO context).
+The `tco` macro detects and skips any `with continuations` blocks inside the `with tco` block, because `continuations` already implies TCO. This is done **for the specific reason** of allowing the [Lispython dialect](https://github.com/Technologicat/pydialect) to use `with continuations`, because the dialect itself implies a `with tco` for the whole module. Hence, in that dialect, the user code has no way to exit the TCO context.
 
-The `tco` and `continuations` macros actually share a lot of the code that implements TCO; `continuations` just hooks into some callbacks to perform additional processing.
+The `tco` and `continuations` macros actually share a lot of the code that implements TCO; `continuations`, for its TCO processing, just hooks into some callbacks to make additional AST edits.
 
 #### TCO and `call_ec`
 
-(Mainly of interest for lambdas, which have no `return`, and for "multi-return" from a nested function.)
+This is mainly of interest for lambdas, which have no `return`, and for "multi-return" from a nested function.
 
 It is important to recognize a call to an escape continuation as such, because the argument given to an escape continuation is essentially a return value. If this argument is itself a call, it needs the TCO transformation to be applied to it.
 
-For escape continuations in `tco` and `continuations` blocks, only basic uses of `call_ec` are supported, for automatically harvesting names referring to an escape continuation. In addition, the literal function names `ec`, `brk` and `throw` are always *understood as referring to* an escape continuation.
+For escape continuations in `tco` and `continuations` blocks, only basic uses of `call_ec` are supported, for automatically extracting names referring to an escape continuation. *Basic use* is defined as either of these two cases:
 
-The name `ec`, `brk` or `throw` alone is not sufficient to make a function into an escape continuation, even though `tco` (and `continuations`) will think of it as such. The function also needs to actually implement some kind of an escape mechanism. An easy way to get an escape continuation, where this has already been done for you, is to use `call_ec`. Another such mechanism is the `catch`/`throw` pair.
+```python
+from unpythonic import call_ec
+
+# use as decorator
+@call_ec
+def result(ec):
+    ...
+
+# use directly on a literal lambda (effectively, as a decorator)
+result = call_ec(lambda ec: ...)
+```
+
+When macro expansion of the ``with tco`` block starts, names of escape continuations created **anywhere lexically within** the ``with tco`` block are captured, provided that the creation takes place using one of the above *basic use* patterns.
+
+In addition, the literal function names `ec`, `brk` and `throw` are always *understood as referring to* an escape continuation. The name `ec` is the customary name for the parameter of a function passed to `call_ec`. The name `brk` is the customary name for the break continuation created by `@breakably_looped` and `@breakably_looped_over`. The name `throw` is understood as referring to the function `unpythonic.throw`.
+
+Obviously, having a name of `ec`, `brk` or `throw` is not by itself sufficient to make a function into an escape continuation, even though `tco` (and `continuations`) will think of it as such. The function also needs to actually implement some kind of an escape mechanism. An easy way to get an escape continuation, where this has already been done for you, is to use `call_ec`. Another such mechanism is the `catch`/`throw` pair.
 
 See the docstring of `unpythonic.syntax.tco` for details.
 

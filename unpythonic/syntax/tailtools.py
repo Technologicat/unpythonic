@@ -207,7 +207,7 @@ def tco(tree, *, syntax, expander, **kw):
         def result(ec):
             ...
 
-        # use directly on a literal lambda
+        # use directly on a literal lambda (effectively, as a decorator)
         result = call_ec(lambda ec: ...)
 
     When macro expansion of the ``with tco`` block starts, names of escape
