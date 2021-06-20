@@ -373,7 +373,7 @@ letrec[[evenp << (lambda x:
 
 ### `env`: the environment
 
-The environment used by all the `let` constructs and `assignonce` (but **not** by `dyn`) is essentially a bunch with iteration, subscripting and context manager support. It is somewhat similar to [`types.SimpleNamespace`](https://docs.python.org/3/library/types.html#types.SimpleNamespace), but with many extra features. For details, see `unpythonic.env`.
+The environment used by all the `let` constructs and `assignonce` (but **not** by `dyn`) is essentially a bunch with iteration, subscripting and context manager support. It is somewhat similar to [`types.SimpleNamespace`](https://docs.python.org/3/library/types.html#types.SimpleNamespace), but with many extra features. For details, see `unpythonic.env.env` (and note the unfortunate module name).
 
 Our `env` allows things like:
 
@@ -1014,9 +1014,9 @@ f2 = lambda x: begin0(42 * x,
 f2(2)  # --> 84
 ```
 
-The `begin` and `begin0` forms are actually tuples in disguise; evaluation of all items occurs before the `begin` or `begin0` form gets control. Items are evaluated left-to-right due to Python's argument passing rules.
+The `begin` and `begin0` forms are actually tuples in disguise; evaluation of **all** items occurs before the `begin` or `begin0` form gets control. Items are evaluated left-to-right due to Python's argument passing rules.
 
-We provide also `lazy_begin` and `lazy_begin0`, which use loops. The price is the need for a lambda wrapper for each expression to delay evaluation, see [`unpythonic.seq`](../unpythonic/seq.py) for details.
+We provide also `lazy_begin` and `lazy_begin0`, which use loops. The price is the need for a lambda wrapper for each expression to delay evaluation. See the module [`unpythonic.seq`](../unpythonic/seq.py) for details.
 
 
 ### `do`: stuff imperative code into an expression
@@ -1665,7 +1665,7 @@ As of v0.15.0, the actual algorithm by which `curry` decides what to do, in the 
    - Then, try for a partial match that passes the type check. **If any such match is found**, keep currying.
    - If none of the above match, it implies that no matter which multimethod we pick, at least one parameter will get a binding that fails the type check. Raise `TypeError`.
 
-If interested in the gritty details, see [the source code](../unpythonic/fun.py) of `unpythonic.fun.curry`. It calls some functions from `unpythonic.dispatch` for its `@generic` support, but otherwise it is pretty much self-contained.
+If interested in the gritty details, see [the source code](../unpythonic/fun.py) of `unpythonic.curry`, in the module `unpythonic.fun`. It calls some functions from the module `unpythonic.dispatch` for its `@generic` support, but otherwise it is pretty much self-contained.
 
 Getting back to the simple case, in the above example:
 
@@ -2479,11 +2479,15 @@ The view can be efficiently iterated over. As usual, iteration assumes that no i
 
 Getting/setting an item (subscripting) checks whether the index cache needs updating during each access, so it can be a bit slow. Setting a slice checks just once, and then updates the underlying iterable directly. Setting a slice to a scalar value broadcasts the scalar à la NumPy.
 
-The `unpythonic.collections` module also provides the `SequenceView` and `MutableSequenceView` abstract base classes; `view` is a `MutableSequenceView`.
+Beside `view` itself, the `unpythonic.collections` module provides also some other related abstractions.
 
-There is also the read-only cousin `roview`, which is like `view`, except it has no `__setitem__` or `reverse`. This can be useful for providing explicit read-only access to a sequence, when it is undesirable to have clients write into it.
+There is the read-only sister of view, `roview`, which is like `view`, except it has no `__setitem__` or `reverse`. This can be useful for providing explicit read-only access to a sequence, when it is undesirable to have clients write into it.
 
 The constructor of the writable `view` checks that the input is not read-only (`roview`, or a `Sequence` that is not also a `MutableSequence`) before allowing creation of the writable view.
+
+Finally, there are the `SequenceView` and `MutableSequenceView` abstract base classes. The concrete `view` and `roview` are instances of them.
+
+**NOTE**: A writable view supports also the read-only API, so `isinstance(MutableSequenceView, SequenceView) is True`; as well as `isinstance(view, roview) is True`. Keep in mind the [Liskov substitution principle](https://en.wikipedia.org/wiki/Liskov_substitution_principle).
 
 
 ### `mogrify`: update a mutable container in-place
@@ -2519,9 +2523,9 @@ For convenience, we support some special cases:
 
     If you want to process strings, implement it in your function that is called by `mogrify`. You can e.g. `tuple(thestring)` and then call `mogrify` on that.
 
-  - The `box`, `ThreadLocalBox` and `Some` containers from `unpythonic.collections`. Although the first two are mutable, their update is not conveniently expressible by the `collections.abc` APIs.
+  - The `box`, `ThreadLocalBox` and `Some` containers from the module `unpythonic.collections`. Although the first two are mutable, their update is not conveniently expressible by the `collections.abc` APIs.
 
-  - The `cons` container from `unpythonic.llist` (including the `ll`, `llist` linked lists). This is treated with the general tree strategy, so nested linked lists will be flattened, and the final `nil` is also processed.
+  - The `cons` container from the module `unpythonic.llist`, including linked lists created using `ll` or `llist`. This is treated with the general tree strategy, so nested linked lists will be flattened, and the final `nil` is also processed.
 
     Note that since `cons` is immutable, anyway, if you know you have a long linked list where you need to update the values, just iterate over it and produce a new copy - that will work as intended.
 
@@ -3112,7 +3116,7 @@ def outer_result(outer_loop, y, outer_acc):
 assert outer_result == ((1, 2), (2, 4), (3, 6))
 ```
 
-If you feel the trailing commas ruin the aesthetics, see `unpythonic.misc.pack`.
+If you feel the trailing commas ruin the aesthetics, see `unpythonic.pack`.
 
 #### Accumulator type and runtime cost
 
@@ -3509,7 +3513,7 @@ This `forall` is essentially a tuple comprehension that:
  - Allows filters to be placed at any level of the nested looping.
  - Presents the source code in the same order as it actually runs.
 
-The `unpythonic.amb` module defines four operators:
+The module `unpythonic.amb` defines four operators:
 
  - `forall` is the control structure, which marks a section that uses nondeterministic evaluation.
  - `choice` binds a name: `choice(x=range(3))` essentially means `for e.x in range(3):`.
@@ -3752,7 +3756,7 @@ The terminology is:
 
 The term *multimethod* distinguishes them from the OOP sense of *method*, already established in Python, as well as reminds that multiple arguments participate in dispatching.
 
-**CAUTION**: Code using the `with lazify` macro cannot usefully use `@generic` or `@typed`, because all arguments of each function call will be wrapped in a promise (`unpythonic.lazyutil.Lazy`) that carries no type information on its contents.
+**CAUTION**: Code using the `with lazify` macro cannot usefully use `@generic` or `@typed`, because all arguments of each function call will be wrapped in a promise (`unpythonic.Lazy`) that carries no type information on its contents.
 
 
 #### `generic`: multiple dispatch with type annotation syntax
@@ -4156,7 +4160,7 @@ test[tryf(lambda: raise_instance(),
 
 The exception handler is a function. It may optionally accept one argument, the exception instance. Just like in an `except` clause, the exception specification can be either an exception type, or a `tuple` of exception types.
 
-Functions can also be specified to represent the `else` and `finally` blocks; the keyword parameters to do this are `elsef` and `finallyf`. Each of them is a thunk (a 0-argument function). See the docstring of `unpythonic.misc.tryf` for details.
+Functions can also be specified to represent the `else` and `finally` blocks; the keyword parameters to do this are `elsef` and `finallyf`. Each of them is a thunk (a 0-argument function). See the docstring of `unpythonic.tryf` for details.
 
 Examples can be found in [the unit tests](../unpythonic/tests/test_excutil.py).
 
@@ -4551,7 +4555,7 @@ The only exception is `__getitem__` (subscripting), which makes sense for both p
 
 If you need to explicitly access either part (and its full API), use the `rets` and `kwrets` attributes. The names are in analogy with `args` and `kwargs`.
 
-`rets` is a `tuple`, and `kwrets` is an `unpythonic.collections.frozendict`.
+`rets` is a `tuple`, and `kwrets` is an `unpythonic.frozendict`.
 
 `Values` objects can be compared for equality. Two `Values` objects are equal if both their `rets` and `kwrets` (respectively) are.
 
