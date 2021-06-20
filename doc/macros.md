@@ -609,7 +609,7 @@ Macros that run multiple expressions, in sequence, in place of one expression.
 
 ### `do` as a macro: stuff imperative code into an expression, *with style*
 
-We provide an `expr` macro wrapper for `unpythonic.seq.do`, with some extra features.
+We provide an `expr` macro wrapper for `unpythonic.seq.do` and `unpythonic.seq.do0`, with some extra features.
 
 This essentially allows writing imperative code in any expression position. For an `if-elif-else` conditional, [see `cond`](#cond-the-missing-elif-for-a-if-p-else-b); for loops, see [the functions in `unpythonic.fploop`](../unpythonic/fploop.py) (`looped` and `looped_over`).
 
@@ -651,11 +651,9 @@ Already declared local variables are updated with `var << value`. Updating varia
 
 >Assignments are recognized anywhere inside the `do`; but note that any `let` constructs nested *inside* the `do`, that define variables of the same name, will (inside the `let`) shadow those of the `do` - as expected of lexical scoping.
 >
->The necessary boilerplate (notably the `lambda e: ...` wrappers) is inserted automatically, so the expressions in a `do[]` are only evaluated when the underlying `seq.do` actually runs.
+>The boilerplate needed by the underlying `unpythonic.seq.do` form (notably the `lambda e: ...` wrappers) is inserted automatically. The expressions in a `do[]` are only evaluated when the underlying `unpythonic.seq.do` actually runs.
 >
->When running, `do` behaves like `letseq`; assignments **above** the current line are in effect (and have been performed in the order presented). Re-assigning to the same name later overwrites (this is afterall an imperative tool).
->
->We also provide a `do0` macro, which returns the value of the first expression, instead of the last.
+>When running, `do` behaves like `letseq`; assignments **above** the current line are in effect (and have been performed in the order presented). Re-assigning to the same name later overwrites.
 </details>
 <p>
 
