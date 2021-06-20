@@ -38,7 +38,7 @@ from .lazyutil import passthrough_lazy_args, islazy, force, maybe_force_args
 
 # --------------------------------------------------------------------------------
 
-#def memoize_simple(f):  # essential idea, without exception handling
+#def memoize_simple(f):  # essential idea, without exception handling or thread-safety.
 #    memo = {}
 #    @wraps(f)
 #    def memoized(*args, **kwargs):
