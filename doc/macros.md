@@ -926,13 +926,15 @@ Manual uses of the `curry` decorator (on both `def` and `lambda`) are detected, 
 
 ### `lazify`: call-by-need for Python
 
-**Changed in v0.15.0.** *Up to 0.14.x, the `lazy[]` macro, that is used together with `with lazify`, used to be provided by `macropy`, but now that we use `mcpyrate`, we provide it ourselves. If you use `lazy[]`, change your import of that macro to `from unpythonic.syntax import macros, lazy`*.
+**Changed in v0.15.0.** *The `lazy[]` macro, that is used together with `with lazify`, used to be provided by `macropy` up to `unpythonic` v0.14.3. But now that we use `mcpyrate`, we provide a `lazy[]` macro and an underlying `Lazy` class ourselves. For details, see the separate section about `lazy[]` and `lazyrec[]` below.*
 
 Also known as *lazy functions*. Like [lazy/racket](https://docs.racket-lang.org/lazy/index.html), but for Python. Note if you want *lazy sequences* instead, Python already provides those; just use the generator facility (and decorate your gfunc with `unpythonic.gmemoize` if needed).
 
 Lazy function example:
 
 ```python
+from unpythonic.syntax import macros, lazify
+
 with lazify:
     def my_if(p, a, b):
         if p:
@@ -957,7 +959,7 @@ Note `my_if` in the example is a regular function, not a macro. Only the `with l
 
 ```python
 from unpythonic.syntax import macros, lazy
-from unpythonic.syntax import force
+from unpythonic import force
 
 def my_if(p, a, b):
     if force(p):
@@ -990,7 +992,11 @@ Inspired by Haskell, Racket's `(delay)` and `(force)`, and [lazy/racket](https:/
 
 #### `lazy[]` and `lazyrec[]` macros
 
-**Changed in v0.15.0.** *Previously, the `lazy[]` macro was provided by MacroPy. Now that we use `mcpyrate`, which doesn't provide it, we provide it ourselves, in `unpythonic.syntax`. Note that a lazy value now no longer has a `__call__` operator; instead, it has a `force()` method. The utility `unpythonic.lazyutil.force` (previously exported in `unpythonic.syntax`; now moved to the top-level namespace of `unpythonic`) abstracts away this detail.*
+**Changed in v0.15.0.** *Previously, the `lazy[]` macro was provided by MacroPy. Now that we use `mcpyrate`, which doesn't provide it, we provide it ourselves, in `unpythonic.syntax`. We also now provide the underlying `Lazy` class ourselves.*
+
+*Note that a lazy value (an instance of `Lazy`) now no longer has a `__call__` operator; instead, it has a `force()` method. The preferred way to force a lazy value, however, is to use the top-level utility function `force`, which abstracts away this detail. It also helpfully passes its argument through if it is not a `Lazy`.*
+
+*The `force` function was previously exported in `unpythonic.syntax`; now it is available in the top-level namespace of `unpythonic`. This follows the general convention that regular functions live in the top-level `unpythonic` package, while macros (and in general, syntactic constructs) live in `unpythonic.syntax`.*
 
 We provide the macros `unpythonic.syntax.lazy`, which explicitly lazifies a single expression, and `unpythonic.syntax.lazyrec`, which can be used to lazify expressions inside container literals, recursively.
 
