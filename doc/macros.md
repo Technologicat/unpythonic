@@ -609,9 +609,9 @@ Macros that run multiple expressions, in sequence, in place of one expression.
 
 ### `do` as a macro: stuff imperative code into an expression, *with style*
 
-We provide an `expr` macro wrapper for `unpythonic.seq.do` and `unpythonic.seq.do0`, with some extra features.
+We provide an `expr` macro wrapper for `unpythonic.do` and `unpythonic.do0`, with some extra features.
 
-This essentially allows writing imperative code in any expression position. For an `if-elif-else` conditional, [see `cond`](#cond-the-missing-elif-for-a-if-p-else-b); for loops, see [the functions in `unpythonic.fploop`](../unpythonic/fploop.py) (`looped` and `looped_over`).
+This essentially allows writing imperative code in any expression position. For an `if-elif-else` conditional, [see `cond`](#cond-the-missing-elif-for-a-if-p-else-b); for loops, see the functions in the module [`unpythonic.fploop`](../unpythonic/fploop.py) (`looped` and `looped_over`).
 
 ```python
 from unpythonic.syntax import macros, do, local, delete
@@ -651,7 +651,7 @@ Already declared local variables are updated with `var << value`. Updating varia
 
 >Assignments are recognized anywhere inside the `do`; but note that any `let` constructs nested *inside* the `do`, that define variables of the same name, will (inside the `let`) shadow those of the `do` - as expected of lexical scoping.
 >
->The boilerplate needed by the underlying `unpythonic.seq.do` form (notably the `lambda e: ...` wrappers) is inserted automatically. The expressions in a `do[]` are only evaluated when the underlying `unpythonic.seq.do` actually runs.
+>The boilerplate needed by the underlying `unpythonic.do` form (notably the `lambda e: ...` wrappers) is inserted automatically. The expressions in a `do[]` are only evaluated when the underlying `unpythonic.do` actually runs.
 >
 >When running, `do` behaves like `letseq`; assignments **above** the current line are in effect (and have been performed in the order presented). Re-assigning to the same name later overwrites.
 </details>
@@ -742,7 +742,7 @@ Lexically inside a `with namedlambda` block, any literal `lambda` that is assign
 
 Decorated lambdas are also supported, as is a `curry` (manual or auto) where the last argument is a lambda. The latter is a convenience feature, mainly for applying parametric decorators to lambdas. See [the unit tests](../unpythonic/syntax/tests/test_lambdatools.py) for detailed examples.
 
-The naming is performed using the function `unpythonic.misc.namelambda`, which will return a modified copy with its `__name__`, `__qualname__` and `__code__.co_name` changed. The original function object is not mutated.
+The naming is performed using the function `unpythonic.namelambda`, which will return a modified copy with its `__name__`, `__qualname__` and `__code__.co_name` changed. The original function object is not mutated.
 
 **Supported assignment forms**:
 
@@ -781,7 +781,7 @@ We have named the construct `fn`, because `f` is often used as a function name i
 
 The underscore `_` itself is not a macro. The `fn` macro treats the underscore magically, just like MacroPy's `f`, but anywhere else the underscore is available to be used as a regular variable.
 
-The underscore does not need to be imported for `fn[]` to recognize it, but if you want to make your IDE happy, there is a symbol named `_` in `unpythonic.syntax` you can import to silence any "undefined name" errors regarding the use of `_`. It is a regular run-time object, not a macro.
+The underscore does not need to be imported for `fn[]` to recognize it, but if you want to make your IDE happy, there is a symbol named `_` in `unpythonic.syntax` you can import to silence any "undefined name" errors regarding the use of `_`. It is a regular run-time object, not a macro. It is available in `unpythonic.syntax` (not at the top level of `unpythonic`) because it is basically an auxiliary syntactic construct, with no meaningful run-time functionality of its own.
 
 (It *could* be made into a `@namemacro` that triggers a syntax error when it appears in an improper context, like starting with v0.15.0, many auxiliary constructs in similar roles already do. But it was decided that in this particular case, it is more valuable to have the name `_` available for other uses in other contexts, because it is a standard dummy name in Python. The lambdas created using `fn[]` are likely short enough that not automatically detecting misplaced underscores does not cause problems in practice.)
 
@@ -918,7 +918,7 @@ assert add3(1)(2)(3) == 6
 
  - All **function calls** and **function definitions** (`def`, `lambda`) are automatically curried, somewhat like in Haskell, or in `#lang` [`spicy`](https://github.com/Technologicat/spicy).
 
- - Function calls are autocurried, and run `unpythonic.fun.curry` in a special mode that no-ops on uninspectable functions (triggering a standard function call with the given args immediately) instead of raising `TypeError` as usual.
+ - Function calls are autocurried, and run `unpythonic.curry` in a special mode that no-ops on uninspectable functions (triggering a standard function call with the given args immediately) instead of raising `TypeError` as usual.
 
 **CAUTION**: Some built-ins are uninspectable or may report their call signature incorrectly; in those cases, `curry` may fail, occasionally in mysterious ways. When inspection fails, `curry` raises ``ValueError``, like `inspect.signature` does.
 
@@ -982,13 +982,13 @@ Like `with continuations`, no state or context is associated with a `with lazify
 
 Lazy code is allowed to call strict functions and vice versa, without requiring any additional effort.
 
-Comboing with other block macros in `unpythonic.syntax` is supported, including `autocurry` and `continuations`. See the [meta](#meta) section of this README for the correct ordering.
+Comboing `lazify` with other block macros in `unpythonic.syntax` is supported, including `autocurry` and `continuations`. See the [meta](#meta) section of this README for the correct ordering.
 
 For more details, see the docstring of `unpythonic.syntax.lazify`.
 
 Inspired by Haskell, Racket's `(delay)` and `(force)`, and [lazy/racket](https://docs.racket-lang.org/lazy/index.html).
 
-**CAUTION**: The functions in `unpythonic.fun` are lazify-aware (so that e.g. `curry` and `compose` work with lazy functions), as are `call` and `callwith` in `unpythonic.misc`, but a large part of `unpythonic` is not. Keep in mind that any call to a strict (regular Python) function will evaluate all of its arguments.
+**CAUTION**: The functions in the module `unpythonic.fun` are lazify-aware (so that e.g. `curry` and `compose` work with lazy functions), as are `call` and `callwith` in the module `unpythonic.funutil`, but a large part of `unpythonic` is not. Keep in mind that any call to a strict (regular Python) function will evaluate all of its arguments.
 
 #### `lazy[]` and `lazyrec[]` macros
 
@@ -1039,7 +1039,7 @@ If we chose to auto-lazify assignments, then the example would expand to:
 
 ```python
 from unpythonic.syntax import macros, lazy
-from unpythonic.syntax import force
+from unpythonic import force
 
 a = lazy[10]
 a = lazy[2 * force(a)]
@@ -1052,7 +1052,7 @@ The fundamental issue is that `a = 2 * a` is an imperative update. Therefore, to
 
 ```python
 from unpythonic.syntax import macros, lazy
-from unpythonic.syntax import force
+from unpythonic import force
 
 a = lazy[10]
 b = lazy[2 * force(a)]
@@ -1071,11 +1071,14 @@ In `with`, the whole point of a context manager is that it is eagerly initialize
 
 #### Note about TCO
 
-To borrow a term from PG's On Lisp, to make `lazify` *pay-as-you-go*, a special mode in `unpythonic.tco.trampolined` is automatically enabled by `with lazify` to build lazify-aware trampolines in order to avoid a drastic performance hit (~10x) in trampolines built for regular strict code.
+To borrow a term from PG's On Lisp, to make `lazify` *pay-as-you-go*, a special mode in `unpythonic.trampolined` is automatically enabled by `with lazify` to build lazify-aware trampolines in order to avoid a drastic performance hit (~10x) in trampolines built for regular strict code.
 
 The idea is that the mode is enabled while any function definitions in the `with lazify` block run, so they get a lazify-aware trampoline when the `trampolined` decorator is applied. This should be determined lexically, but that is complicated to do, because the decorator is applied at run time; so we currently enable the mode for the dynamic extent of the `with lazify`. Usually this is close enough. The main case where this can behave unexpectedly is:
 
 ```python
+from unpythonic.syntax import macros, lazify
+from unpythonic import trampolined
+
 @trampolined  # strict trampoline
 def g():
     ...
@@ -1333,7 +1336,7 @@ To keep things relatively straightforward, our `call_cc[]` is only allowed to ap
 
 Nested defs are ok; here *top level* only means the top level of the *currently innermost* `def`.
 
-If you need to place `call_cc[]` inside a loop, use `@looped` et al. from `unpythonic.fploop`; this has the loop body represented as the top level of a `def`.
+If you need to place `call_cc[]` inside a loop, use `@looped` et al. from the module `unpythonic.fploop`; this has the loop body represented as the top level of a `def`.
 
 Multiple `call_cc[]` statements in the same function body are allowed. These essentially create nested closures.
 
@@ -1359,7 +1362,7 @@ call_cc[f(...) if p else g(...)]
 
 *NOTE*: `*xs` may need to be written as `*xs,` in order to explicitly make the LHS into a tuple. The variant without the comma seems to work when run from a `.py` file with the `macropython` bootstrapper from [`mcpyrate`](https://pypi.org/project/mcpyrate/), but fails in code run interactively in the `mcpyrate` REPL.
 
-*NOTE*: `f()` and `g()` must be **literal function calls**. Sneaky trickery (such as calling indirectly via `unpythonic.funutil.call` or `unpythonic.fun.curry`) is not supported. (The `prefix` and `curry` macros, however, **are** supported; just order the block macros as shown in the final section of this README.) This limitation is for simplicity; the `call_cc[]` needs to patch the `cc=...` kwarg of the call being made.
+*NOTE*: `f()` and `g()` must be **literal function calls**. Sneaky trickery (such as calling indirectly via `unpythonic.call` or `unpythonic.curry`) is not supported. (The `prefix` and `curry` macros, however, **are** supported; just order the block macros as shown in the final section of this README.) This limitation is for simplicity; the `call_cc[]` needs to patch the `cc=...` kwarg of the call being made.
 
 **Assignment targets**:
 
@@ -1530,7 +1533,7 @@ However, as the only exception to this rule, if the continuation is meant to act
 
 (Note also that a continuation that has no `cc` parameter cannot be used as the target of an explicit tail-call in the client code, since a tail-call in a `with continuations` block will attempt to supply a `cc` argument to the function being tail-called. Likewise, it cannot be used as the target of a `call_cc[]`, since this will also attempt to supply a `cc` argument.)
 
-These observations make `unpythonic.fun.identity` eligible as a continuation, even though it is defined elsewhere in the library and it has no `cc` parameter.
+These observations make `unpythonic.identity` eligible as a continuation, even though it is defined elsewhere in the library and it has no `cc` parameter.
 
 #### This isn't `call/cc`!
 
@@ -1610,7 +1613,7 @@ with prefix:
     # in case of duplicate name across kws, rightmost wins
     assert (f, kw(a="hi there"), kw(b="Tom"), kw(b="Jerry")) == (q, "hi there", "Jerry")
 
-    # give *args with unpythonic.fun.apply, like in Lisps:
+    # give *args with unpythonic.apply, like in Lisps:
     lst = [1, 2, 3]
     def g(*args):
         return args
@@ -1691,10 +1694,11 @@ If you wish to omit `return` in tail calls, this comboes with `tco`; just apply 
 
 ### `forall`: nondeterministic evaluation
 
-Behaves the same as the multiple-body-expression tuple comprehension `unpythonic.amb.forall`, but implemented purely by AST transformation, with real lexical variables. This is essentially a macro implementation of Haskell's do-notation for Python, specialized to the List monad (but the code is generic and very short; see `unpythonic.syntax.forall`).
+Behaves the same as the multiple-body-expression tuple comprehension `unpythonic.forall`, but implemented purely by AST transformation, with real lexical variables. This is essentially a macro implementation of Haskell's do-notation for Python, specialized to the List monad (but the code is generic and very short; see `unpythonic.syntax.forall`).
 
 ```python
-from unpythonic.syntax import macros, forall, insist, deny
+from unpythonic.syntax import macros, forall
+from unpythonic.syntax import insist, deny  # regular functions, not macros
 
 out = forall[y << range(3),
              x << range(3),
@@ -1712,9 +1716,9 @@ assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                              (8, 15, 17), (9, 12, 15), (12, 16, 20))
 ```
 
-Assignment (with List-monadic magic) is `var << iterable`. It is only valid at the top level of the `forall` (e.g. not inside any possibly nested `let`).
+Assignment (**with** List-monadic magic) is `var << iterable`. It is only valid at the top level of the `forall` (e.g. not inside any possibly nested `let`).
 
-`insist` and `deny` are not really macros; they are just the functions from `unpythonic.amb`, re-exported for convenience.
+`insist` and `deny` are not macros; they are just the functions from `unpythonic.amb`, re-exported for convenience.
 
 The error raised by an undefined name in a `forall` section is `NameError`.
 
@@ -1867,7 +1871,7 @@ with session("simple framework demo"):
 
 By default, running this script through the `macropython` wrapper (from `mcpyrate`) will produce an ANSI-colored test report in the terminal. To actually see how the output looks like, for actual runnable examples, see `unpythonic`'s own automated tests.
 
-If you want to turn coloring off (e.g. for redirecting stderr to a file), see the `TestConfig` bunch of constants in `unpythonic.test.fixtures`.
+If you want to turn coloring off (e.g. for the purposes of redirecting stderr to a file), see the `TestConfig` bunch of constants in `unpythonic.test.fixtures`.
 
 The following is an overview of the framework. For details, look at the docstrings of the various constructs in `unpythonic.test.fixtures` (which provides much of this), those of the test macros, and finally, the automated tests of `unpythonic` itself.
 
@@ -1877,7 +1881,7 @@ How to test macro utilities (e.g. syntax transformer functions that operate on A
 
 #### Overview
 
-We provide the low-level syntactic constructs `test[]`, `test_raises[]` and `test_signals[]`, with the usual meanings. The last one is for testing code that uses the `signal` function and its sisters (related to conditions and restarts à la Common Lisp); see [`unpythonic.conditions`](features.md#handlers-restarts-conditions-and-restarts).
+We provide the low-level syntactic constructs `test[]`, `test_raises[]` and `test_signals[]`, with the usual meanings. The last one is for testing code that uses the `signal` function and its sisters (related to conditions and restarts à la Common Lisp); see the module [`unpythonic.conditions`](../unpythonic/conditions.py), and the user manual section on [conditions and restarts](features.md#handlers-restarts-conditions-and-restarts).
 
 By default, the `test[expr]` macro asserts that the value of `expr` is truthy. If you want to assert only that `expr` runs to completion normally, use `test[returns_normally(expr)]`.
 
@@ -1953,9 +1957,9 @@ Additional tools for code using **conditions and restarts**:
 
 The `catch_signals` context manager controls the signal barrier of `with testset` and the `test` family of syntactic constructs. It is provided for writing tests for code that uses conditions and restarts.
 
-Used as `with catch_signals(False)`, it disables the signal barrier. Within the dynamic extent of the block, an uncaught signal (in the sense of `unpythonic.conditions.signal` and its sisters) is not considered an error. This can be useful, because sometimes leaving a signal uncaught is the right thing to do. See [`unpythonic.tests.test_conditions`](../unpythonic/tests/test_conditions.py) for examples.
+Used as `with catch_signals(False)`, it disables the signal barrier for the dynamic extent of the block. When the barrier is disabled, an uncaught signal (in the sense of `unpythonic.signal` and its sisters) is not considered as an errored test. This can be useful, because sometimes leaving a signal uncaught is the right thing to do. See [`unpythonic.tests.test_conditions`](../unpythonic/tests/test_conditions.py) for examples.
 
-It can be nested. Used as `with catch_signals(True)`, it re-enables the barrier, if currently disabled.
+The `with catch_signals` construct can be nested. Used as `with catch_signals(True)`, it re-enables the barrier, if currently disabled, for the dynamic extent of that inner `with catch_signals` block.
 
 When a `with catch_signals` block exits, the previous state of the signal barrier is automatically restored.
 
@@ -1981,7 +1985,7 @@ The constructs `test_raises`, `test_signals`, `fail`, `error` and `warn` do **no
 
 Tests can be nested; this is sometimes useful as an explicit signal barrier.
 
-Note the macros `error[]` and `warn[]` have nothing to do with the functions with the same name in `unpythonic.conditions`. The macros are part of the test framework; the functions with the same name are signaling protocols of the conditions and restarts system. Following the usual naming conventions in both systems, this naming conflict is unfortunately what we get.
+Note the macros `error[]` and `warn[]` have nothing to do with the functions with the same name in the module `unpythonic.conditions`. The macros are part of the test framework; the functions with the same name are signaling protocols of the conditions and restarts system. Following the usual naming conventions in both systems, this naming conflict is unfortunately what we get.
 
 **Block** forms:
 
@@ -2085,7 +2089,7 @@ To make testing/debugging macro code more convenient, the `the[]` mechanism auto
 
 **CAUTION**: The source code is back-converted from the AST representation; hence its surface syntax may look slightly different to the original (e.g. extra parentheses). See `mcpyrate.unparse`.
 
-**CAUTION**: The name of the `the[]` construct was inspired by Common Lisp, but the semantics are completely different. Common Lisp's `THE` is a return-type declaration (pythonistas would say *return-type annotation*), meant as a hint for the compiler to produce performance-optimized compiled code (see [chapter 32 of Peter Seibel's Practical Common Lisp](http://www.gigamonkeys.com/book/conclusion-whats-next.html)), whereas our `the[]` captures a value for test reporting. The only common factors are the name, and that neither construct changes the semantics of the marked code, much. In `unpythonic.test.fixtures`, the reason behind picking this name was that it doesn't change the flow of the source code as English that much, specifically to suggest, between the lines, that it doesn't change the semantics much. The reasoning behind CL's `THE` may be similar.
+**CAUTION**: The name of the `the[]` construct was inspired by Common Lisp, but the semantics are completely different. Common Lisp's `THE` is a return-type declaration (pythonistas would say *return-type annotation*), meant as a hint for the compiler to produce performance-optimized compiled code (see [chapter 32 of Peter Seibel's Practical Common Lisp](http://www.gigamonkeys.com/book/conclusion-whats-next.html)), whereas our `the[]` captures a value for test reporting. The only common factors are the name, and that neither construct changes the semantics of the marked code, much. In `unpythonic.test.fixtures`, the reason behind picking this name was that it doesn't change the flow of the source code as English that much, specifically to suggest, between the lines, that it doesn't change the semantics much. The reasoning behind CL's `THE` may be similar, but I have not researched its etymology.
 
 #### Test sessions and testsets
 
@@ -2105,7 +2109,7 @@ In case of an uncaught signal, the error is reported, and the testset resumes.
 
 In case of an uncaught exception, the error is reported, and the testset terminates, because the exception model does not support resuming.
 
-Catching of uncaught *signals*, in both the low-level `test` constructs and the high-level `testset`, can be disabled using `with catch_signals(False)`. This is useful in testing code that uses conditions and restarts; sometimes allowing a signal (e.g. from `unpythonic.conditions.warn`) to remain uncaught is the right thing to do.
+Catching of uncaught *signals*, in both the low-level `test` constructs and the high-level `testset`, can be disabled using `with catch_signals(False)`. This is useful in testing code that uses conditions and restarts; sometimes allowing a signal (e.g. from `unpythonic.warn` in the conditions-and-restarts system) to remain uncaught is the right thing to do.
 
 #### Producing unconditional failures, errors, and warnings
 
@@ -2115,15 +2119,15 @@ The helper macros `fail[message]`, `error[message]` and `warn[message]` uncondit
 - `error[...]` if some part of your tests is unable to run.
 - `warn[...]` if some tests are temporarily disabled and need future attention, e.g. for syntactic compatibility to make the code run for now on an old Python version.
 
-Currently (v0.14.3), warnings produced by `warn[]` are not counted in the total number of tests run. But you can still get the warning count from the separate counter `unpythonic.test.fixtures.tests_warned` (see `unpythonic.collections.box`; basically you can `b.get()` or `unbox(b)` to read the value currently inside a box).
+Currently (v0.14.3), warnings produced by `warn[]` are not counted in the total number of tests run. But you can still get the warning count from the separate counter `unpythonic.test.fixtures.tests_warned` (see `unpythonic.box`; basically you can `b.get()` or `unbox(b)` to read the value currently inside a box).
 
 #### Advanced: building a custom test framework
 
-If `unpythonic.test.fixtures` does not fit your needs and you want to experiment with creating your own framework, the test asserter macros are reusable. For reference, their implementations can be found in `unpythonic.syntax.testingtools`. They refer to a few objects in `unpythonic.test.fixtures`; consider these a common ground that is not strictly part of the surrounding framework.
+If `unpythonic.test.fixtures` does not fit your needs and you want to experiment with creating your own framework, the test asserter macros are reusable. Their implementations can be found in `unpythonic.syntax.testingtools`. They refer to a few objects in `unpythonic.test.fixtures`; consider these a common ground that is not strictly part of the surrounding framework.
 
 Start by reading the docstring of the `test` macro, which documents some low-level details.
 
-Set up a condition handler to intercept test failures and errors. These will be signaled via `cerror`, using the conditions and restarts mechanism. See `unpythonic.conditions`. Report the failure/error in any way you desire, and then invoke the `proceed` restart (from your condition handler) to let testing continue.
+Set up a condition handler to intercept test failures and errors. These will be signaled via `cerror`, using the conditions and restarts mechanism. See the module `unpythonic.conditions`. Report the failure/error in any way you desire, and then invoke the `proceed` restart (from your condition handler) to let testing continue.
 
 Look at the implementation of `testset` as an example.
 
@@ -2149,9 +2153,9 @@ What we have is small, simple, custom-built for its purpose (works well with mac
 
 #### Etymology and roots
 
-[Test fixture](https://en.wikipedia.org/wiki/Test_fixture) *is an environment used to consistently test some item, device, or piece of software*. In automated tests, it is typically a piece of code that is reused within the test suite of a project, to perform initialization and/or teardown tasks common to several test cases.
+A [test fixture](https://en.wikipedia.org/wiki/Test_fixture) is defined as *an environment used to consistently test some item, device, or piece of software*. In automated tests, it is typically a piece of code that is reused within the test suite of a project, to perform initialization and/or teardown tasks common to several test cases.
 
-A test framework can be reused across many different projects, and the error-catching and reporting code, if anything, is something that is shared across all test cases. Also, following our naming scheme, it had to be called `unpythonic.test.something`, and `fixtures` just happened to fit the theme.
+A test framework can be reused across many different projects, and the error-catching and reporting code, if anything, is something that is shared across all test cases. Also, following our naming scheme, the framework had to be called `unpythonic.test.something`, and `fixtures` just happened to fit the theme.
 
 Inspired by [Julia](https://julialang.org/)'s standard-library [`Test` package](https://docs.julialang.org/en/v1/stdlib/Test/), and [chapter 9 of Peter Seibel's Practical Common Lisp](http://www.gigamonkeys.com/book/practical-building-a-unit-test-framework.html).
 
