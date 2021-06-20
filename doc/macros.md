@@ -992,25 +992,25 @@ Inspired by Haskell, Racket's `(delay)` and `(force)`, and [lazy/racket](https:/
 
 #### `lazy[]` and `lazyrec[]` macros
 
-**Changed in v0.15.0.** *Previously, the `lazy[]` macro was provided by MacroPy. Now that we use `mcpyrate`, which doesn't provide it, we provide it ourselves, in `unpythonic.syntax`. We also now provide the underlying `Lazy` class ourselves.*
+**Changed in v0.15.0.** *Previously, the `lazy[]` macro was provided by MacroPy. Now that we use `mcpyrate`, which doesn't provide it, we provide it ourselves, in `unpythonic.syntax`. We now provide also the underlying `Lazy` class ourselves.*
 
-*Note that a lazy value (an instance of `Lazy`) now no longer has a `__call__` operator; instead, it has a `force()` method. The preferred way to force a lazy value, however, is to use the top-level utility function `force`, which abstracts away this detail. It also helpfully passes its argument through if it is not a `Lazy`.*
+*Note that a lazy value (an instance of `Lazy`) now no longer has a `__call__` operator; instead, it has a `force()` method. However, the preferred way is to use the top-level function `force`, which abstracts away this detail.*
 
 *The `force` function was previously exported in `unpythonic.syntax`; now it is available in the top-level namespace of `unpythonic`. This follows the general convention that regular functions live in the top-level `unpythonic` package, while macros (and in general, syntactic constructs) live in `unpythonic.syntax`.*
 
 We provide the macros `unpythonic.syntax.lazy`, which explicitly lazifies a single expression, and `unpythonic.syntax.lazyrec`, which can be used to lazify expressions inside container literals, recursively.
 
-Essentially, `lazy[...]` achieves the same result as `memoize(lambda: ...)`, with the practical difference that a `lazy[]` promise `p` is evaluated by calling `unpythonic.lazyutil.force(p)` or `p.force()`. In `unpythonic`, the promise datatype (`unpythonic.lazyutil.Lazy`) does not have a `__call__` method, because the word `force` better conveys the intent.
+Essentially, `lazy[...]` achieves the same result as `memoize(lambda: ...)`, with the practical difference that the `lazify` subsystem expects the `lazy[...]` notation in its analyzer, and will not recognize `memoize(lambda: ...)` as a delayed value.
 
-It is preferable to use the `force` function instead of the `.force` method, because the function will also pass through any non-promise value, whereas (obviously) a non-promise value will not have a `.force` method. Using the function, you can `force` a value just to be sure, without caring whether that value was a promise. The `force` function is available in the top-level namespace of `unpythonic`.
+A `lazy[]` promise `p` is evaluated by calling `force(p)` or `p.force()`. In `unpythonic`, the promise datatype (`Lazy`) does not have a `__call__` method, because the word `force` better conveys the intent.
 
-The `lazify` subsystem expects the `lazy[...]` notation in its analyzer, and will not recognize `memoize(lambda: ...)` as a delayed value.
+It is preferable to use the `force` top-level function instead of the `.force` method, because the function will also pass through any non-promise value, whereas (obviously) a non-promise value will not have a `.force` method. Using the function, you can `force` a value just to be sure, without caring whether that value was a promise. The `force` function is available in the top-level namespace of `unpythonic`.
 
-The `lazyrec[]` macro allows code like `tpl = lazyrec[(1*2*3, 4*5*6)]`. Each item becomes wrapped with `lazy[]`, but the container itself is left alone, to avoid interfering with unpacking. Because `lazyrec[]` is a macro and must work by names only, it supports a fixed set of container types: `list`, `tuple`, `set`, `dict`, `frozenset`, `unpythonic.collections.frozendict`, `unpythonic.collections.box`, and `unpythonic.llist.cons` (specifically, the constructors `cons`, `ll` and `llist`).
+The `lazyrec[]` macro allows code like `tpl = lazyrec[(1*2*3, 4*5*6)]`. Each item becomes wrapped with `lazy[]`, but the container itself is left alone, to avoid interfering with its unpacking. Because `lazyrec[]` is a macro and must work by names only, it supports a fixed set of container types: `list`, `tuple`, `set`, `dict`, `frozenset`, `unpythonic.frozendict`, `unpythonic.box`, and `unpythonic.cons` (specifically, the constructors `cons`, `ll` and `llist`).
 
 The `unpythonic` containers **must be from-imported** for `lazyrec[]` to recognize them. Either use `from unpythonic import xxx` (**recommended**), where `xxx` is a container type, or import the `containers` subpackage by `from unpythonic import containers`, and then use `containers.xxx`. (The analyzer only looks inside at most one level of attributes. This may change in the future.)
 
-(The analysis in `lazyrec[]` must work by names only, because in an eager language any lazification must be performed as a syntax transformation before the code actually runs, so the analysis must be performed statically - and locally, because `lazyrec[]` is an expr macro. [Fexprs](https://fexpr.blogspot.com/2011/04/fexpr.html) (along with [a new calculus to go with them](http://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html)) are the clean, elegant solution, but this requires redesigning the whole language from ground up. Of course, if you're fine with a language not particularly designed for extensibility, and lazy evaluation is your top requirement, you could just use Haskell.)
+Observe that the analysis in `lazyrec[]` must work by names only, because in an eager language any lazification must be performed as a syntax transformation before the code actually runs. Hence, the analysis must be performed statically - and locally, because `lazyrec[]` is an expr macro. [Fexprs](https://fexpr.blogspot.com/2011/04/fexpr.html) (along with [a new calculus to go with them](http://fexpr.blogspot.com/2014/03/continuations-and-term-rewriting-calculi.html)) are the clean, elegant solution, but this requires redesigning the whole language from ground up. Of course, if you are fine with a language not particularly designed for extensibility, and lazy evaluation is your top requirement, you could just use Haskell.
 
 #### Forcing promises manually
 
@@ -1020,57 +1020,60 @@ This is mainly useful if you `lazy[]` or `lazyrec[]` something explicitly, and w
 
 We provide the functions `force1` and `force`. Using `force1`, if `x` is a `lazy[]` promise, it will be forced, and the resulting value is returned. If `x` is not a promise, `x` itself is returned, à la Racket. The function `force`, in addition, descends into containers (recursively). When an atom `x` (i.e. anything that is not a container) is encountered, it is processed using `force1`.
 
-Mutable containers are updated in-place; for immutables, a new instance is created, but as a side effect the promise objects **in the input container** will be forced. Any container with a compatible `collections.abc` is supported. (See `unpythonic.collections.mogrify` for details.) In addition, as special cases `unpythonic.collections.box` and `unpythonic.llist.cons` are supported.
+Mutable containers are updated in-place; for immutables, a new instance is created, but as a side effect the promise objects **in the input container** will be forced. Any container with a compatible `collections.abc` is supported. (See `unpythonic.mogrify` for details.) In addition, as special cases `unpythonic.box` and `unpythonic.cons` are supported.
 
 #### Binding constructs and auto-lazification
 
-Why do we auto-lazify in certain kinds of binding constructs, but not in others? Function calls and let-bindings have one feature in common: both are guaranteed to bind only new names (even if that name is already in scope, they are distinct; the new binding will shadow the old one). Auto-lazification of all assignments, on the other hand, in a language that allows mutation is dangerous, because then this superficially innocuous code will fail:
+Why do we auto-lazify in certain kinds of binding constructs, but not in others? Function calls and let-bindings have one feature in common: both are guaranteed to bind only new names. Even if a name that uses the same identifier is already in scope, they are distinct; the new binding will shadow the old one. Auto-lazification of all assignments, on the other hand, in a language that allows mutation is dangerous, because then this superficially innocuous code will fail:
 
 ```python
-a = 10
-a = 2*a
-print(a)  # 20, right?
+from unpythonic.syntax import macros, lazify
+
+with lazify:
+    a = 10
+    a = 2 * a
+    print(a)  # 20, right?
 ```
 
-If we chose to auto-lazify assignments, then assuming a `with lazify` around the example, it would expand to:
+If we chose to auto-lazify assignments, then the example would expand to:
 
 ```python
 from unpythonic.syntax import macros, lazy
 from unpythonic.syntax import force
 
 a = lazy[10]
-a = lazy[2*force(a)]
+a = lazy[2 * force(a)]
 print(force(a))
 ```
 
-In the second assignment, the `lazy[]` sets up a promise, which will force `a` *at the time when the containing promise is forced*, but at that time the name `a` points to a promise, which will force...
+Scan that again: in the second assignment, the `lazy[]` sets up a promise, which will force `a` *at the time when the containing promise is forced*, but at that time the name `a` points to a promise, which will force...
 
-The fundamental issue is that `a = 2*a` is an imperative update. Therefore, to avoid this infinite loop trap for the unwary, assignments are not auto-lazified. Note that if we use two different names, this works just fine:
+The fundamental issue is that `a = 2 * a` is an imperative update. Therefore, to avoid this infinite loop trap for the unwary, assignments are not auto-lazified. Note that if we use two *different* names, this works just fine:
 
 ```python
 from unpythonic.syntax import macros, lazy
 from unpythonic.syntax import force
 
 a = lazy[10]
-b = lazy[2*force(a)]
+b = lazy[2 * force(a)]
 print(force(b))
 ```
 
-because now at the time when `b` is forced, the name `a` still points to the value we intended it to.
+because now at the time when `b` is forced, the name `a` still points to the value we intended it to. That is, code that is normalized to [static single assignment (SSA) form](https://en.wikipedia.org/wiki/Static_single_assignment_form) could be auto-lazified.
 
-If you're sure you have *new definitions* and not *imperative updates*, just manually use `lazy[]` (or `lazyrec[]`, as appropriate) on the RHS. Or if it's fine to use eager evaluation, just omit the `lazy[]`, thus allowing Python to evaluate the RHS immediately.
+If you are sure you have *new definitions* and not *imperative updates*, you can just manually use `lazy[]` (or `lazyrec[]`, as appropriate) on the RHS. Or if it is fine to use eager evaluation, just omit the `lazy[]`, thus allowing Python to evaluate the RHS immediately.
 
 Beside function calls (which bind the parameters of the callee to the argument values of the call) and assignments, there are many other binding constructs in Python. For a full list, see [here](http://excess.org/article/2014/04/bar-foo/), or locally [here](../unpythonic/syntax/scopeanalyzer.py), in function `get_names_in_store_context`. Particularly noteworthy in the context of lazification are the `for` loop and the `with` context manager.
 
 In Python's `for`, the loop counter is an imperatively updated single name. In many use cases a rapid update is desirable for performance reasons, and in any case, the whole point of the loop is (almost always) to read the counter (and do something with the value) at least once per iteration. So it is much simpler, faster, and equally correct not to lazify there.
 
-In `with`, the whole point of a context manager is that it is eagerly initialized when the `with` block is entered (and finalized when the block exits). Since our lazy code can transparently use both bare values and promises (due to the semantics of our `force1`), and the context manager would have to be eagerly initialized anyway, we can choose not to lazify there.
+In `with`, the whole point of a context manager is that it is eagerly initialized when the `with` block is entered, and finalized when the block exits. Since our lazy code can transparently use both bare values and promises (due to the semantics of our `force1`), and the context manager would have to be eagerly initialized anyway, we have chosen not to lazify there.
 
 #### Note about TCO
 
 To borrow a term from PG's On Lisp, to make `lazify` *pay-as-you-go*, a special mode in `unpythonic.tco.trampolined` is automatically enabled by `with lazify` to build lazify-aware trampolines in order to avoid a drastic performance hit (~10x) in trampolines built for regular strict code.
 
-The idea is that the mode is enabled while any function definitions in the `with lazify` block run, so they get a lazify-aware trampoline when the `trampolined` decorator is applied. This should be determined lexically, but that's complicated to do API-wise, so we currently enable the mode for the dynamic extent of the `with lazify`. Usually this is close enough; the main case where this can behave unexpectedly is:
+The idea is that the mode is enabled while any function definitions in the `with lazify` block run, so they get a lazify-aware trampoline when the `trampolined` decorator is applied. This should be determined lexically, but that is complicated to do, because the decorator is applied at run time; so we currently enable the mode for the dynamic extent of the `with lazify`. Usually this is close enough. The main case where this can behave unexpectedly is:
 
 ```python
 @trampolined  # strict trampoline
@@ -1093,13 +1096,13 @@ with lazify:
     f2 = make_f()  # f2 gets the lazify-aware trampoline
 ```
 
-TCO chains with an arbitrary mix of lazy and strict functions should work as long as the first function in the chain has a lazify-aware trampoline, because the chain runs under the trampoline of the first function (the trampolines of any tail-called functions are stripped away by the TCO machinery).
+TCO chains with an arbitrary mix of lazy and strict functions should work as long as the first function in the chain has a lazify-aware trampoline, because the chain runs under the trampoline of the first function. The trampolines of any tail-called functions are skipped by the TCO machinery.
 
 Tail-calling from a strict function into a lazy function should work, because all arguments are evaluated at the strict side before the call is made.
 
 But tail-calling `strict -> lazy -> strict` will fail in some cases. The second strict callee may get promises instead of values, because the strict trampoline does not have the `maybe_force_args` (the mechanism `with lazify` uses to force the args when lazy code calls into strict code).
 
-The reason we have this hack is that it allows the performance of strict code using unpythonic's TCO machinery, not even caring that a `lazify` exists, to be unaffected by the additional machinery used to support automatic lazy-strict interaction.
+The reason we have this hack is that it allows the performance of strict code using `unpythonic`'s TCO machinery, not even caring that a `lazify` exists, to be unaffected by the additional machinery used to support automatic lazy-strict interaction.
 
 
 ### `tco`: automatic tail call optimization for Python
