@@ -830,7 +830,7 @@ When a function whose definition (`def` or `lambda`) is lexically inside a `with
 
 Wherever could *that* be useful? For an illustrative caricature, consider [PG's accumulator puzzle](http://paulgraham.com/icad.html).
 
-The modern pythonic solution:
+The Python 3 solution:
 
 ```python
 def foo(n):
@@ -841,11 +841,23 @@ def foo(n):
     return accumulate
 ```
 
-This avoids allocating an extra place to store the accumulator `n`. If you want optimal bytecode, this is the best solution in Python 3.
+This avoids allocating an extra place to store the accumulator `n`. The Python 3.8+ solution, using the new walrus operator, is one line shorter:
 
-But what if, instead, we consider the readability of the unexpanded source code? The definition of `accumulate` requires many lines for something that simple. What if we wanted to make it a lambda? Because all forms of assignment are statements in Python, the above solution is not admissible for a lambda, even with macros.
+```python
+def foo(n):
+    def accumulate(i):
+        nonlocal n
+        return (n := n + i)
+    return accumulate
+```
 
-So if we want to use a lambda, we have to create an `env`, so that we can write into it. Let's use the let-over-lambda idiom:
+This is rather clean, but still needs the `nonlocal` declaration, which is available as a statement only.
+
+If you want optimal bytecode, these two are the best solutions of the puzzle in Python.
+
+But what if we want to shorten the source code even more, for readability? We could make `accumulate` a lambda. But then, to rebind the `n` that lives in an enclosing scope - because Python does not support doing that from an expression position - we must make it live in an `unpythonic` `env`.
+
+Let's use the let-over-lambda idiom:
 
 ```python
 def foo(n0):
@@ -853,7 +865,7 @@ def foo(n0):
                (lambda i: n << n + i)]
 ```
 
-Already better, but the `let` is used only for (in effect) altering the passed-in value of `n0`; we don't place any other variables into the `let` environment. Considering the source text already introduces an `n0` which is just used to initialize `n`, that's an extra element that could be eliminated.
+This is already shorter, but the `let` is used only for (in effect) altering the passed-in value of `n0`; we do not place any other variables into the `let` environment. Considering the source text already introduces a name `n0` which is just used to initialize `n`, that's an extra element that could be eliminated.
 
 Enter the `envify` macro, which automates this:
 
@@ -863,7 +875,7 @@ with envify:
         return lambda i: n << n + i
 ```
 
-Combining with `autoreturn` yields the fewest-elements optimal solution to the accumulator puzzle:
+Combining with `autoreturn` yields the fewest-source-code-elements optimal solution to the accumulator puzzle:
 
 ```python
 with autoreturn, envify:
@@ -871,7 +883,8 @@ with autoreturn, envify:
         lambda i: n << n + i
 ```
 
-The `with` block adds a few elements, but if desired, it can be refactored into the definition of a custom dialect in [Pydialect](https://github.com/Technologicat/pydialect).
+The `with` block adds a few elements, but if desired, it can be refactored into the definition of a custom dialect using `mcpyrate`. See [dialect examples](dialects.md).
+
 
 ## Language features
 
