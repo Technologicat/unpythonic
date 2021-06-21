@@ -100,7 +100,7 @@ Macros that introduce new ways to bind identifiers.
 
 ### `let`, `letseq`, `letrec` as macros
 
-**Changed in v0.15.0.** *Added support for env-assignment syntax in the bindings subform. For consistency with other env-assignments, this is now the preferred syntax to establish let bindings. Additionally, the old lispy syntax now accepts also brackets, for consistency with the use of brackets for macro invocations.*
+**Changed in v0.15.0.** *Added support for env-assignment syntax in the bindings subform. For consistency with other env-assignments, this is now the preferred syntax to establish let-bindings. Additionally, the old lispy syntax now accepts also brackets, for consistency with the use of brackets for macro invocations.*
 
 These macros provide properly lexically scoped `let` constructs, no boilerplate:
 
@@ -128,7 +128,7 @@ let[x << 21][2 * x]
 
 There must be at least one binding; `let[][...]` is a syntax error, since Python's parser rejects an empty subscript slice.
 
-Bindings are established using the `unpythonic` *env-assignment* syntax, `name << value`. The let bindings can be rebound in the body with the same env-assignment syntax, e.g. `x << 42`.
+Bindings are established using the `unpythonic` *env-assignment* syntax, `name << value`. The let-bindings can be rebound in the body with the same env-assignment syntax, e.g. `x << 42`.
 
 The same syntax for the bindings subform is used by:
 
@@ -179,7 +179,7 @@ The `where` operator, if used, must be macro-imported. It may only appear at the
 
 **Changed in v0.15.0.**
 
-Beginning with v0.15.0, the env-assignment syntax presented above is the preferred syntax to establish let bindings, for consistency with other env-assignments. This reminds that let variables live in an `env`, which is created by the `let` form.
+Beginning with v0.15.0, the env-assignment syntax presented above is the preferred syntax to establish let-bindings, for consistency with other env-assignments. This reminds that let variables live in an `env`, which is created by the `let` form.
 
 There is also an alternative, lispy notation for the bindings subform, where each name-value pair is given using brackets:
 
@@ -209,7 +209,7 @@ let[(x, 42) in ...]
 let[..., where(x, 42)]
 ```
 
-Even though an expr macro invocation itself is always denoted using brackets, as of `unpythonic` v0.15.0 parentheses can still be used *to pass macro arguments*, hence `let(...)[...]` is still accepted. The code that interprets the AST for the let bindings accepts both lists and tuples for each key-value pair, and the top-level container for the bindings subform in a let-in or let-where can be either list or tuple, so whether brackets or parentheses are used does not matter there, either.
+Even though an expr macro invocation itself is always denoted using brackets, as of `unpythonic` v0.15.0 parentheses can still be used *to pass macro arguments*, hence `let(...)[...]` is still accepted. The code that interprets the AST for the let-bindings accepts both lists and tuples for each key-value pair, and the top-level container for the bindings subform in a let-in or let-where can be either list or tuple, so whether brackets or parentheses are used does not matter there, either.
 
 Still, brackets are now the preferred delimiter, for consistency between the bindings and body subforms.
 
@@ -753,7 +753,7 @@ The naming is performed using the function `unpythonic.namelambda`, which will r
  - Expression-assignment to an unpythonic environment, `f << (lambda ...: ...)`
    - Env-assignments are processed lexically, just like regular assignments. This should not cause problems, because left-shifting by a literal lambda most often makes no sense (whence, that syntax is *almost* guaranteed to mean an env-assignment).
 
- - Let bindings, `let[[f << (lambda ...: ...)] in ...]`, using any let syntax supported by unpythonic (here using the haskelly let-in with env-assign style bindings just as an example).
+ - Let-bindings, `let[[f << (lambda ...: ...)] in ...]`, using any let syntax supported by unpythonic (here using the haskelly let-in with env-assign style bindings just as an example).
 
  - Named argument in a function call, as in `foo(f=lambda ...: ...)`. **Added in v0.14.2.**
 
@@ -1621,7 +1621,7 @@ The `call_cc[]` explicitly suggests that these are (almost) the only places wher
 
 Write Python almost like Lisp!
 
-Lexically inside a `with prefix` block, any literal tuple denotes a function call, unless quoted. The first element is the operator, the rest are arguments. Bindings of the `let` macros and the top-level tuple in a `do[]` are left alone, but `prefix` recurses inside them (in the case of bindings, on each RHS).
+Lexically inside a `with prefix` block, any literal tuple denotes a function call, unless quoted. The first element is the operator, the rest are arguments. Bindings of the `let` macros and the top-level tuple in a `do[]` are left alone, but `prefix` recurses inside them (in the case of let-bindings, on each RHS).
 
 The rest is best explained by example:
 

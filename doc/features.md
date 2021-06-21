@@ -368,7 +368,7 @@ letrec[[evenp << (lambda x:
        evenp(42)]  # --> True
 ```
 
-(*The transformations made by the macros may be the most apparent when comparing these examples. Note that the macros scope the `let` bindings lexically, automatically figuring out which `let` environment, if any, to refer to.*)
+(*The transformations made by the macros may be the most apparent when comparing these examples. Note that the macros scope the let-bindings lexically, automatically figuring out which `let` environment, if any, to refer to.*)
 
 
 ### `env`: the environment
