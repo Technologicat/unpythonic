@@ -1761,7 +1761,11 @@ For code using **conditions and restarts**: there is no special integration betw
 
 ### `forall`: nondeterministic evaluation
 
-Behaves the same as the multiple-body-expression tuple comprehension `unpythonic.forall`, but implemented purely by AST transformation, with real lexical variables. This is essentially a macro implementation of Haskell's do-notation for Python, specialized to the List monad (but the code is generic and very short; see `unpythonic.syntax.forall`).
+This is essentially a macro implementation of Haskell's do-notation for Python, specialized to the List monad.
+
+The `forall[]` expr macro behaves the same as the multiple-body-expression tuple comprehension `unpythonic.forall`, but the macro is implemented purely by AST transformation, using real lexical variables.
+
+The implementation is generic and very short; if interested, see the module [`unpythonic.syntax.forall`](../unpythonic/syntax/forall.py). Compare the module [`unpythonic.amb`](../unpythonic/amb.py), which implements the same functionality with a source code generator and `eval`, without macros. The macro implementation is both shorter and more readable; this is effectively a textbook example of a situation where macros are the clean solution.
 
 ```python
 from unpythonic.syntax import macros, forall
@@ -1783,11 +1787,11 @@ assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                              (8, 15, 17), (9, 12, 15), (12, 16, 20))
 ```
 
-Assignment (**with** List-monadic magic) is `var << iterable`. It is only valid at the top level of the `forall` (e.g. not inside any possibly nested `let`).
+Assignment, **with** List-monadic magic, is `var << iterable`. It is only valid at the top level of the `forall` (e.g. not inside any possibly nested `let`).
 
 `insist` and `deny` are not macros; they are just the functions from `unpythonic.amb`, re-exported for convenience.
 
-The error raised by an undefined name in a `forall` section is `NameError`.
+The error raised by an undefined name in a `forall[]` section is `NameError`.
 
 
 ## Convenience features

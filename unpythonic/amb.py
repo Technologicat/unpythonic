@@ -199,6 +199,9 @@ def forall(*lines):
     mlst = eval(allcode, {"e": e, "bodys": bodys, "begin": begin, "monadify": monadify})
     return tuple(mlst)
 
+# --------------------------------------------------------------------------------
+# This low-level machinery is shared with the macro version, `unpythonic.syntax.forall`.
+
 def monadify(value, unpack=True):
     """Pack value into a monadic list if it is not already.
 
