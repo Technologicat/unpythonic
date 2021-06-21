@@ -1845,7 +1845,7 @@ aif[2 * 21,
     print("it is falsey")]
 ```
 
-Syntax is `aif[test, then, otherwise]`. The magic identifier `it` (which **must** be imported as a macro) refers to the test result while (lexically) inside the `then` and `otherwise` parts of `aif`, and anywhere else is considered a syntax error at macro expansion time.
+Syntax is `aif[test, then, otherwise]`. The magic identifier `it` (which **must** be imported as a macro) refers to the test result while (lexically) inside the `then` and `otherwise` branches of an `aif[]`, and anywhere else is considered a syntax error at macro expansion time.
 
 Any part of `aif` may have multiple expressions by surrounding it with brackets:
 
