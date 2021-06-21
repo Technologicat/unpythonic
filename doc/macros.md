@@ -1674,7 +1674,7 @@ with prefix:
 
 If you use the `q`, `u` and `kw()` operators, they must be macro-imported. The `q`, `u` and `kw()` operators may only appear in a tuple inside a prefix block. In any invalid position, any of them is considered a syntax error at macro expansion time.
 
-This comboes with `autocurry` for an authentic *Listhell* programming experience:
+The `prefix` macro comboes with `autocurry` for an authentic *Listhell* programming experience:
 
 ```python
 from unpythonic.syntax import macros, autocurry, prefix, q, u, kw
@@ -1686,6 +1686,8 @@ with prefix, autocurry:  # important: apply prefix first, then autocurry
     (print, (mymap, double, (q, 1, 2, 3)))
     assert (mymap, double, (q, 1, 2, 3)) == ll(2, 4, 6)
 ```
+
+See also [the Listhell dialect](dialects/listhell.md), which pre-packages that combo.
 
 **CAUTION**: The `prefix` macro is experimental and not intended for use in production code.
 
