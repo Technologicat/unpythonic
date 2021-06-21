@@ -47,7 +47,7 @@ assert (my_map, double, (q, 1, 2, 3)) == (ll, 2, 4, 6)
 
 ## Features
 
-In terms of `unpythonic.syntax`, we implicitly enable `prefix` and `curry` for the whole module.
+In terms of `unpythonic.syntax`, we implicitly enable `prefix` and `autocurry` for the whole module.
 
 The following are dialect builtins:
 
