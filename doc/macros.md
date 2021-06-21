@@ -1694,9 +1694,13 @@ See also [the Listhell dialect](dialects/listhell.md), which pre-packages that c
 
 ### `autoreturn`: implicit `return` in tail position
 
-In Lisps, a function implicitly returns the value of the expression in tail position (along the code path being executed). Python's `lambda` also behaves like this (the whole body is just one return-value expression), but `def` doesn't.
+**Changed in v0.15.0.** *If the item in tail position is a function definition or class definition, return the thing that was defined. This functionality being missing in earlier versions was an oversight.*
 
-Now `def` can, too:
+In Lisps, a function implicitly returns the value of the expression in tail position along the code path being executed. That is, "the last value" is automatically returned when the function terminates normally. No `return` keyword is needed.
+
+Python's `lambda` also already behaves like this; the whole body is just one expression, whose value will be returned.
+
+However, `def` requires a `return`, even in tail position. Enter the `autoreturn` macro:
 
 ```python
 from unpythonic.syntax import macros, autoreturn
@@ -1720,28 +1724,39 @@ with autoreturn:
     assert g(42) == "something else"
 ```
 
-Each `def` function definition lexically within the `with autoreturn` block is examined, and if the last item within the body is an expression `expr`, it is transformed into `return expr`. Additionally:
+Each `def` or `async def` function definition lexically within the `with autoreturn` block is examined.
 
- - If the last item is an `if`/`elif`/`else` block, the transformation is applied to the last item in each of its branches.
+Any explicit `return` statements are left alone, so `return` can still be used as usual. This is especially useful if you want to return early (before execution reaches the tail position).
 
- - If the last item is a `with` or `async with` block, the transformation is applied to the last item in its body.
+To find and transform the statement(s) in tail position, we look at the last statement within the function definition. If it is:
 
- - If the last item is a `try`/`except`/`else`/`finally` block:
-   - **If** an `else` clause is present, the transformation is applied to the last item in it; **otherwise**, to the last item in the `try` clause. These are the positions that indicate a normal return (no exception was raised).
-   - In both cases, the transformation is applied to the last item in each of the `except` clauses.
-   - The `finally` clause is not transformed; the intention is it is usually a finalizer (e.g. to release resources) that runs after the interesting value is already being returned by `try`, `else` or `except`.
+ - An expression `expr`, it is transformed into `return expr`.
 
-If needed, the above rules are applied recursively to locate the tail position(s).
+ - A function or class definition, a return statement is appended to return that function/class. **Added in v0.15.0.**
 
-Any explicit `return` statements are left alone, so `return` can still be used as usual.
+ - An `if`/`elif`/`else` block, the transformation is applied recursively to the last item in each of its branches.
+   - **CAUTION**: If the final `else` of an `if`/`elif`/`else` is omitted, as often in Python, then only the `else` item is in tail position with respect to the function definition - likely not what you want. So with `autoreturn`, the final `else` should be written out explicitly, to include the `else` branch into the `if`/`elif`/`else` statement.
 
-**CAUTION**: If the final `else` of an `if`/`elif`/`else` is omitted, as often in Python, then only the `else` item is in tail position with respect to the function definition - likely not what you want. So with `autoreturn`, the final `else` should be written out explicitly, to make the `else` branch part of the same `if`/`elif`/`else` block.
+ - A `with` or `async with` block, the transformation is applied recursively to the last item in its body.
+
+ - A `try`/`except`/`else`/`finally` block:
+   - **If** an `else` clause is present, the transformation is applied recursively to the last item in it; **otherwise**, to the last item in the `try` clause. These are the positions that indicate a normal return (i.e. no exception was raised).
+   - In both cases, the transformation is applied recursively to the last item in each of the `except` clauses.
+   - The `finally` clause is not transformed; it is intended as a finalizer (e.g. to release resources) that runs after the interesting value is already being returned by `try`, `else` or `except`.
 
 **CAUTION**: `for`, `async for`, `while` are currently not analyzed; effectively, these are defined as always returning `None`. If the last item in your function body is a loop, use an explicit return.
 
-**CAUTION**: With `autoreturn` enabled, functions no longer return `None` by default; the whole point of this macro is to change the default return value. The default return value is `None` only if the tail position contains a statement other than `if`, `with`, `async with` or `try`.
+**CAUTION**: With `autoreturn` enabled, functions no longer return `None` by default; the whole point of this macro is to change the default return value. The default return value becomes `None` only if the tail position contains a statement other than `if`, `with`, `async with` or `try`.
 
-If you wish to omit `return` in tail calls, this comboes with `tco`; just apply `autoreturn` first (either `with autoreturn, tco:` or in nested format, `with tco:`, `with autoreturn:`).
+If you wish to omit `return` in tail calls, `autoreturn` comboes with `tco`. For the correct invocation order, see [the xmas tree combo](#the-xmas-tree-combo).
+
+For code using **conditions and restarts**: there is no special integration between `autoreturn` and the conditions-and-restarts subsystem of `unpythonic`. However, these should work together, because:
+
+ - The `with restarts` form is just a `with` block, so it gets the `autoreturn` treatment.
+ - The handlers in a `with handlers` form are either separately defined functions, or lambdas.
+   - Lambdas need no `autoreturn`.
+   - If you `def` the handler functions in a `with autoreturn` block (either the same one or a different one; this does not matter), they will get the `autoreturn` treatment.
+ - The `with handlers` form itself is just `with` block, so it also gets the `autoreturn` treatment.
 
 
 ### `forall`: nondeterministic evaluation
