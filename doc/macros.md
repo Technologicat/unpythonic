@@ -1800,7 +1800,7 @@ Small macros that are not essential but make some things easier or simpler.
 
 ### `cond`: the missing `elif` for `a if p else b`
 
-Now lambdas too can have multi-branch conditionals, yet remain human-readable:
+With `cond`, lambdas too can have multi-branch conditionals, yet remain human-readable:
 
 ```python
 from unpythonic.syntax import macros, cond
@@ -1811,7 +1811,7 @@ answer = lambda x: cond[x == 2, "two",
 print(answer(42))
 ```
 
-Syntax is `cond[test1, then1, test2, then2, ..., otherwise]`. Expansion raises an error if the `otherwise` branch is missing.
+Syntax is `cond[test1, then1, test2, then2, ..., otherwise]`. A missing `otherwise` branch is considered a syntax error at macro expansion time.
 
 Any part of `cond` may have multiple expressions by surrounding it with brackets:
 
@@ -1822,24 +1822,32 @@ cond[[pre1, ..., test1], [post1, ..., then1],
      [postn, ..., otherwise]]
 ```
 
-To denote a single expression that is a literal list, use an extra set of brackets: `[[1, 2, 3]]`.
+This is just the extra bracket syntax that denotes an implicit `do[]`. To denote a single expression that is a literal list, double the brackets: `[[1, 2, 3]]`. Just like in a `let[]` form, the outer brackets enable multiple-expression mode, and then the inner brackets denote a list. The multiple-expression mode is allowed also when there is just one expression.
+
+Inspired by the `cond` form of many Lisps. There is some variation between Lisp dialects on whether `cond` or `if` is preferable if the dialect provides both. For example, in [Racket](https://racket-lang.org/), `cond` is the [preferred](https://docs.racket-lang.org/style/Choosing_the_Right_Construct.html#%28part._.Conditionals%29) construct for writing conditionals.
 
 
 ### `aif`: anaphoric if
 
-This is mainly of interest as a point of [comparison with Racket](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/aif.rkt); `aif` is about the simplest macro that relies on either the lack of hygiene or breaking thereof.
+**Changed in v0.15.0.** *The `it` helper macro may only appear in the `then` and `otherwise` branches of an `aif[]`. Anywhere else, it is considered a syntax error at macro expansion time.*
+
+In linguistics, an [*anaphor*](https://en.wikipedia.org/wiki/Anaphora_(linguistics)) is an expression that refers to another, such as the English word *"it"*. [Anaphoric macros](https://en.wikipedia.org/wiki/Anaphoric_macro) are a lispy take on the concept. An anaphoric macro may, for example, implicitly define an `it` that the user code can then use, with the meaning defined by the macro. This is sometimes a useful technique to shorten code, but it can also make code unreadable by hiding definitions, so it should be used sparingly.
+
+Particularly, the *anaphoric if* is a classic macro, where `it` is automatically bound to the result of the test. We provide that macro as `aif[]`.
+
+Concerning readability, the anaphoric if is relatively harmless, because it is *almost* obvious from context that the only `it` that makes sense for a human to refer to is the test expression.
 
 ```python
 from unpythonic.syntax import macros, aif, it
 
-aif[2*21,
+aif[2 * 21,
     print(f"it is {it}"),
     print("it is falsey")]
 ```
 
-Syntax is `aif[test, then, otherwise]`. The magic identifier `it` (which **must** be imported as a macro, if used) refers to the test result while (lexically) inside the `then` and `otherwise` parts of `aif`, and anywhere else is considered a syntax error at macro expansion time.
+Syntax is `aif[test, then, otherwise]`. The magic identifier `it` (which **must** be imported as a macro) refers to the test result while (lexically) inside the `then` and `otherwise` parts of `aif`, and anywhere else is considered a syntax error at macro expansion time.
 
-Any part of `aif` may have multiple expressions by surrounding it with brackets (implicit `do[]`):
+Any part of `aif` may have multiple expressions by surrounding it with brackets:
 
 ```python
 aif[[pre, ..., test],
@@ -1847,10 +1855,14 @@ aif[[pre, ..., test],
     [post_false, ..., otherwise]]  # "otherwise" branch
 ```
 
-To denote a single expression that is a literal list, use an extra set of brackets: `[[1, 2, 3]]`.
+This is just the extra bracket syntax that denotes an implicit `do[]`. To denote a single expression that is a literal list, double the brackets: `[[1, 2, 3]]`. Just like in a `let[]` form, the outer brackets enable multiple-expression mode, and then the inner brackets denote a list. The multiple-expression mode is allowed also when there is just one expression.
+
+If interested, [compare with a Racket implementation](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/aif.rkt); `aif` is probably *the* simplest macro that relies on either the lack of [macro hygiene](https://en.wikipedia.org/wiki/Hygienic_macro) or intentional *breaking* thereof.
 
 
 ### `autoref`: implicitly reference attributes of an object
+
+**CAUTION**: *This is a really, really bad idea that comes with serious readability and security implications. Python does not provide this construct itself, for good reason. Details below. Use with care, if at all.*
 
 Ever wish you could `with(obj)` to say `x` instead of `obj.x` to read attributes of an object? Enter the `autoref` block macro:
 
@@ -1866,7 +1878,7 @@ with autoref(e):
     assert c == 3  # no c in e, so just c
 ```
 
-The transformation is applied for names in `Load` context only, including names found in `Attribute` or `Subscript` nodes.
+The transformation is applied for names in `Load` context only, including names found inside `Attribute` or `Subscript` AST nodes, so things like `a[1]` and `a.x` are also valid (looking up `a` in `e`).
 
 Names in `Store` or `Del` context are not redirected. To write to or delete attributes of `o`, explicitly refer to `o.x`, as usual.
 
@@ -1878,9 +1890,11 @@ See the [unit tests](../unpythonic/syntax/tests/test_autoref.py) for more usage 
 
 This is similar to the JavaScript [`with` construct](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/with), which is nowadays [deprecated](https://2ality.com/2011/06/with-statement.html). See also [the ES6 reference on `with`](https://www.ecma-international.org/ecma-262/6.0/#sec-with-statement).
 
-**CAUTION**: This construct was deprecated in JavaScript **for security reasons**. Since the autoref'd object **will hijack all name lookups**, use `with autoref` only with an object you trust!
+**NOTE**: The JavaScript `with` and the Python `with` have nothing in common except the name.
 
-**CAUTION**: `with autoref` also complicates static code analysis or makes it outright infeasible, for the same reason. It is impossible to statically know whether something that looks like a bare name in the source code is actually a true bare name, or a reference to an attribute of the autoref'd object. That status can also change at any time, since the lookup is dynamic, and attributes can be added and removed dynamically.
+**CAUTION**: The `with` construct of JavaScript was deprecated **for security reasons**. Since the autoref'd object **will hijack all name lookups**, use `with autoref` only with an object you trust! In most Python code, this does not matter, as we are all adults here, but this *may* matter if a Python object arrives from an untrusted source in a networked app.
+
+**CAUTION**: `with autoref` complicates static code analysis or makes it outright infeasible. It is impossible to statically know whether something that looks like a bare name in the source code is actually a true bare name, or a reference to an attribute of the autoref'd object. That status can also change at any time, since the lookup is dynamic, and attributes can be added and removed dynamically.
 
 
 ## Testing and debugging
