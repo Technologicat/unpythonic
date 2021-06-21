@@ -9,7 +9,7 @@ __all__ = ["autoreturn",
 
 from functools import partial
 
-from ast import (Lambda, FunctionDef, AsyncFunctionDef,
+from ast import (Lambda, FunctionDef, AsyncFunctionDef, ClassDef,
                  arguments, arg, keyword,
                  List, Tuple,
                  Call, Name, Starred, Constant,
@@ -668,28 +668,45 @@ def _autoreturn(block_body):
             if is_captured_value(tree):
                 return tree  # don't recurse!
             if type(tree) in (FunctionDef, AsyncFunctionDef):
-                tree.body[-1] = transform_tailstmt(tree.body[-1])
+                newtail = TailStatementTransformer().visit(tree.body[-1])
+                if isinstance(newtail, list):  # replaced by more than one statement?
+                    tree.body = tree.body[:-1] + newtail
+                else:
+                    tree.body[-1] = newtail
             return self.generic_visit(tree)
-    def transform_tailstmt(tree):
-        # TODO: For/AsyncFor/While?
-        if type(tree) is If:
-            tree.body[-1] = transform_tailstmt(tree.body[-1])
-            if tree.orelse:
-                tree.orelse[-1] = transform_tailstmt(tree.orelse[-1])
-        elif type(tree) in (With, AsyncWith):
-            tree.body[-1] = transform_tailstmt(tree.body[-1])
-        elif type(tree) is Try:
-            # We don't care about finalbody; typically used for unwinding only.
-            if tree.orelse:  # tail position is in else clause if present
-                tree.orelse[-1] = transform_tailstmt(tree.orelse[-1])
-            else:  # tail position is in the body of the "try"
-                tree.body[-1] = transform_tailstmt(tree.body[-1])
-            # additionally, tail position is in each "except" handler
-            for handler in tree.handlers:
-                handler.body[-1] = transform_tailstmt(handler.body[-1])
-        elif type(tree) is Expr:
-            tree = Return(value=tree.value)
-        return tree
+
+    class TailStatementTransformer(ASTTransformer):
+        def transform(self, tree):
+            # TODO: For/AsyncFor/While?
+            if type(tree) is If:
+                tree.body[-1] = self.visit(tree.body[-1])
+                if tree.orelse:
+                    tree.orelse[-1] = self.visit(tree.orelse[-1])
+            elif type(tree) in (With, AsyncWith):
+                tree.body[-1] = self.visit(tree.body[-1])
+            elif type(tree) is Try:
+                # We don't care about finalbody; typically used for unwinding only.
+                if tree.orelse:  # tail position is in else clause if present
+                    tree.orelse[-1] = self.visit(tree.orelse[-1])
+                else:  # tail position is in the body of the "try"
+                    tree.body[-1] = self.visit(tree.body[-1])
+                # additionally, tail position is in each "except" handler
+                for handler in tree.handlers:
+                    handler.body[-1] = self.visit(handler.body[-1])
+            elif type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):  # v0.15.0+
+                # If the item in tail position is a named function definition
+                # or a class definition, it binds a name - that of the function/class.
+                # Return that object.
+                with q as quoted:
+                    with a:
+                        tree
+                    return n[tree.name]
+                tree = quoted
+            elif type(tree) is Expr:  # expr -> return expr
+                with q as quoted:
+                    return a[tree.value]
+                tree = quoted[0]
+            return tree
     # This macro expands outside-in. Any nested macros should get clean standard Python,
     # not having to worry about implicit "return" statements.
     return AutoreturnTransformer().visit(block_body)
