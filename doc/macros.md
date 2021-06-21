@@ -2257,7 +2257,11 @@ Inspired by [Julia](https://julialang.org/)'s standard-library [`Test` package](
 
 ### `dbg`: debug-print expressions with source code
 
-**Changed in 0.14.2.** The `dbg[]` macro now works in the REPL, too. You can use `mcpyrate.repl.console` (a.k.a. `macropython -i` in the shell) or the IPython extension `mcpyrate.repl.iconsole`.
+**Changed in v0.15.0.** *We now use the [`mcpyrate`](https://github.com/Technologicat/mcpyrate/) macro expander instead of `macropy`. Updated the REPL note below.*
+
+*Also, `dbgprint_expr` is now a dynvar.*
+
+**Changed in 0.14.2.** *The `dbg[]` macro now works in the REPL, too. You can use `mcpyrate.repl.console` (a.k.a. `macropython -i` in the shell) or the IPython extension `mcpyrate.repl.iconsole`.*
 
 [DRY](https://en.wikipedia.org/wiki/Don't_repeat_yourself) out your [qnd](https://en.wiktionary.org/wiki/quick-and-dirty) debug printing code. Both block and expression variants are provided:
 
