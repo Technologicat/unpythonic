@@ -43,7 +43,7 @@ This depends on the purpose of each feature, as well as ease-of-use consideratio
 
 ### Examples
 
-Small, limited-space overview of the overall flavor. There's a lot more that doesn't fit here, especially in the pure-Python feature set. See the [full documentation](doc/features.md) and [unit tests](unpythonic/tests/) for more examples.
+Small, limited-space overview of the overall flavor. There is a lot more that does not fit here, especially in the pure-Python feature set. We give here simple examples that are **not** necessarily of the most general form supported by the constructs. See the [full documentation](doc/features.md) and [unit tests](unpythonic/tests/) for more examples.
 
 #### Unpythonic in 30 seconds: Pure Python
 
