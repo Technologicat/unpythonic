@@ -47,20 +47,26 @@ def nb(tree, *, args, syntax, **kw):
 
 def _nb(body, args):
     p = args[0] if args else q[h[print]]  # custom print function hook
-    with q as newbody:  # pragma: no cover, quoted only.
+    with q as newbody:
         _ = None
-        theprint = a[p]
+        theprint = lambda value: h[_print_and_passthrough](a[p], value)
     for stmt in body:
-        # We ignore statements (because no return value), and,
-        # test[] and related expressions from our test framework.
-        # Those don't return a value either, and play a role
-        # similar to the `assert` statement.
+        # We ignore statements (because no return value), and, test[] and related
+        # expressions from our test framework. Those have no meaningful return value
+        # either, and play a role similar to the `assert` statement.
         if type(stmt) is not Expr or istestmacro(stmt.value):
             newbody.append(stmt)
             continue
-        with q as newstmts:  # pragma: no cover, quoted only.
+        with q as newstmts:
             _ = a[stmt.value]
             if _ is not None:
                 theprint(_)
         newbody.extend(newstmts)
     return newbody
+
+# Work together with `autoreturn`. If the implicit print appears in tail position,
+# the passthrough will return the value that was printed, so that when `autoreturn`
+# transforms the code into `return theprint(_)`, it still works fine.
+def _print_and_passthrough(printer, value):
+    printer(value)
+    return value

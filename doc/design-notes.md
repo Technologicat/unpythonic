@@ -282,6 +282,11 @@ More on type systems:
 
  - `envify` needs to see the output of `lazify` in order to shunt function args into an unpythonic `env` without triggering the implicit forcing.
 
+ - `nb` needs to determine whether an expression should be printed.
+   - It needs to see invocations of testing macros, because those are akin to asserts - while they are technically implemented as expr macros, they expand into function calls into test asserter functions that have no meaningful return value. Thus, just in case the user has requested testing macros to expand first, `nb` needs to expand before anything that may edit function calls, such as `tco` and `autocurry`.
+   - It needs to see bare expressions (technically, in the AST, an *expression statements* `ast.Expr`). Thus `nb` should expand before `autoreturn`, to treat also expressions that appear in tail position.
+     - `nb` performs the printing using a passthrough helper function, so that the value that was printed is available as the return value of the print helper, so that `return theprint(value)` works, for co-operation with `autoreturn`.
+
  - With MacroPy, it used to be so that some of the block macros could be comboed as multiple context managers in the same `with` statement (expansion order is then *left-to-right*), whereas some (notably `autocurry` and `namedlambda`) required their own `with` statement. In `mcpyrate`, block macros can be comboed in the same `with` statement (and expansion order is *left-to-right*).
  - See the relevant [issue report](https://github.com/azazel75/macropy/issues/21) and [PR](https://github.com/azazel75/macropy/pull/22).
    - When in doubt, you can use a separate `with` statement for each block macro that applies to the same section of code, and nest the blocks. In `mcpyrate`, this is almost equivalent to having the macros invoked in a single `with` statement, in the same order.
