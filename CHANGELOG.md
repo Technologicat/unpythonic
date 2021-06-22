@@ -1,4 +1,4 @@
-**0.15.0** (in progress; updated 19 May 2021) - *"We say 'howdy' around these parts"* edition:
+**0.15.0** (22 June 2021) - *"We say 'howdy' around these parts"* edition:
 
 Beside introducing **dialects** (a.k.a. whole-module code transforms), this edition concentrates on upgrading our dependencies, namely the macro expander, and the Python language itself, to ensure `unpythonic` keeps working for the next few years. This introduces some breaking changes, so we have also taken the opportunity to apply any such that were previously scheduled.
 
