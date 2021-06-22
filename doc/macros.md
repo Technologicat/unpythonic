@@ -2377,7 +2377,7 @@ As an example of a specific technical reason, the `tco` macro skips already expa
 The **AST edits** performed by the block macros are designed to run in the following order (leftmost first):
 
 ```
-prefix > autoreturn, quicklambda > multilambda > continuations or tco > ...
+prefix > nb > autoreturn, quicklambda > multilambda > continuations or tco > ...
                                                 ... > autocurry > namedlambda, autoref > lazify > envify
 ```
 
