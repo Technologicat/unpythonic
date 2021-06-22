@@ -797,8 +797,8 @@ from unpythonic import foldl, foldr, cons, nil, ll
 my_sum = (foldl, add, 0)
 my_prod = (foldl, mul, 1)
 my_map = lambda f: (foldr, (compose, cons, f), nil)
-assert (my_sum, range(1, 5)) == 10
-assert (my_prod, range(1, 5)) == 24
+assert (my_sum, (range, 1, 5)) == 10
+assert (my_prod, (range, 1, 5)) == 24
 double = lambda x: 2 * x
 assert (my_map, double, (q, 1, 2, 3)) == (ll, 2, 4, 6)
 ```
