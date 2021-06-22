@@ -778,7 +778,8 @@ my_prod = foldl(mul, 1)
 my_map = lambda f: foldr(compose(cons, f), nil)
 assert my_sum(range(1, 5)) == 10
 assert my_prod(range(1, 5)) == 24
-assert tuple(my_map((lambda x: 2 * x), (1, 2, 3))) == (2, 4, 6)
+double = lambda x: 2 * x
+assert my_map(double, (1, 2, 3)) == ll(2, 4, 6)
 ```
 </details>  
 <details><summary>Listhell: Prefix syntax for function calls, and automatic currying.</summary>
@@ -788,12 +789,17 @@ assert tuple(my_map((lambda x: 2 * x), (1, 2, 3))) == (2, 4, 6)
 ```python
 from unpythonic.dialects import dialects, Listhell  # noqa: F401
 
-from unpythonic import foldr, cons, nil, ll
+from operator import add, mul
+from unpythonic import foldl, foldr, cons, nil, ll
 
 (print, "hello from Listhell")
 
-double = lambda x: 2 * x
+my_sum = (foldl, add, 0)
+my_prod = (foldl, mul, 1)
 my_map = lambda f: (foldr, (compose, cons, f), nil)
+assert (my_sum, range(1, 5)) == 10
+assert (my_prod, range(1, 5)) == 24
+double = lambda x: 2 * x
 assert (my_map, double, (q, 1, 2, 3)) == (ll, 2, 4, 6)
 ```
 </details>
