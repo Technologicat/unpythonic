@@ -113,7 +113,7 @@ To summarize; as someone already put it, `hoon` offers a glimpse into an alterna
 
 I think the perfect place to end this piece is to quote a few lines from the language definition [`hoon.hoon`](https://github.com/cgyarvin/urbit/blob/master/urb/zod/arvo/hoon.hoon), to give a flavor:
 
-``
+```
 ++  doos                                              ::  sleep until
   |=  hap=path  ^-  (unit ,@da)
   (doze:(wink:(vent bud (dink (dint hap))) now 0 (beck ~)) now [hap ~])
@@ -154,7 +154,7 @@ I think the perfect place to end this piece is to quote a few lines from the lan
       [p.i.mor t.i.q.i.mor t.q.i.mor r.i.mor]
   [p.yub [[p.i.naf ves:q.yub] t.naf]]
 --
-``
+```
 
 The Lisp family (particularly the Common Lisp branch) has a reputation for silly terminology, but I think `hoon` deserves the crown. All control structures are punctuation-only ASCII digraphs, and almost every name is a monosyllabic nonsense word. Still, this Lewis-Carroll-esque naming convention of making words mean what you define them to mean makes at least as much sense as the standard naming convention in mathematics, naming theorems after their discoverers! (Or at least, [after someone else](https://en.wikipedia.org/wiki/Stigler's_law_of_eponymy).)
 
