@@ -9,17 +9,6 @@ In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing f
 *Some hypertext features of this README, such as local links to detailed documentation, and expandable example highlights, are not supported when viewed on PyPI; [view on GitHub](https://github.com/Technologicat/unpythonic) to have those work properly.*
 
 
-### New version soon!
-
-**As of May 2021, `unpythonic` 0.15 is Coming Soon™.**
-
-As of [3b5e5af](https://github.com/Technologicat/unpythonic/commit/3b5e5aff3ba3bd758151b7bf5aa5f2abb07cd82f), the code itself is in a releasable state, and it is already in `master`. All that remains is an extensive documentation review. The changelog is known to be up to date, but something may still need an update in all the other parts of documentation.
-
-The new version requires Python 3.6 or above, and optionally the [`mcpyrate`](https://github.com/Technologicat/mcpyrate) macro expander. Python 3.4 and 3.5, and the MacroPy macro expander, are no longer supported by `unpythonic`.
-
-The release will be numbered **0.15.0**, even though the codebase is mostly stable at this point, and we have already adhered to [semantic versioning](https://semver.org/) since 2019 (albeit with a leading zero). The reason is that the next major version has been known under this development version number for such a long time that it makes no sense to renumber it now.
-
-
 ### Dependencies
 
 None required.
