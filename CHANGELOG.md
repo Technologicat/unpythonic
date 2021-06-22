@@ -129,6 +129,8 @@ The same applies if you need the macro parts of `unpythonic` (i.e. import anythi
   - The modules `unpythonic.dispatch` and `unpythonic.typecheck`, which provide the `@generic` and `@typed` decorators and the `isoftype` function, are no longer considered experimental. From this release on, they receive the same semantic versioning guarantees as the rest of `unpythonic`.
   - CI: Automated tests now run on Python 3.6, 3.7, 3.8, 3.9, and PyPy3 (language versions 3.6, 3.7).
   - CI: Test coverage improved to 94%.
+  - Full update pass for the user manual written in Markdown.
+    - Things added or changed in 0.14.2 and later are still mentioned as such, and have not necessarily been folded into the main text. But everything should be at least up to date now.
 
 
 **Breaking changes**:
