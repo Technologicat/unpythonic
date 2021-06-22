@@ -2369,7 +2369,7 @@ We have taken into account that:
 
 [The dialect examples](dialects.md) use this ordering.
 
-For simplicity, **the block macros make no attempt to prevent invalid combos**, unless there is a specific technical reason to do that for some particular combination. Be careful; e.g. don't nest several `with tco` blocks (lexically), that won't work.
+For simplicity, **the block macros make no attempt to prevent invalid combos**, unless there is a specific technical reason to do that for some particular combination. Be careful; e.g. do not nest several `with tco` blocks (lexically), that will not work.
 
 As an example of a specific technical reason, the `tco` macro skips already expanded `with continuations` blocks lexically contained within the `with tco`. This allows the [Lispython dialect](dialects/lispython.md) to support `continuations`.
 
@@ -2470,7 +2470,7 @@ Tested with `anaconda-mode`.
 
 #### How to use (for Emacs beginners)
 
-If you use the [Spacemacs](http://spacemacs.org/) kit, the right place to insert the snippet is into the function `dotspacemacs/user-config`. Here's [my spacemacs.d](https://github.com/Technologicat/spacemacs.d/) for reference; the snippet is in `prettify-symbols-config.el`, and it's invoked from `dotspacemacs/user-config` in `init.el`.
+If you use the [Spacemacs](http://spacemacs.org/) kit, the right place to insert the snippet is into the function `dotspacemacs/user-config`. Here's [my spacemacs.d](https://github.com/Technologicat/spacemacs.d/) for reference; the snippet is in `prettify-symbols-config.el`, and it is invoked from `dotspacemacs/user-config` in `init.el`.
 
 In a basic Emacs setup, the snippet goes into the `~/.emacs` startup file, or if you have an `.emacs.d/` directory, then into `~/.emacs.d/init.el`.
 
