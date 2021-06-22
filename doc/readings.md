@@ -220,6 +220,10 @@ The common denominator is programming. Some relate to language design, some to c
 - [Matthew Might: First-class (run-time) macros and meta-circular evaluation](https://matt.might.net/articles/metacircular-evaluation-and-first-class-run-time-macros/)
   - *First-class macros are macros that can be bound to variables, passed as arguments and returned from functions. First-class macros expand and evaluate syntax at run-time.*
 
+- Useful concepts for programming language design:
+  - [Cognitive dimensions of notations](https://en.wikipedia.org/wiki/Cognitive_dimensions_of_notations)
+  - [System quality attributes](https://en.wikipedia.org/wiki/List_of_system_quality_attributes)
+
 
 # Python-related FP resources
 
