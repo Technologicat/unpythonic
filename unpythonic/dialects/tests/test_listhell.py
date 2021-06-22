@@ -57,7 +57,7 @@ def runtests():
         # in case of duplicate name across kws, rightmost wins
         test[(f, kw(a="hi there"), kw(b="foo"), kw(b="bar")) == (q, "hi there", "bar")]  # noqa: F821
 
-    # give *args with unpythonic.fun.apply, like in Lisps:
+    # give *args with unpythonic.apply, like in Lisps:
     with testset("starargs with apply()"):
         lst = [1, 2, 3]
         def g(*args, **kwargs):
