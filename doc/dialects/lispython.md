@@ -107,7 +107,7 @@ In the `Lispy` variant, that's it - the dialect changes the semantics only. Noth
 
 This is the pythonic variant of Lispython, keeping in line with *explicit is better than implicit*. The rule is: *if a name appears in user code, it must be defined explicitly*, as is usual in Python.
 
-Note this implies that you must **explicitly import** the `local[]` macro if you want to declare local variables in a multiple-expression lambda, and the `fn[]` macro if you want to take advantage of the implicit `quicklambda`. Both are available in `unpythonic.syntax`, as usual.
+Note this implies that you must **explicitly import** the `local[]` macro if you want to declare local variables in a multiple-expression lambda, and the `fn[]` macro if you want to take advantage of the implicit `quicklambda`. Both are available in `unpythonic.syntax`, as usual. (Note that you can rename the `fn[]` macro with an as-import, and the implicit `quicklambda` will still work.)
 
 The point of the implicit `quicklambda` is that all invocations of `fn[]`, if there are any, will expand early, so that other macros that expect lambdas to be in standard Python notation will get exactly that. This includes other macros invoked by the dialect definition, namely `multilambda`, `namedlambda`, and `tco`.
 
