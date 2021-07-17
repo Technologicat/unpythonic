@@ -24,7 +24,7 @@ __all__ = ["s", "imathify", "gmathify",
            "sround", "strunc", "sfloor", "sceil",
            "slshift", "srshift", "sand", "sxor", "sor",
            "cauchyprod", "diagonal_reduce",
-           "fibonacci", "primes"]
+           "fibonacci", "triangular", "primes"]
 
 from itertools import repeat, takewhile, count
 from functools import wraps
