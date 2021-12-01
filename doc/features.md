@@ -1409,7 +1409,7 @@ assert tuple(curry(clip, 5, 10, range(20)) == tuple(range(5, 15))
 
 #### `memoize`
 
-**Changed in v0.15.0.** *Fix bug: `memoize` is now thread-safe. Even when the same memoized function instance is called concurrently from multiple threads. Exactly one thread will compute the result. If `f` is recursive, the thread that acquired the lock is the one that is allowed to recurse into the memoized `f`.*
+**Changed in v0.15.0.** *Fix bug: `memoize` is now thread-safe. Even when the same memoized function instance is called concurrently from multiple threads, exactly one thread will compute the result. If `f` is recursive, the thread that acquired the lock is the one that is allowed to recurse into the memoized `f`.*
 
 [*Memoization*](https://en.wikipedia.org/wiki/Memoization) is a functional programming technique, meant to be used with [pure functions](https://en.wikipedia.org/wiki/Pure_function). It caches the return value, so that *for each unique set of arguments*, the original function will be evaluated only once. All arguments must be hashable.
 
