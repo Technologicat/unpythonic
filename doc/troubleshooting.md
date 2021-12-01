@@ -136,7 +136,7 @@ for name in submodules:
 
 Note that even if you examine the API grouped by submodule, `unpythonic` guarantees all of its public API symbols to be present in the top-level namespace, too, so when you actually import the symbols, you can import them from the top-level namespace. (Actually, the macros expect you to do so, to recognize uses of various `unpythonic` constructs when analyzing code.)
 
-**Do not*** do this to retrieve the submodules:
+**Do not** do this to retrieve the submodules:
 
 ```python
 import types
