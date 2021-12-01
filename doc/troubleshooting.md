@@ -141,7 +141,7 @@ Note that even if you examine the API grouped by submodule, `unpythonic` guarant
 ```python
 import types
 submodules_wrong = [name for name in dir(unpythonic)
-                   if issubclass(type(getattr(unpythonic, name)), types.ModuleType)] 
+                    if issubclass(type(getattr(unpythonic, name)), types.ModuleType)] 
 ```
 
 for the same reason as above; in this variant, any submodules that have the same name as an object will be missing from the list.
