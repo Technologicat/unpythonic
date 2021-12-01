@@ -21,6 +21,7 @@
     - [But I did run my program with `macropython`?](#but-i-did-run-my-program-with-macropython)
     - [I'm hacking a macro inside a module in `unpythonic.syntax`, and my changes don't take?](#im-hacking-a-macro-inside-a-module-in-unpythonicsyntax-and-my-changes-dont-take)
     - [Both `unpythonic` and library `x` provide language-extension feature `y`. Which is better?](#both-unpythonic-and-library-x-provide-language-extension-feature-y-which-is-better)
+    - [How to list the whole public API, and only the public API?](#how-to-list-the-whole-public-api-and-only-the-public-api)
 
 <!-- markdown-toc end -->
 
@@ -92,3 +93,69 @@ The point of having these features in `unpythonic` is integration, and a consist
 In some cases (e.g. the condition system), our implementation may offer extra features not present in the original library that inspired it.
 
 In other cases (e.g. multiple dispatch), the *other* implementation may be better (e.g. runs much faster).
+
+
+### How to list the whole public API, and only the public API?
+
+In short, use Python's introspection capabilities. There are some subtleties here; below are some ready-made recipes.
+
+To view **the public API of a given submodule**:
+
+```python
+import sys
+print(sys.modules["unpythonic.collections"].__all__)  # for example
+```
+
+If the `__all__` attribute for some submodule is missing, that submodule has no public API.
+
+For most submodules, you could just
+
+```python
+print(unpythonic.collections.__all__)  # for example
+```
+
+but there are some public API symbols in `unpythonic` that have the same name as a submodule. In these cases, the object overrides the submodule in the top-level namespace of `unpythonic`. So, for example, for `unpythonic.llist`, the second approach fails because `unpythonic.llist` points to a function, not to a module. Therefore, the first approach is preferable, as it always works.
+
+To view **the whole public API**, grouped by submodule:
+
+```python
+import sys
+
+import unpythonic
+
+submodules = [name for name in dir(unpythonic)
+              if f"unpythonic.{name}" in sys.modules] 
+
+for name in submodules:
+    module = sys.modules[f"unpythonic.{name}"]
+    if hasattr(module, "__all__"):  # has a public API?
+        print("=" * 79)
+        print(f"Public API of 'unpythonic.{name}':")
+        print(module.__all__)
+```
+
+Note that even if you examine the API grouped by submodule, `unpythonic` guarantees all of its public API symbols to be present in the top-level namespace, too, so when you actually import the symbols, you can import them from the top-level namespace. (Actually, the macros expect you to do so, to recognize uses of various `unpythonic` constructs when analyzing code.)
+
+**Do not*** do this to retrieve the submodules:
+
+```python
+import types
+submodules_wrong = [name for name in dir(unpythonic)
+                   if issubclass(type(getattr(unpythonic, name)), types.ModuleType)] 
+```
+
+for the same reason as above; in this variant, any submodules that have the same name as an object will be missing from the list.
+
+To view **the whole public API** available in the top-level namespace:
+
+```python
+import types
+
+import unpythonic
+
+non_module_names = [name for name in dir(unpythonic)
+                    if not issubclass(type(getattr(unpythonic, name)), types.ModuleType)]
+print(non_module_names)
+```
+
+Now be very very careful: for the same reason as above, for the correct semantics we must use `issubclass(..., types.ModuleType)`, not `... in sys.modules`. Here we want to list each symbol in the top-level namespace of `unpythonic` that does not point to a module; **including** any objects that override a module in the top-level namespace.
