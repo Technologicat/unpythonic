@@ -5,6 +5,7 @@
 - The test framework `unpythonic.test.fixtures` is now correctly installed when installing `unpythonic`. See [#81](https://github.com/Technologicat/unpythonic/issues/81).
 - The subpackage for live REPL functionality, `unpythonic.net`, is now correctly installed when installing `unpythonic`.
 - Fix a broken import that prevented the REPL server `unpythonic.net.server` from starting. This was broken by the move of `async_raise` into `unpythonic.excutil` in 0.15.0.
+- `unpythonic.syntax.prefix`: Fix wrong macro name in error message of `unpythonic.syntax.prefix.u`. Document in the docstring that the magic operators `q`, `u`, and `kw` (of the `prefix` macro) cannot be renamed by as-importing.
 
 
 ---
