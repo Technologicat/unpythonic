@@ -122,8 +122,8 @@ def q(tree, *, syntax, **kw):  # noqa: F811
 def u(tree, *, syntax, **kw):  # noqa: F811
     """[syntax, name] Unquote operator. Only meaningful in a tuple inside a prefix block."""
     if syntax != "name":
-        raise SyntaxError("q (unpythonic.syntax.prefix.q) is a name macro only")  # pragma: no cover
-    raise SyntaxError("q (unpythonic.syntax.prefix.q) is only valid in a tuple inside a `with prefix` block")  # pragma: no cover, not meant to hit the expander
+        raise SyntaxError("u (unpythonic.syntax.prefix.u) is a name macro only")  # pragma: no cover
+    raise SyntaxError("u (unpythonic.syntax.prefix.u) is only valid in a tuple inside a `with prefix` block")  # pragma: no cover, not meant to hit the expander
 
 # TODO: This isn't a perfect solution, because there is no "call" macro kind.
 # TODO: We currently trigger the error on any appearance of the name `kw` outside a valid context.
