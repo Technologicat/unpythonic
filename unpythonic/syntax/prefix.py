@@ -86,6 +86,9 @@ def prefix(tree, *, syntax, **kw):  # noqa: F811
 
     Current limitations:
 
+        - The `q`, `u` and `kw` macros cannot be renamed by as-importing;
+          `with prefix` expects them to have their original names.
+
         - passing ``*args`` and ``**kwargs`` not supported.
 
           Workarounds: ``call(...)``; Python's usual function call syntax.
