@@ -147,6 +147,8 @@ def kw(tree, *, syntax, **kw):  # noqa: F811
 # --------------------------------------------------------------------------------
 
 def _prefix(block_body):
+    # TODO: Should change these to query the expander to allow renaming by as-imports.
+    # TODO: How to do that can be found in the implementation of `quicklambda`.
     isquote = lambda tree: getname(tree, accept_attr=False) == "q"
     isunquote = lambda tree: getname(tree, accept_attr=False) == "u"
     iskwargs = lambda tree: type(tree) is Call and getname(tree.func, accept_attr=False) == "kw"
