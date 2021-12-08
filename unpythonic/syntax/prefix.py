@@ -111,7 +111,7 @@ def prefix(tree, *, syntax, **kw):  # noqa: F811
 # operators compiled away by `prefix`), but the "q[]" we use as a macro in
 # this module is the quasiquote operator from `mcpyrate.quotes`.
 #
-# This `def` doesn't overwrite the macro `q`, because the `def` runs at run time.
+# This `def` doesn't overwrite the `mcpyrate` quasiquote macro `q`, because the `def` runs at run time.
 # The expander does not try to expand this `q` as a macro, because `def q(...)`
 # is not a valid macro invocation even when the name `q` has been imported as a macro.
 @namemacro
