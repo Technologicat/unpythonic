@@ -133,7 +133,8 @@ except ModuleNotFoundError:
     from code import InteractiveConsole as Console
 
 from ..collections import ThreadLocalBox, Shim
-from ..misc import async_raise, namelambda
+from ..excutil import async_raise
+from ..misc import namelambda
 from ..symbol import sym
 
 from .util import ReuseAddrThreadingTCPServer, socketsource
