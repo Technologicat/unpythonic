@@ -66,7 +66,9 @@ if not version:
 setup(
     name="unpythonic",
     version=version,
-    packages=["unpythonic", "unpythonic.syntax"],
+    # `unpythonic.test` is the macro-enabled testing framework, intended for public consumption;
+    # the unit tests of `unpythonic` itself in `unpythonic.tests` are NOT deployed.
+    packages=["unpythonic", "unpythonic.syntax", "unpythonic.test", "unpythonic.net"],
     provides=["unpythonic"],
     keywords=["functional-programming", "language-extension", "syntactic-macros",
               "tail-call-optimization", "tco", "continuations", "currying", "lazy-evaluation",
