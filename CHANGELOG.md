@@ -1,4 +1,8 @@
-**0.15.1** (in progress, last updated 8 December 2021)
+**0.15.1** (in progress, last updated 19 January 2022)
+
+**New**:
+
+- New module `unpythonic.timeutil`, with utilities for converting a number of seconds into human-understood formats (`seconds_to_human`, `format_human_time`), and a simple running-average `ETAEstimator` that takes advantage of these. As usual, these are available at the top level of `unpythonic`.
 
 **Fixed**:
 

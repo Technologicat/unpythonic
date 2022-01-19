@@ -41,6 +41,7 @@ from .singleton import *  # noqa: F401, F403
 from .slicing import *  # noqa: F401, F403
 from .symbol import *  # noqa: F401, F403
 from .tco import *  # noqa: F401, F403
+from .timeutil import *  # noqa: F401, F403
 from .typecheck import *  # noqa: F401, F403
 
 # --------------------------------------------------------------------------------
