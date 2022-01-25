@@ -1159,7 +1159,7 @@ def _continuations(block_body):  # here be dragons.
 # TODO: Do we need to account for `_pcc` here? Probably not, since this is defined at the
 # TODO: top level of a module, not as a closure inside another function.
 @trampolined
-def get_cc(*, cc):
+def get_cc(*args, cc):
     """When used together with `call_cc[]`, capture and get the current continuation.
 
     This convenience function covers the common use case when working with
@@ -1170,6 +1170,8 @@ def get_cc(*, cc):
 
     Or in yet other words, `get_cc` is the less antisocial little sister of `call_cc`
     from an alternate timeline, and in this adventure the two work as a team.
+
+    The `*args`, if any, are passed through.
 
     Usage::
 
@@ -1188,6 +1190,26 @@ def get_cc(*, cc):
 
                 ...
                 return k  # maybe our caller wants to replay part of us later
+
+    Any positional `*args` are passed through, so that you can also make a
+    continuation that takes additional arguments::
+
+            def domorestuff():
+                ...
+
+                k, x1, x2 = call_cc[get_cc(1, 2)]  # -> k=cc, x1=1, x2=2
+
+                print(x1, x2)
+                return k
+
+            k = domorestuff()
+            k(3, 4)
+            k(x1=3, x2=4)  # same thing
+
+    Important: in the `get_cc` call, the initial values for the additional
+    arguments, if any, must be passed positionally, due to `call_cc` syntax
+    limitations. However, when invoking the continuation, they can be passed
+    any way you want.
 
     As for how this works, you may have seen the following helper function
     in Matthew Might's article on continuations by example:
@@ -1333,12 +1355,15 @@ def get_cc(*, cc):
     # Below the first `cc` is the continuation function, and the second `cc`
     # is the return value that we are sending into it.
     #
+    # The `*args` are a passthrough so that e.g. `k, a, b = call_cc[get_cc(1, 2)]`;
+    # allows you to pass parameters into the continuation later.
+    #
     # One often sees the pattern `(cc cc)` also in Lisps; for example, see
     # the function `(current-continuation)` in Matthew Might's article on
     # continuations by example:
     # http://matt.might.net/articles/programming-with-continuations--exceptions-backtracking-search-threads-generators-coroutines/
     #
-    return jump(cc, cc)
+    return jump(cc, cc, *args)
 
 # -----------------------------------------------------------------------------
 

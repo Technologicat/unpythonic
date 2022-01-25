@@ -676,6 +676,28 @@ def runtests():
             k(k)  # send `k` back in as argument so it the continuation sees it as its local `k`
             test[lst == ["one", "two", "two"]]
 
+    # If your continuation needs to take arguments, `get_cc` can also make a parametric continuation:
+    with testset("get_cc with parametric continuation"):
+        with continuations:
+            def append_stuff_to(lst):
+                # Important: in the `get_cc` call, the initial values for
+                # the additional arguments, if any, must be passed positionally,
+                # due to `call_cc` syntax limitations.
+                k, x1, x2 = call_cc[get_cc(1, 2)]
+                lst.extend([x1, x2])
+                return k
+
+            lst = []
+            k = append_stuff_to(lst)
+            test[lst == [1, 2]]
+            # invoke the continuation, sending both `k` and our additional arguments.
+            k(k, 3, 4)
+            test[lst == [1, 2, 3, 4]]
+            # When invoking the continuation, the additional arguments can be passed
+            # in any way allowed by Python.
+            k(k, x1=5, x2=6)
+            test[lst == [1, 2, 3, 4, 5, 6]]
+
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()
