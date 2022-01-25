@@ -787,7 +787,7 @@ class CallCcMarker(ContinuationsMarker):
     """AST marker denoting a `call_cc[]` invocation."""
 
 
-def _continuations(block_body):
+def _continuations(block_body):  # here be dragons.
     # This is a very loose pythonification of Paul Graham's continuation-passing
     # macros in On Lisp, chapter 20.
     #
