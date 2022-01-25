@@ -697,44 +697,53 @@ def runtests():
             k(k, x1=5, x2=6)
             test[lst == [1, 2, 3, 4, 5, 6]]
 
-    # On the other hand, if inside the continuation, you don't need a reference
-    # to the continuation itself, you can abuse `k` to pass an arbitrary object.
+    # You can also abuse `k` to pass an arbitrary object, if inside the
+    # continuation, you don't need a reference to the continuation itself.
+    # This is the lispy solution.
     #
-    # Then in the continuation, you can ask `k` whether it is a continuation
+    # Then you can `iscontinuation(k)` to check whether it is a continuation
     # (first run, return value of `get_cc()`), or something else (second and
     # further runs, a value sent in via the continuation).
     #
-    # This is the lispy solution. Whether this or the previous example is more pythonic
-    # is left as an exercise to the reader.
+    # Whether this or the previous example is more pythonic is left as an
+    # exercise to the reader.
     #
-    # Just, for simplicity, don't send in a continuation function (without at least
-    # wrapping it in a box), to avoid the need to detect whether `k` is *the*
-    # continuation that should have been returned by *this* `get_cc`. You could
-    # look at the function name, but there is no 100% reliable way. If you need to
-    # send in a continuation function, it is much simpler to just to box it (in a
-    # read-only `Some` container, even), to make it explicit that it's intended as data.
-    #
+    # In this solution, be careful, if you need to send in a continuation
+    # function for some reason. It is impossible to be 100% sure whether `k`
+    # is *the* continuation that should have been returned by *this* `get_cc`.
+    # If you need to send in a continuation function, box it (in a read-only
+    # `Some` box, even), to make it explicit that it's intended as data.
     with testset("get_cc lispy style"):
         with continuations:
+            # The pattern
+            #
+            #     k = call_cc[get_cc()]
+            #     if iscontinuation(k):
+            #         return k
+            #
+            # creates a multi-shot resume point:
             def append_stuff_to(lst):
                 ...  # could do something useful here (otherwise, why make a continuation?)
+
                 k = call_cc[get_cc()]
 
-                # <-- the resume point is here, with `k` set to "the return value of `call_cc`"
+                # <-- the resume point is here, with `k` set to "the return value of the `call_cc`",
+                # i.e. the continuation during the first run, and whatever was sent in during later runs.
 
-                # in 0.15.1+, continuation functions created by the macro are tagged.
-                # TODO: multi-shot generator example using get_cc
-                if iscontinuation(k):  # got the continuation; just return it
+                # In 0.15.1+, continuation functions created by the `call_cc[...]` macro are
+                # tagged, and can be detected using `unpythonic.syntax.iscontinuation`, which
+                # is a regular function:
+                if iscontinuation(k):  # first run; just return the continuation
                     return k
 
-                # invoked via continuation, now `k` is input for us instead of a continuation
+                # invoked via continuation, now `k` is input data instead of a continuation
                 x1, x2 = k
                 lst.extend([x1, x2])
-                return None  # k is not the continuation now
+                return None
 
             lst = []
             k = append_stuff_to(lst)
-            k([1, 2])  # whatever we send in becomes the local `k` in the continuation.
+            k([1, 2])  # whatever object we send in becomes the local `k` in the continuation.
             test[lst == [1, 2]]
             k([3, 4])
             test[lst == [1, 2, 3, 4]]
