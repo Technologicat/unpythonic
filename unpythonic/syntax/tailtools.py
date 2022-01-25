@@ -5,7 +5,7 @@ The common factor is tail-position analysis."""
 
 __all__ = ["autoreturn",
            "tco",
-           "continuations", "call_cc", "get_cc"]
+           "continuations", "call_cc", "get_cc", "iscontinuation"]
 
 from functools import partial
 
@@ -1159,6 +1159,15 @@ def _continuations(block_body):  # here be dragons.
     # Leave a marker so "with tco", if applied, can ignore the expanded "with continuations" block
     # (needed to support continuations in the Lispython dialect, since it applies tco globally.)
     return ExpandedContinuationsMarker(body=new_block_body)
+
+def iscontinuation(x):
+    """Return whether the object `x` is a continuation function.
+
+    This function can be used for inspection at run time.
+
+    Continuation functions are created by `call_cc[...]` in a `with continuations` block.
+    """
+    return callable(x) and hasattr(x, "is_continuation") and x.is_continuation
 
 # TODO: Do we need to account for `_pcc` here? Probably not, since this is defined at the
 # TODO: top level of a module, not as a closure inside another function.

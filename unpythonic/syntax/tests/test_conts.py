@@ -5,7 +5,7 @@ from ...syntax import macros, test, test_raises, error  # noqa: F401
 from ...test.fixtures import session, testset, returns_normally
 
 from ...syntax import macros, continuations, call_cc, multilambda, autoreturn, autocurry, let  # noqa: F401, F811
-from ...syntax import get_cc
+from ...syntax import get_cc, iscontinuation
 
 from ...ec import call_ec
 from ...fploop import looped
@@ -723,9 +723,9 @@ def runtests():
 
                 # <-- the resume point is here, with `k` set to "the return value of `call_cc`"
 
-                # in 0.15.1+, continuation functions created by the macro are tagged as `is_continuation`.
-                # TODO: add an interface function to query it
-                if hasattr(k, "is_continuation"):  # got the continuation; just return it
+                # in 0.15.1+, continuation functions created by the macro are tagged.
+                # TODO: multi-shot generator example using get_cc
+                if iscontinuation(k):  # got the continuation; just return it
                     return k
 
                 # invoked via continuation, now `k` is input for us instead of a continuation
