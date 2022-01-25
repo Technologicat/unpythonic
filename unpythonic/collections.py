@@ -290,6 +290,9 @@ class Some:
 
     In a way, `Some` is a relative of `box`: it's an **immutable** single-item
     container. It supports `.get` and `unbox`, but no `<<` or `.set`.
+
+    It is also the logical opposite of a bare `None`, also syntactically:
+    `Some(...) is not None`.
     """
     def __init__(self, x=None):
         self.x = x
