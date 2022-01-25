@@ -5,6 +5,7 @@ from ...syntax import macros, test, test_raises, error  # noqa: F401
 from ...test.fixtures import session, testset, returns_normally
 
 from ...syntax import macros, continuations, call_cc, multilambda, autoreturn, autocurry, let  # noqa: F401, F811
+from ...syntax import get_cc
 
 from ...ec import call_ec
 from ...fploop import looped
@@ -651,6 +652,29 @@ def runtests():
             s = k()
             test[tuple(out) == 2 * tuple(range(11))]
             test[s == 10]
+
+    # As of 0.15.1, the preferred way of working with continuations is as follows.
+    #
+    # The pattern `k = call_cc[get_cc()]` covers the 99% common case where you
+    # just want to snapshot and save the control state into a local variable.
+    #
+    # See docstring of `unpythonic.syntax.get_cc` for more. It's a regular function
+    # that works together with the `call_cc` macro.
+    with testset("get_cc, the less antisocial little sister of call_cc"):
+        with continuations:
+            def append_stuff_to(lst):
+                lst.append("one")
+                k = call_cc[get_cc()]
+                print(k)
+                lst.append("two")
+                return k
+
+            lst = []
+            k = append_stuff_to(lst)
+            test[lst == ["one", "two"]]
+            # invoke the continuation
+            k(k)  # send `k` back in as argument so it the continuation sees it as its local `k`
+            test[lst == ["one", "two", "two"]]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
