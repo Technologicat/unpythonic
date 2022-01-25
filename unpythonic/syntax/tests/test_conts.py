@@ -698,6 +698,48 @@ def runtests():
             k(k, x1=5, x2=6)
             test[lst == [1, 2, 3, 4, 5, 6]]
 
+    # On the other hand, if inside the continuation, you don't need a reference
+    # to the continuation itself, you can abuse `k` to pass an arbitrary object.
+    #
+    # Then in the continuation, you can ask `k` whether it is a continuation
+    # (first run, return value of `get_cc()`), or something else (second and
+    # further runs, a value sent in via the continuation).
+    #
+    # This is the lispy solution. Whether this or the previous example is more pythonic
+    # is left as an exercise to the reader.
+    #
+    # Just, for simplicity, don't send in a continuation function (without at least
+    # wrapping it in a box), to avoid the need to detect whether `k` is *the*
+    # continuation that should have been returned by *this* `get_cc`. You could
+    # look at the function name, but there is no 100% reliable way. If you need to
+    # send in a continuation function, it is much simpler to just to box it (in a
+    # read-only `Some` container, even), to make it explicit that it's intended as data.
+    #
+    with testset("get_cc lispy style"):
+        with continuations:
+            def append_stuff_to(lst):
+                ...  # could do something useful here (otherwise, why make a continuation?)
+                k = call_cc[get_cc()]
+
+                # <-- the resume point is here, with `k` set to "the return value of `call_cc`"
+
+                # in 0.15.1+, continuation functions created by the macro are tagged as `is_continuation`.
+                # TODO: add an interface function to query it
+                if hasattr(k, "is_continuation"):  # got the continuation; just return it
+                    return k
+
+                # invoked via continuation, now `k` is input for us instead of a continuation
+                x1, x2 = k
+                lst.extend([x1, x2])
+                return None  # k is not the continuation now
+
+            lst = []
+            k = append_stuff_to(lst)
+            k([1, 2])  # whatever we send in becomes the local `k` in the continuation.
+            test[lst == [1, 2]]
+            k([3, 4])
+            test[lst == [1, 2, 3, 4]]
+
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()
