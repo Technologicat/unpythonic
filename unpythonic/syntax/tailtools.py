@@ -1035,8 +1035,12 @@ def _continuations(block_body):  # here be dragons.
                        decorator_list=[],  # patched later by transform_def
                        returns=None)  # return annotation not used here
 
-        # in the output stmts, define the continuation function...
-        newstmts = [funcdef]
+        # 0.15.1: tag the continuation function as a continuation, for introspection.
+        setcontflag = Assign(targets=[q[n[f"{contname}.is_continuation"]]],
+                             value=q[True])
+
+        # in the output stmts, define the continuation function, set its is-continuation flag, ...
+        newstmts = [funcdef, setcontflag]
         if owner:  # ...and tail-call it (if currently inside a def)
             def jumpify(tree):
                 tree.args = [tree.func] + tree.args
