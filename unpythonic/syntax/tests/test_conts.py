@@ -665,7 +665,6 @@ def runtests():
             def append_stuff_to(lst):
                 lst.append("one")
                 k = call_cc[get_cc()]
-                print(k)
                 lst.append("two")
                 return k
 
