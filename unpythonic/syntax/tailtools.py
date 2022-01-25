@@ -5,7 +5,7 @@ The common factor is tail-position analysis."""
 
 __all__ = ["autoreturn",
            "tco",
-           "continuations", "call_cc"]
+           "continuations", "call_cc", "get_cc"]
 
 from functools import partial
 
@@ -1155,6 +1155,190 @@ def _continuations(block_body):  # here be dragons.
     # Leave a marker so "with tco", if applied, can ignore the expanded "with continuations" block
     # (needed to support continuations in the Lispython dialect, since it applies tco globally.)
     return ExpandedContinuationsMarker(body=new_block_body)
+
+# TODO: Do we need to account for `_pcc` here? Probably not, since this is defined at the
+# TODO: top level of a module, not as a closure inside another function.
+@trampolined
+def get_cc(*, cc):
+    """When used together with `call_cc[]`, capture and get the current continuation.
+
+    This convenience function covers the common use case when working with
+    continuations, when you just want to snapshot the control state into a
+    local variable.
+
+    In other words, this is what you want 99% of the time when you need `call_cc`.
+
+    Or in yet other words, `get_cc` is the less antisocial little sister of `call_cc`
+    from an alternate timeline, and in this adventure the two work as a team.
+
+    Usage::
+
+        with continuations:
+            ...
+            def dostuff():
+                ...
+
+                k = call_cc[get_cc()]
+
+                # Now `k` is the continuation from this point on.
+                # You can do whatever you want with it!
+                #
+                # To invoke it, `k(k)` to always preserve the meaning
+                # of `k` in this part of the code. (See below.)
+
+                ...
+                return k  # maybe our caller wants to replay part of us later
+
+    As for how this works, you may have seen the following helper function
+    in Matthew Might's article on continuations by example:
+
+        (define (current-continuation)
+          (call/cc (lambda (cc) (cc cc))))
+
+    The lambda is pretty much `get_cc`. We cannot factor away the `call/cc`,
+    because our `call_cc` is a macro that arranges for the actual capture to
+    happen at its use site (and it cannot affect any outer levels of the call
+    stack).
+
+
+    **CAUTION**:
+
+    In `k = call_cc[get_cc()]`, the continuation is automatically assigned to
+    `k` only during the first run, i.e. (in the example) whenever `dostuff` is
+    called normally.
+
+    By the rules of `unpythonic.syntax.call_cc`, the continuation function will
+    have parameters for whatever is on the left-hand side of the assignment; in
+    this case, there will be one parameter, `k`.
+
+    When you invoke the continuation later, the name `k` inside the continuation
+    (i.e. in the code below the `call_cc` line) will point to whatever value you
+    sent into the continuation as its argument.
+
+    To achieve least surprise, in 99% of cases, one should arrange things so that
+    in the continuation, the name `k` always actually points to the continuation,
+    no matter whether the code runs normally or via continuation invocation.
+
+    Thus, unless there is a specific reason to do otherwise, the recommended way
+    to invoke the continuation is `k(k)` (giving it itself as the argument).
+
+    Note this caution applies to any continuation that expects to take itself
+    as an argument; the `k = call_cc[get_cc()]` pattern is just a convenient
+    way to create such continuations.
+
+
+    **Comparison to Lisps**:
+
+    The `k = call_cc[get_cc()]` pattern was inspired by The One True Way to use
+    `call/cc` in Lisp dialects that have multi-shot continuations, as well as the
+    `let/cc` construct in Racket.
+
+    The One True Way is to use a one-argument lambda that is invoked immediately
+    by the `call/cc`:
+
+        (define dostuff ()
+          ...
+          (call/cc (lambda (k)
+             ;; ...now k is the continuation...
+             ...
+             k)))  ;; return it just for the lulz
+
+    The name `call/cc` (`call-with-current-continuation`) is a misnomer; the
+    purpose of the construct is not really to call a reusable function defined
+    somewhere else; used that way, it may seem an esoteric feature primarily
+    intended to confuse programmers. Instead, when combined with a lexical closure
+    as above, it exposes the continuation as a local variable - which is a
+    clean and useful technique for a variety of purposes (custom escapes,
+    generators, backtracking, ...).
+
+    Racket abstracts this pattern into `let/cc`, which communicates the intent
+    more clearly:
+
+        (define dostuff ()
+          ...
+          (let/cc k
+            ;; ...now k is the continuation...
+            ...
+            k))  ;; return it just for the lulz
+
+    (Racket has no `return` keyword - it does not need one, since you can
+     create one using `(let/cc return ...)`, scoping it to whichever block
+     you want.)
+
+    In the Lisp examples above, `k` is the continuation starting with the next
+    expression after the `call/cc` or `let/cc` block (expression).
+
+    In our `k = call_cc[get_cc()]` pattern, `k` is the rest of the function body
+    after the statement `k = call_cc[get_cc()]`.
+
+    So in Lisps, invoking `k` inside the block performs an exit (think of a Python
+    `return` from that block), whereas in our implementation, doing so loops back
+    to the next statement just after the `call_cc`.
+
+    There is a similarity between our `get_cc` and something that is possible
+    in Lisps: our continuation starts from the next statement that runs after
+    `k = call_cc[get_cc()]`. This is exactly how the `(current-continuation)`
+    function, mentioned at the beginning, works.
+
+
+    **Why `get_cc`?**:
+
+    In Python, a function using all the features of the language cannot be
+    defined in an expression, so in most cases the (un)pythonic `call_cc`
+    must indeed call a function defined somewhere else.
+
+    The question becomes, what should this function be?
+
+    1. To be useful at all, it should make it easier to program with continuations,
+       over arbitrary use of `call_cc`.
+
+    2. To promote a standard usage pattern, the function should be as general as
+       possible, so that we only ever need one.
+
+    3. For least surprise, the function should do as little as possible;
+       particularly, no side effects.
+
+    4. For familiarity, we should stay as close to The One True Way pattern as
+       possible. In the pattern, the lambda converts the call into a let-like
+       construct, which pythonifies into an assignment, `k = call_cc[...]`.
+
+    5. The only reason to use `call_cc` is when you want to get the continuation.
+
+    The obvious solution is a function that just passes the continuation as an
+    argument into that very same continuation, without any side effects; this is
+    exactly what `get_cc` does. Thus we get the pattern `k = call_cc[get_cc()]`,
+    which arguably does exactly what it says on the tin.
+    """
+    # If `get_cc` was defined inside a `with continuations` block, the definition
+    # could be just:
+    #
+    #     def get_cc(*, cc):
+    #         return cc
+    #
+    # because that means "send the value `cc` into the current continuation"
+    # (i.e. "escape into the current continuation with the value `cc`"), and
+    # `cc` is the current continuation. For a more detailed analysis in Scheme:
+    #
+    #   https://stackoverflow.com/questions/57663699/returning-continuations-from-call-cc
+    #
+    # Since `get_cc` is not defined inside a `with continuations` block (so that
+    # we can easily provide it in the same module that defines the continuation
+    # machinery, without using multiphase compilation), we make the actual definition
+    # essentially as a handcrafted macro expansion.
+    #
+    # So when returning, we are expected to tail-call (i.e. TCO-jump into) the
+    # continuation function that was given to us, with our return value(s) becoming
+    # its argument(s).
+    #
+    # Below the first `cc` is the continuation function, and the second `cc`
+    # is the return value that we are sending into it.
+    #
+    # One often sees the pattern `(cc cc)` also in Lisps; for example, see
+    # the function `(current-continuation)` in Matthew Might's article on
+    # continuations by example:
+    # http://matt.might.net/articles/programming-with-continuations--exceptions-backtracking-search-threads-generators-coroutines/
+    #
+    return jump(cc, cc)
 
 # -----------------------------------------------------------------------------
 
