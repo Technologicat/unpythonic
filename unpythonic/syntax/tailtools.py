@@ -901,8 +901,9 @@ def _continuations(block_body):  # here be dragons.
                 # TODO: To support Python's scoping properly in assignments after the `call_cc`,
                 # TODO: we have to scan `before` for assignments to local variables (stopping at
                 # TODO: scope boundaries; use `unpythonic.syntax.scoping.get_names_in_store_context`,
-                # TODO: and declare those variables `nonlocal` in `after`. This way the binding
-                # TODO: will be shared between the original context and the continuation.
+                # TODO: and declare those variables (plus any variables already declared as `nonlocal`
+                # TODO: in `before`) as `nonlocal` in `after`. This way the binding will be shared
+                # TODO: between the original context and the continuation. Also, propagate `global`.
                 # See Politz et al 2013 (the "full monty" paper), section 4.2.
                 return before, stmt, after
             before.append(stmt)
