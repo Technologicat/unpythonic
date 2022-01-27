@@ -39,5 +39,13 @@ class Pytkell(Dialect):
             from unpythonic import cons, car, cdr, ll, llist, nil  # noqa: F401
             with lazify, autocurry:
                 __paste_here__  # noqa: F821, just a splicing marker.
-        tree.body = splice_dialect(tree.body, template, "__paste_here__")
+
+        # Beginning with 3.6.0, `mcpyrate` makes available the source location info
+        # of the dialect-import that imported this dialect.
+        if hasattr(self, "lineno"):  # mcpyrate 3.6.0+
+            tree.body = splice_dialect(tree.body, template, "__paste_here__",
+                                       lineno=self.lineno, col_offset=self.col_offset)
+        else:
+            tree.body = splice_dialect(tree.body, template, "__paste_here__")
+
         return tree

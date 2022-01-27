@@ -39,7 +39,15 @@ class Lispython(Dialect):
             from unpythonic import cons, car, cdr, ll, llist, nil, prod, dyn, Values  # noqa: F401, F811
             with autoreturn, quicklambda, multilambda, namedlambda, tco:
                 __paste_here__  # noqa: F821, just a splicing marker.
-        tree.body = splice_dialect(tree.body, template, "__paste_here__")
+
+        # Beginning with 3.6.0, `mcpyrate` makes available the source location info
+        # of the dialect-import that imported this dialect.
+        if hasattr(self, "lineno"):  # mcpyrate 3.6.0+
+            tree.body = splice_dialect(tree.body, template, "__paste_here__",
+                                       lineno=self.lineno, col_offset=self.col_offset)
+        else:
+            tree.body = splice_dialect(tree.body, template, "__paste_here__")
+
         return tree
 
 
@@ -68,5 +76,13 @@ class Lispy(Dialect):
             # of the template.
             with autoreturn, quicklambda, multilambda, namedlambda, tco:
                 __paste_here__  # noqa: F821, just a splicing marker.
-        tree.body = splice_dialect(tree.body, template, "__paste_here__")
+
+        # Beginning with 3.6.0, `mcpyrate` makes available the source location info
+        # of the dialect-import that imported this dialect.
+        if hasattr(self, "lineno"):  # mcpyrate 3.6.0+
+            tree.body = splice_dialect(tree.body, template, "__paste_here__",
+                                       lineno=self.lineno, col_offset=self.col_offset)
+        else:
+            tree.body = splice_dialect(tree.body, template, "__paste_here__")
+
         return tree
