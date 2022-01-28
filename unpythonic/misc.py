@@ -108,7 +108,8 @@ def namelambda(name):
         # https://docs.python.org/3/library/inspect.html#types-and-members
         if version_info >= (3, 8, 0):  # Python 3.8+: positional-only parameters
             # In Python 3.8+, `CodeType` has the convenient `replace()` method to functionally update it.
-            # In Python 3.10, we must actually use it to avoid losing the line number info.
+            # In Python 3.10, we must actually use it to avoid losing the line number info,
+            # or `inspect.stack()` will crash in the unit tests for `callsite_filename()`.
             f.__code__ = f.__code__.replace(co_name=name)
         else:
             f.__code__ = CodeType(co.co_argcount, co.co_kwonlyargcount,
