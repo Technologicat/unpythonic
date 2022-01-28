@@ -15,6 +15,7 @@ see `typeguard`:
 """
 
 import collections
+import sys
 import typing
 
 try:
@@ -93,7 +94,7 @@ def isoftype(value, T):
     # there's not much we can do.
 
     # TODO: Right now we're accessing internal fields to get what we need.
-    # TODO: Would be nice to update this if Python, at some point, adds an
+    # TODO: Would be nice to rewrite this if Python, at some point, adds an
     # TODO: official API to access the static type information at run time.
 
     if T is typing.Any:
@@ -185,8 +186,14 @@ def isoftype(value, T):
     if T is typing.Union:  # isinstance(T, typing._SpecialForm) and T._name == "Union":
         return False  # pragma: no cover, Python 3.7+ only.
 
-    # TODO: in Python 3.7+, what is the mysterious callable that doesn't have `__qualname__`?
-    if callable(T) and hasattr(T, "__qualname__") and T.__qualname__ == "NewType.<locals>.new_type":
+    def isNewType(T):
+        # In Python 3.10, an instance of `typing.NewType` is now actually such and not just a function. Nice!
+        if sys.version_info >= (3, 10, 0):
+            return isinstance(T, typing.NewType)
+        # Python 3.6 through Python 3.9
+        # TODO: in Python 3.7+, what is the mysterious callable that doesn't have a `__qualname__`?
+        return callable(T) and hasattr(T, "__qualname__") and T.__qualname__ == "NewType.<locals>.new_type"
+    if isNewType(T):
         # This is the best we can do, because the static types created by `typing.NewType`
         # have a constructor that discards the type information at runtime:
         #   UserId = typing.NewType("UserId", int)
