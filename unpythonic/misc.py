@@ -107,13 +107,9 @@ def namelambda(name):
         # https://docs.python.org/3/library/types.html#types.CodeType
         # https://docs.python.org/3/library/inspect.html#types-and-members
         if version_info >= (3, 8, 0):  # Python 3.8+: positional-only parameters
-            f.__code__ = CodeType(co.co_argcount, co.co_posonlyargcount, co.co_kwonlyargcount,
-                                  co.co_nlocals, co.co_stacksize, co.co_flags,
-                                  co.co_code, co.co_consts, co.co_names,
-                                  co.co_varnames, co.co_filename,
-                                  name,
-                                  co.co_firstlineno, co.co_lnotab, co.co_freevars,
-                                  co.co_cellvars)
+            # In Python 3.8+, `CodeType` has the convenient `replace()` method to functionally update it.
+            # In Python 3.10, we must actually use it to avoid losing the line number info.
+            f.__code__ = f.__code__.replace(co_name=name)
         else:
             f.__code__ = CodeType(co.co_argcount, co.co_kwonlyargcount,
                                   co.co_nlocals, co.co_stacksize, co.co_flags,
