@@ -1,4 +1,4 @@
-**0.15.1** (in progress, last updated 28 January 2022)
+**0.15.1** (28 January 2022) - *New Year's edition*:
 
 **New**:
 
