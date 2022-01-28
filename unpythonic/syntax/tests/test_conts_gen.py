@@ -18,7 +18,9 @@ See also the Racket version of this:
     https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/generator.rkt
 """
 
-from ...syntax import macros, test, test_raises  # noqa: F401
+from mcpyrate.multiphase import macros, phase
+
+from ...syntax import macros, test, test_raises  # noqa: F401, F811
 from ...test.fixtures import session, testset
 
 from ...syntax import macros, continuations, call_cc, dlet, abbrev, let_syntax, block  # noqa: F401, F811
@@ -26,7 +28,214 @@ from ...syntax import macros, continuations, call_cc, dlet, abbrev, let_syntax, 
 from ...fploop import looped
 from ...fun import identity
 
-#from mcpyrate.debug import macros, step_expansion  # noqa: F811, F401
+from mcpyrate.debug import macros, step_expansion  # noqa: F811, F401
+
+# TODO: pretty long, move into its own module
+# Multishot generators can also be implemented using the pattern `k = call_cc[get_cc()]`.
+#
+# Because `with continuations` is a two-pass macro, it will first expand any
+# `@multishot` inside the block before performing its own processing, which is
+# exactly what we want.
+#
+# We could force the ordering with the metatool `mcpyrate.metatools.expand_first`
+# added in `mcpyrate` 3.6.0, but we don't need to do that.
+#
+# To make these multi-shot generators support the most basic parts
+# of the API of Python's native generators, make a wrapper object:
+#
+#  - `__iter__` on the original function should create the wrapper object
+#    and initialize it. Maybe always inject a bare `myield` at the beginning
+#    of a multishot function before other processing, and run the function
+#    until it returns the initial continuation? This continuation can then
+#    be stashed just like with any resume point.
+#  - `__next__` needs a stash for the most recent continuation
+#    per activation of the multi-shot generator. It should run
+#    the most recent continuation (with no arguments) until the next `myield`,
+#    stash the new continuation, and return the yielded value, if any.
+#  - `send` should send a value into the most recent continuation
+#    (thus resuming).
+#  - When the function returns normally, without returning any further continuation,
+#    the wrapper should `raise StopIteration`, providing the return value as argument
+#    to the exception.
+#
+# Note that a full implementation of the generator API requires much
+# more. We should at least support `close` and `throw`, and think hard
+# about how to handle exceptions. Particularly, a `yield` inside a
+# `finally` is a classic catch. This sketch also has no support for
+# `yield from`; we would likely need our own `myield_from`.
+with phase[1]:
+    # TODO: relative imports
+    # TODO: mcpyrate does not recognize current package in phases higher than 0? (parent missing)
+
+    import ast
+    from functools import partial
+    import sys
+
+    from mcpyrate.quotes import macros, q, a, h  # noqa: F811
+    from unpythonic.syntax import macros, call_cc  # noqa: F811
+
+    from mcpyrate import namemacro, gensym
+    from mcpyrate.quotes import is_captured_value
+    from mcpyrate.utils import extract_bindings
+    from mcpyrate.walkers import ASTTransformer
+
+    from unpythonic.syntax import get_cc, iscontinuation
+
+    def myield_function(tree, syntax, **kw):
+        if syntax not in ("name", "expr"):
+            raise SyntaxError("myield is a name and expr macro only")
+
+        # Accept `myield` in any non-load context, so that we can below define the macro `it`.
+        #
+        # This is only an issue, because this example uses multi-phase compilation.
+        # The phase-1 `myield` is in the macro expander - preventing us from referring to
+        # the name `myield` - when the lifted phase-0 definition is being run. During phase 0,
+        # that makes the line `myield = namemacro(...)` below into a macro-expansion-time
+        # syntax error, because that `myield` is not inside a `@multishot`.
+        #
+        # We hack around it, by allowing `myield` anywhere as long as the context is not a `Load`.
+        if hasattr(tree, "ctx") and type(tree.ctx) is not ast.Load:
+            return tree
+
+        raise SyntaxError("myield may only appear inside a multishot function")
+    myield = namemacro(myield_function)
+
+    def multishot(tree, syntax, expander, **kw):
+        """[syntax, block] Multi-shot generators based on the pattern `k = call_cc[get_cc()]`."""
+        if syntax != "decorator":
+            raise SyntaxError("multishot is a decorator macro only")  # pragma: no cover
+        if type(tree) is not ast.FunctionDef:
+            raise SyntaxError("@multishot supports `def` only")
+
+        # Detect the name(s) of `myield` at the use site (this accounts for as-imports)
+        macro_bindings = extract_bindings(expander.bindings, myield_function)
+        if not macro_bindings:
+            raise SyntaxError("The use site of `multishot` must macro-import `myield`, too.")
+        names_of_myield = list(macro_bindings.keys())
+
+        def is_myield_name(node):
+            return type(node) is ast.Name and node.id in names_of_myield
+        def is_myield_expr(node):
+            return type(node) is ast.Subscript and is_myield_name(node.value)
+        def getslice(subscript_node):
+            if sys.version_info >= (3, 9, 0):  # Python 3.9+: no ast.Index wrapper
+                return subscript_node.slice
+            return subscript_node.slice.value
+        # We can work with variations of the pattern
+        #
+        #     k = call_cc[get_cc()]
+        #     if iscontinuation(k):
+        #         return k
+        #     # here `k` is the data sent in via the continuation
+        #
+        # to create a multi-shot resume point. The details will depend on whether our
+        # user wants each particular resume point to return and/or take in a value.
+        #
+        # Note that `myield`, beside optionally yielding a value, always returns the
+        # continuation that resumes execution just after that `myield`. The caller
+        # is free to stash the continuations and invoke earlier ones again, as needed.
+        class MultishotYieldTransformer(ASTTransformer):
+            def transform(self, tree):
+                if is_captured_value(tree):  # do not recurse into hygienic captures
+                    return tree
+                # respect scope boundaries
+                if type(tree) in (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
+                                  ast.ListComp, ast.DictComp, ast.SetComp, ast.GeneratorExp):
+                    return tree
+
+                # `k = myield[value]`
+                if type(tree) is ast.Assign and is_myield_expr(tree.value):
+                    if len(tree.targets) != 1:
+                        raise SyntaxError("expected exactly one assignment target in k = myield[expr]")
+                    var = tree.targets[0]
+                    value = getslice(tree.value)
+                    with q as quoted:
+                        a[var] = h[call_cc][h[get_cc]()]
+                        if h[iscontinuation](a[var]):
+                            return a[var], a[value]
+                    return quoted
+
+                # `k = myield`
+                elif type(tree) is ast.Assign and is_myield_name(tree.value):
+                    if len(tree.targets) != 1:
+                        raise SyntaxError("expected exactly one assignment target in k = myield[expr]")
+                    var = tree.targets[0]
+                    with q as quoted:
+                        a[var] = h[call_cc][h[get_cc]()]
+                        if h[iscontinuation](a[var]):
+                            return a[var]
+                    return quoted
+
+                # `myield[value]`
+                elif type(tree) is ast.Expr and is_myield_expr(tree.value):
+                    var = ast.Name(id=gensym("myield_cont"))
+                    value = getslice(tree.value)
+                    with q as quoted:
+                        a[var] = h[call_cc][h[get_cc]()]
+                        if h[iscontinuation](a[var]):
+                            return h[partial](a[var], None), a[value]
+                    return quoted
+
+                # `myield`
+                elif type(tree) is ast.Expr and is_myield_name(tree.value):
+                    var = ast.Name(id=gensym("myield_cont"))
+                    with q as quoted:
+                        a[var] = h[call_cc][h[get_cc]()]
+                        if h[iscontinuation](a[var]):
+                            return h[partial](a[var], None)
+                    return quoted
+
+                return self.generic_visit(tree)
+
+        class ReturnToStopIterationTransformer(ASTTransformer):
+            def transform(self, tree):
+                if is_captured_value(tree):  # do not recurse into hygienic captures
+                    return tree
+                # respect scope boundaries
+                if type(tree) in (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
+                                  ast.ListComp, ast.DictComp, ast.SetComp, ast.GeneratorExp):
+                    return tree
+
+                if type(tree) is ast.Return:
+                    # `return`
+                    if tree.value is None:
+                        with q as quoted:
+                            raise h[StopIteration]
+                        return quoted
+                    # `return value`
+                    with q as quoted:
+                        raise h[StopIteration](a[tree.value])
+                    return quoted
+
+                return self.generic_visit(tree)
+
+        # ------------------------------------------------------------
+        # main processing logic
+
+        # Make the multishot generator raise `StopIteration` when it finishes
+        # via any `return`. First make the implicit bare `return` explicit.
+        #
+        # We must do this before we transform the `myield` statements,
+        # to avoid breaking tail-calling the continuations.
+        if type(tree.body[-1]) is not ast.Return:
+            with q as quoted:
+                return
+            tree.body.extend(quoted)
+        tree.body = ReturnToStopIterationTransformer().visit(tree.body)
+
+        # Inject a bare `myield` resume point at the beginning of the function body.
+        # This makes the resulting function work somewhat like a Python generator.
+        # When initially called, the arguments are bound, and you get a continuation;
+        # then resuming that continuation starts the actual computation.
+        tree.body.insert(0, ast.Expr(value=ast.Name(id=names_of_myield[0])))
+
+        # Transform multishot yields (`myield`) into `call_cc`.
+        tree.body = MultishotYieldTransformer().visit(tree.body)
+
+        return tree
+
+from __self__ import macros, multishot, myield  # noqa: F811, F401
+
 
 def runtests():
     with testset("a basic generator"):
@@ -178,7 +387,7 @@ def runtests():
                     x = g2()  # noqa: F821
                 test[out == list(range(10))]
 
-    with testset("multi-shot generators"):
+    with testset("multi-shot generators with call_cc[]"):
         with continuations:
             with let_syntax:
                 with block[value] as my_yield:  # noqa: F821
@@ -241,6 +450,36 @@ def runtests():
         # module level, define my_yield as a magic variable so that accidental uses
         # outside any make_generator are caught at compile time. The actual template the
         # make_generator macro needs to splice in is already here in the final example.)
+
+    with testset("multi-shot generators with the pattern call_cc[get_cc()]"):
+        with continuations:
+            @multishot
+            def g():
+                myield[1]
+                myield[2]
+                myield[3]
+
+            try:
+                out = []
+                k = g()  # instantiate the multishot generator
+                while True:
+                    k, x = k()
+                    out.append(x)
+            except StopIteration:
+                pass
+            test[out == [1, 2, 3]]
+
+            k0 = g()  # instantiate the multishot generator
+            k1, x1 = k0()
+            k2, x2 = k1()
+            k3, x3 = k2()
+            k, x = k1()  # multi-shot generator can resume from an earlier point
+            test[x1 == 1]
+            test[x2 == x == 2]
+            test[x3 == 3]
+            test[k.func.__qualname__ == k2.func.__qualname__]  # same bookmarked position...
+            test[k.func is not k2.func]  # ...but different function object instance
+            test_raises[StopIteration, k3()]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
