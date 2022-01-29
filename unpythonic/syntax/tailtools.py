@@ -351,6 +351,13 @@ def continuations(tree, *, syntax, expander, **kw):
     Inside a ``with continuations:`` block, the ``call_cc[]`` statement
     captures a continuation. (It is actually a macro, for technical reasons.)
 
+    Capturing a continuation introduces a scope boundary. The continuation
+    captured by `call_cc` (i.e. the rest of the function body after the
+    `call_cc` statement) is a new scope, and the assignment part of the
+    `call_cc` statement takes effect in that new scope. Under the hood,
+    the assignment from the `call_cc` is implemented as function parameters;
+    the continuation is a function.
+
     For various possible program topologies that continuations may introduce, see
     the clarifying pictures under ``doc/`` in the source distribution.
 
