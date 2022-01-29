@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Continuations (call/cc for Python)."""
 
-from ...syntax import macros, test, test_raises, error  # noqa: F401
+from ...syntax import macros, test, test_raises, error, fail  # noqa: F401
 from ...test.fixtures import session, testset, returns_normally
 
 from ...syntax import macros, continuations, call_cc, multilambda, autoreturn, autocurry, let  # noqa: F401, F811
@@ -404,7 +404,7 @@ def runtests():
                     ourcc = cc
                     stack.append(lambda: amb(rest, cc=ourcc))
                 return first
-            def fail():
+            def fail():  # noqa: F811, not redefining, the first one is a macro.
                 if stack:
                     f = stack.pop()
                     return f()
