@@ -16,6 +16,7 @@ from ast import (Lambda, FunctionDef, AsyncFunctionDef, ClassDef,
                  BoolOp, And, Or,
                  With, AsyncWith, If, IfExp, Try, Assign, Return, Expr,
                  Await,
+                 Global, Nonlocal,
                  copy_location)
 import sys
 
@@ -34,6 +35,8 @@ from .util import (isx, isec,
                    has_tco, sort_lambda_decorators,
                    suggest_decorator_index,
                    UnpythonicASTMarker, ExpandedContinuationsMarker)
+from .scopeanalyzer import (get_names_in_store_context, extract_args,
+                            collect_globals, collect_nonlocals)
 
 from ..dynassign import dyn
 from ..fun import identity
@@ -883,32 +886,97 @@ def _continuations(block_body):  # here be dragons.
     # specified inside the body of the macro invocation like PG's solution does.
     # Instead, we capture as the continuation all remaining statements (i.e.
     # those that lexically appear after the ``call_cc[]``) in the current block.
-    def iscallcc(tree):
+    def iscallccstatement(tree):
         if type(tree) not in (Assign, Expr):
             return False
         return isinstance(tree.value, CallCcMarker)
-    def split_at_callcc(body):
+    # owner: FunctionDef node, or `None` if the use site of the `call_cc` is not inside a function
+    def split_at_callcc(owner, body):
         if not body:
             return [], None, []
         before, after = [], body
         while True:
             stmt, *after = after
-            if iscallcc(stmt):
+            if iscallccstatement(stmt):
                 # after is always non-empty here (has at least the explicitified "return")
                 # ...unless we're at the top level of the "with continuations" block
                 if not after:
                     raise SyntaxError("call_cc[] cannot appear as the last statement of a 'with continuations' block (no continuation to capture)")  # pragma: no cover
-                # TODO: To support Python's scoping properly in assignments after the `call_cc`,
-                # TODO: we have to scan `before` for assignments to local variables (stopping at
-                # TODO: scope boundaries; use `unpythonic.syntax.scoping.get_names_in_store_context`,
-                # TODO: and declare those variables (plus any variables already declared as `nonlocal`
-                # TODO: in `before`) as `nonlocal` in `after`. This way the binding will be shared
-                # TODO: between the original context and the continuation. Also, propagate `global`.
-                # See Politz et al 2013 (the "full monty" paper), section 4.2.
+                after = patch_scoping(owner, before, stmt, after)
                 return before, stmt, after
             before.append(stmt)
             if not after:
                 return before, None, []
+    # Try to maintain an illusion of Python's standard scoping rules across the split
+    # into the parent context (`before`) and continuation closure (`after`).
+    # See Politz et al 2013 (the "full monty" paper), section 4.2.
+    #
+    # TODO: We are still missing the case where a new local is introduced in the continuation.
+    # TODO: Ideally, it should be made a nonlocal up to the top-level owner, where it should be defined;
+    # TODO: this would allow a continuation to declare a variable that is then read by the `before` part.
+    # TODO: (Right now that can be done, by simply declaring the variable and setting it to `None` (or
+    # TODO:  any value, really, in the top-level owner; it will then propagate.))
+    # TODO: But we still can't easily replicate the behavior that accessing the name before a value
+    # TODO: has been assigned to it should raise `UnboundLocalError`.
+    #
+    # TODO: Alternatively, we could declare `patch_scoping` a failed experiment, and just document
+    # TODO: that a continuation is a scope boundary, with all the usual implications. (This is the
+    # TODO: behavior up to 0.15.1, anyway, though it's not documented.)
+    #
+    # TODO: Then we can just forget about the whole thing and delete the `patch_scoping` function. :)
+    #
+    # owner: FunctionDef node, or `None` if the use site of the `call_cc` is not inside a function
+    def patch_scoping(owner, before, callcc, after):
+        # Determine the names of all variables that should be made local to the continuation function.
+        # In the unexpanded code, the continuation doesn't look like a new scope, so by appearances,
+        # these will effectively break the usual scoping rules. Thus this set should be kept minimal.
+        # To allow the machinery to actually work, at least the parameters of the continuation function
+        # *must* be allowed to shadow names from the parent scope.
+        targets, starget, ignored_condition, ignored_thecall, ignored_altcall = analyze_callcc(callcc)
+        if not targets and not starget:
+            targets = ["_ignored_arg"]  # this must match what `make_continuation` does, below
+        # The assignment targets of the `call_cc` become parameters of the continuation function.
+        # Furthermore, a continuation function generated by `make_continuation` always takes
+        # the `cc` and `_pcc` parameters.
+        afterargs = targets + ([starget] or []) + ["cc", "_pcc"]
+        afterlocals = afterargs
+
+        if owner:
+            # When `call_cc` is used inside a function, local variables of the
+            # parent function (including parameters) become nonlocals in the
+            # continuation.
+            #
+            # But only those that are not also locals of the continuation!
+            # In that case, the local variable of the continuation overrides.
+            # Locals of the continuation include its arguments, and any names in store context.
+            beforelocals = set(extract_args(owner) + get_names_in_store_context(before))
+            afternonlocals = list(beforelocals.difference(afterlocals))
+            if afternonlocals:  # TODO: Python 3.8: walrus assignment
+                after.insert(0, Nonlocal(names=afternonlocals))
+        else:
+            # When `call_cc` is used at the top level of `with continuations` block,
+            # the variables at that level become globals in the continuation.
+            #
+            # TODO: This **CANNOT** always work correctly, because we would need to know
+            # TODO: whether the `with continuations` block itself is inside a function or not.
+            # TODO: So we just assume it's outside any function.
+            beforelocals = set(get_names_in_store_context(before))
+            afternonlocals = list(beforelocals.difference(afterlocals))
+            if afternonlocals:  # TODO: Python 3.8: walrus assignment
+                after.insert(0, Global(names=afternonlocals))
+
+        # Nonlocals of the parent function remain nonlocals in the continuation.
+        # When `owner is None`, `beforenonlocals` will be empty.
+        beforenonlocals = collect_nonlocals(before)
+        if beforenonlocals:  # TODO: Python 3.8: walrus assignment
+            after.insert(0, Nonlocal(names=beforenonlocals))
+
+        # Globals of parent are also globals in the continuation.
+        beforeglobals = collect_globals(before)
+        if beforeglobals:  # TODO: Python 3.8: walrus assignment
+            after.insert(0, Global(names=beforeglobals))
+
+        return after  # we mutate; return it just for convenience
     # TODO: To support named return values (`kwrets` in a `Values` object) from the `call_cc`'d function,
     # TODO: we need to change the syntax to something that allows us to specify which names are meant to
     # TODO: capture the positional return values, and which ones the named return values. Doing so will
@@ -947,7 +1015,7 @@ def _continuations(block_body):  # here be dragons.
             raise SyntaxError(f"call_cc[]: expected an assignment or a bare expr, got {stmt}")  # pragma: no cover
         # extract the function call(s)
         if not isinstance(stmt.value, CallCcMarker):  # both Assign and Expr have a .value
-            assert False  # we should get only valid call_cc[] invocations that pass the `iscallcc` test  # pragma: no cover
+            assert False  # we should get only valid call_cc[] invocations that pass the `iscallccstatement` test  # pragma: no cover
         theexpr = stmt.value.body  # discard the AST marker
         if not (type(theexpr) in (Call, IfExp) or (type(theexpr) in (Constant, NameConstant) and getconstant(theexpr) is None)):
             raise SyntaxError("the bracketed expression in call_cc[...] must be a function call, an if-expression, or None")  # pragma: no cover
@@ -966,6 +1034,7 @@ def _continuations(block_body):  # here be dragons.
             condition = altcall = None
             thecall = extract_call(theexpr)
         return targets, starget, condition, thecall, altcall
+    # owner: FunctionDef node, or `None` if the use site of the `call_cc` is not inside a function
     def make_continuation(owner, callcc, contbody):
         targets, starget, condition, thecall, altcall = analyze_callcc(callcc)
 
@@ -1069,19 +1138,20 @@ def _continuations(block_body):  # here be dragons.
             if type(tree) in (FunctionDef, AsyncFunctionDef):
                 tree.body = transform_callcc(tree, tree.body)
             return self.generic_visit(tree)
+    # owner: FunctionDef node, or `None` if the use site of the `call_cc` is not inside a function
     def transform_callcc(owner, body):
         # owner: FunctionDef or AsyncFunctionDef node, or None (top level of block)
         # body: list of stmts
         # we need to consider only one call_cc in the body, because each one
         # generates a new nested def for the walker to pick up.
-        before, callcc, after = split_at_callcc(body)
+        before, callcc, after = split_at_callcc(owner, body)
         if callcc:
             body = before + make_continuation(owner, callcc, contbody=after)
         return body
     # TODO: improve error reporting for stray call_cc[] invocations
     class StrayCallccChecker(ASTVisitor):
         def examine(self, tree):
-            if iscallcc(tree):
+            if iscallccstatement(tree):
                 raise SyntaxError("call_cc[...] only allowed at the top level of a def, or at the top level of the block; must appear as an expr or an assignment RHS")  # pragma: no cover
             if type(tree) in (Assign, Expr):
                 v = tree.value
