@@ -16,7 +16,6 @@ from ast import (Lambda, FunctionDef, AsyncFunctionDef, ClassDef,
                  BoolOp, And, Or,
                  With, AsyncWith, If, IfExp, Try, Assign, Return, Expr,
                  Await,
-                 Global, Nonlocal,
                  copy_location)
 import sys
 
@@ -35,8 +34,6 @@ from .util import (isx, isec,
                    has_tco, sort_lambda_decorators,
                    suggest_decorator_index,
                    UnpythonicASTMarker, ExpandedContinuationsMarker)
-from .scopeanalyzer import (get_names_in_store_context, extract_args,
-                            collect_globals, collect_nonlocals)
 
 from ..dynassign import dyn
 from ..fun import identity
