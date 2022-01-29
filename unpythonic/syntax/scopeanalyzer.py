@@ -71,7 +71,10 @@ __all__ = ["isnewscope",
            "scoped_transform",
            "get_lexical_variables",
            "get_names_in_store_context",
-           "get_names_in_del_context"]
+           "get_names_in_del_context",
+           "extract_args",
+           "collect_globals",
+           "collect_nonlocals"]
 
 from ast import (Name, Tuple, Lambda, FunctionDef, AsyncFunctionDef, ClassDef,
                  Import, ImportFrom, Try, ListComp, SetComp, GeneratorExp,
@@ -227,20 +230,9 @@ def get_lexical_variables(tree, collect_locals=True):
         nonlocals = []
         if type(tree) in (FunctionDef, AsyncFunctionDef):
             fname = [tree.name]
-
             if collect_locals:
                 localvars = list(uniqify(get_names_in_store_context(tree.body)))
-
-            class NonlocalsCollector(ASTVisitor):
-                def examine(self, tree):
-                    if type(tree) in (Global, Nonlocal):
-                        for x in tree.names:
-                            self.collect(x)
-                    if not isnewscope(tree):
-                        self.generic_visit(tree)
-            nc = NonlocalsCollector()
-            nc.visit(tree.body)
-            nonlocals = nc.collected
+            nonlocals = collect_nonlocals(tree.body) + collect_globals(tree.body)
 
         return list(uniqify(fname + argnames + localvars)), list(uniqify(nonlocals))
 
@@ -396,3 +388,53 @@ def get_names_in_del_context(tree):
     nc = DelNamesCollector()
     nc.visit(tree)
     return nc.collected
+
+def extract_args(tree):
+    """Extract the parameter names from a `Lambda`, `FunctionDef`, or `AsyncFunctionDef` node.
+
+    Return a `list` of bare `str`.
+    """
+    if type(tree) not in (Lambda, FunctionDef, AsyncFunctionDef):
+        raise ValueError(f"Expected a function definition AST node, got {tree}")
+    a = tree.args
+    allargs = a.args + a.kwonlyargs
+    if hasattr(a, "posonlyargs"):  # Python 3.8+: positional-only arguments
+        allargs += a.posonlyargs
+    argnames = [x.arg for x in allargs]
+    if a.vararg:
+        argnames.append(a.vararg.arg)
+    if a.kwarg:
+        argnames.append(a.kwarg.arg)
+    return argnames
+
+def collect_globals(tree):
+    """Collect the names of all names declared `global` in `tree`, stopping at scope boundaries.
+
+    Return a `list` of bare `str`.
+    """
+    class GlobalsCollector(ASTVisitor):
+        def examine(self, tree):
+            if type(tree) is Global:
+                for name in tree.names:
+                    self.collect(name)
+            if not isnewscope(tree):
+                self.generic_visit(tree)
+    collector = GlobalsCollector()
+    collector.visit(tree)
+    return collector.collected
+
+def collect_nonlocals(tree):
+    """Collect the names of all names declared `nonlocal` in `tree`, stopping at scope boundaries.
+
+    Return a `list` of bare `str`.
+    """
+    class NonlocalsCollector(ASTVisitor):
+        def examine(self, tree):
+            if type(tree) is Nonlocal:
+                for name in tree.names:
+                    self.collect(name)
+            if not isnewscope(tree):
+                self.generic_visit(tree)
+    collector = NonlocalsCollector()
+    collector.visit(tree)
+    return collector.collected
