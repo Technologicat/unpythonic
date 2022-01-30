@@ -721,7 +721,7 @@ def runtests():
             #     if iscontinuation(k):
             #         return k
             #
-            # creates a multi-shot resume point:
+            # creates a multi-shot resume point. See also `test_conts_multishot.py`.
             def append_stuff_to(lst):
                 ...  # could do something useful here (otherwise, why make a continuation?)
 
