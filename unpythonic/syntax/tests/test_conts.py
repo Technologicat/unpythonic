@@ -750,6 +750,8 @@ def runtests():
             test[lst == [1, 2, 3, 4]]
 
     with testset("scoping, locals only"):
+        # This is the cleanest way to scope your local variables in continuations:
+        # just accept the fact that each continuation introduces a scope boundary.
         with continuations:
             def f():
                 # Original function scope
