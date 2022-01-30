@@ -314,17 +314,43 @@ with phase[1]:
 from __self__ import macros, multishot, myield  # noqa: F811, F401
 
 def runtests():
+    # To start with, here's a sketch of what we want to do.
     with testset("multi-shot generators with the pattern call_cc[get_cc()]"):
         with continuations:
-            @multishot
             def g():
-                myield[1]
-                myield[2]
-                myield[3]
+                # The resume point at the beginning (just after parameters of `g` have
+                # been bound to the given arguments; though here we don't have any).
+                k = call_cc[get_cc()]
+                if iscontinuation(k):
+                    # The `partial` makes it so `k` doesn't expect an argument;
+                    # otherwise it would expect a value to set the local variable `k` to
+                    # when the continuation is resumed.
+                    #
+                    # Since this example doesn't use that `k` if it's not the continuation
+                    # (i.e. the initial return value of the `call_cc[get_cc()]`),
+                    # we can just set the argument to `None` here.
+                    return partial(k, None)
+
+                # yield 1
+                k = call_cc[get_cc()]
+                if iscontinuation(k):
+                    return partial(k, None), 1
+
+                # yield 2
+                k = call_cc[get_cc()]
+                if iscontinuation(k):
+                    return partial(k, None), 2
+
+                # yield 3
+                k = call_cc[get_cc()]
+                if iscontinuation(k):
+                    return partial(k, None), 3
+
+                raise StopIteration
 
             try:
                 out = []
-                k = g()  # instantiate the multishot generator
+                k = g()  # instantiate the multi-shot generator
                 while True:
                     k, x = k()
                     out.append(x)
@@ -332,7 +358,7 @@ def runtests():
                 pass
             test[out == [1, 2, 3]]
 
-            k0 = g()  # instantiate the multishot generator
+            k0 = g()  # instantiate the multi-shot generator
             k1, x1 = k0()
             k2, x2 = k1()
             k3, x3 = k2()
@@ -344,28 +370,61 @@ def runtests():
             test[k.func is not k2.func]  # ...but different function object instance
             test_raises[StopIteration, k3()]
 
-    with continuations:
-        @multishot
-        def f():
-            myield
-            myield[42]
-            k = myield
-            test[k == 23]
-            k = myield[42]
-            test[k == 17]
+    # Now, let's automate this. Testing all four kinds of multi-shot yield:
+    with testset("@multishot macro"):
+        with continuations:
+            @multishot
+            def f():
+                myield
+                myield[42]
+                k = myield
+                test[k == 23]
+                k = myield[42]
+                test[k == 17]
 
-        k0 = f()
-        k1 = k0()
-        k2, x2 = k1()
-        test[x2 == 42]
-        k3 = k2()
-        k4, x4 = k3(23)
-        test[x4 == 42]
-        test_raises[StopIteration, k4(17)]
+            k0 = f()  # instantiate the multi-shot generator
+            k1 = k0()
+            k2, x2 = k1()
+            test[x2 == 42]
+            k3 = k2()
+            k4, x4 = k3(23)
+            test[x4 == 42]
+            test_raises[StopIteration, k4(17)]
 
-        # multi-shot: re-invoke an earlier continuation
-        k2, x2 = k1()
-        test[x2 == 42]
+            # multi-shot: re-invoke an earlier continuation
+            k2, x2 = k1()
+            test[x2 == 42]
+
+    # The first example rewritten to use the macro.
+    with testset("multi-shot generators with @multishot"):
+        with continuations:
+            @multishot
+            def g():
+                myield[1]
+                myield[2]
+                myield[3]
+
+            try:
+                out = []
+                k = g()  # instantiate the multi-shot generator
+                while True:
+                    k, x = k()
+                    out.append(x)
+            except StopIteration:
+                pass
+            test[out == [1, 2, 3]]
+
+            k0 = g()  # instantiate the multi-shot generator
+            k1, x1 = k0()
+            k2, x2 = k1()
+            k3, x3 = k2()
+            k, x = k1()  # multi-shot generator can resume from an earlier point
+            test[x1 == 1]
+            test[x2 == x == 2]
+            test[x3 == 3]
+            test[k.func.__qualname__ == k2.func.__qualname__]  # same bookmarked position...
+            test[k.func is not k2.func]  # ...but different function object instance
+            test_raises[StopIteration, k3()]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
