@@ -150,6 +150,7 @@ with phase[1]:
                     var = tree.targets[0]
                     value = getslice(tree.value)
                     with q as quoted:
+                        # Note in `mcpyrate` we can hygienically capture macros, too.
                         a[var] = h[call_cc][h[get_cc]()]
                         if h[iscontinuation](a[var]):
                             return a[var], a[value]
