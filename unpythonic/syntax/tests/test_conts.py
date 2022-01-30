@@ -7,6 +7,7 @@ from ...test.fixtures import session, testset, returns_normally
 from ...syntax import macros, continuations, call_cc, multilambda, autoreturn, autocurry, let  # noqa: F401, F811
 from ...syntax import get_cc, iscontinuation
 
+from ...collections import box, unbox
 from ...ec import call_ec
 from ...fploop import looped
 from ...fun import withself
@@ -751,22 +752,25 @@ def runtests():
     with testset("scoping, locals only"):
         with continuations:
             def f():
-                # original function scope
+                # Original function scope
                 x = None
 
-                # continuation 1 scope begins here
+                # Continuation 1 scope begins here
                 # (from the statement following `call_cc` onward, but including the `k1`)
                 k1 = call_cc[get_cc()]
                 if iscontinuation(k1):
+                    # This `x` is local to continuation 1.
                     x = "cont 1 first time"
                     return k1, x
 
-                # continuation 2 scope begins here
+                # Continuation 2 scope begins here
                 k2 = call_cc[get_cc()]
                 if iscontinuation(k2):
+                    # This `x` is local to continuation 2.
                     x = "cont 2 first time"
                     return k2, x
 
+                # Still in continuation 2, so this is the `x` of continuation 2.
                 x = "cont 2 second time"
                 return None, x
 
@@ -784,30 +788,34 @@ def runtests():
     # TODO: This breaks the coverage analyzer, because 'name 'x' is assigned to before nonlocal declaration'.
     # TODO: Fair enough, that's not standard Python. So let's just disable this for now.
     # with testset("scoping, in presence of nonlocal"):
+    #     # TODO: better example
     #     # It shouldn't matter in this example whether we declare the `x` in the
     #     # continuations `nonlocal`, because once the parent returns, the only
     #     # places that can access its locals *from that activation* are the
     #     # continuation closures *created by that activation*.
     #     with continuations:
     #         def f():
-    #             # original function scope
+    #             # Original function scope
     #             x = None
     #
-    #             # continuation 1 scope begins here
+    #             # Continuation 1 scope begins here
     #             # (from the statement following `call_cc` onward, but including the `k1`)
     #             k1 = call_cc[get_cc()]
-    #             nonlocal x
+    #             nonlocal x  # <-- IMPORTANT
     #             if iscontinuation(k1):
+    #                 # This is now the original `x`.
     #                 x = "cont 1 first time"
     #                 return k1, x
     #
-    #             # continuation 2 scope begins here
+    #             # Continuation 2 scope begins here
     #             k2 = call_cc[get_cc()]
-    #             nonlocal x
+    #             nonlocal x  # <-- IMPORTANT
     #             if iscontinuation(k2):
+    #                 # This too is the original `x`.
     #                 x = "cont 2 first time"
     #                 return k2, x
     #
+    #             # Still the original `x`.
     #             x = "cont 2 second time"
     #             return None, x
     #
@@ -821,6 +829,42 @@ def runtests():
     #
     #         k2, x = k1(None)  # multi-shotting from earlier resume point
     #         test[x == "cont 2 first time"]
+
+    # If you want to scope like `nonlocal`, use a box to avoid the need to overwrite the name.
+    with testset("scoping, using a box"):
+        # TODO: better example
+        with continuations:
+            def f():
+                # original function scope
+                x = box(None)
+
+                # continuation 1 scope begins here
+                # (from the statement following `call_cc` onward, but including the `k1`)
+                k1 = call_cc[get_cc()]
+                if iscontinuation(k1):
+                    # Now there is just one `x`, which is the box; we just update the contents.
+                    x << "cont 1 first time"
+                    return k1, unbox(x)
+
+                # continuation 2 scope begins here
+                k2 = call_cc[get_cc()]
+                if iscontinuation(k2):
+                    x << "cont 2 first time"
+                    return k2, unbox(x)
+
+                x << "cont 2 second time"
+                return None, unbox(x)
+
+            k1, x = f()
+            test[x == "cont 1 first time"]
+            k2, x = k1(None)  # when resuming, send `None` as the new value of variable `k1` in continuation 1
+            test[x == "cont 2 first time"]
+            k3, x = k2(None)
+            test[k3 is None]
+            test[x == "cont 2 second time"]
+
+            k2, x = k1(None)  # multi-shotting from earlier resume point
+            test[x == "cont 2 first time"]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
