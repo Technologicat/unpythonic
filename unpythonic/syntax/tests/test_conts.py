@@ -833,8 +833,8 @@ def runtests():
     # If you need to scope like `nonlocal`, use the classic solution: box the value
     # to avoid the need to overwrite the name.
     #
-    # (Classic from before `nonlocal` declarations were a thing; it was added in 3.0,
-    #  see https://www.python.org/dev/peps/pep-3104/ )
+    # (Classic from before `nonlocal` declarations were a thing. They were added in 3.0;
+    #  for historical interest, see https://www.python.org/dev/peps/pep-3104/ )
     with testset("scoping, using a box"):
         # TODO: better example
         with continuations:
