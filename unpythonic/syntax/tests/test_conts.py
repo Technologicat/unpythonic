@@ -830,7 +830,11 @@ def runtests():
     #         k2, x = k1(None)  # multi-shotting from earlier resume point
     #         test[x == "cont 2 first time"]
 
-    # If you want to scope like `nonlocal`, use a box to avoid the need to overwrite the name.
+    # If you need to scope like `nonlocal`, use the classic solution: box the value
+    # to avoid the need to overwrite the name.
+    #
+    # (Classic from before `nonlocal` declarations were a thing; it was added in 3.0,
+    #  see https://www.python.org/dev/peps/pep-3104/ )
     with testset("scoping, using a box"):
         # TODO: better example
         with continuations:
