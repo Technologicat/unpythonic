@@ -71,7 +71,7 @@ with phase[1]:
     from functools import partial
     import sys
 
-    from mcpyrate.quotes import macros, q, a, h  # noqa: F811
+    from mcpyrate.quotes import macros, q, n, a, h  # noqa: F811
     from unpythonic.syntax import macros, call_cc  # noqa: F811
 
     from mcpyrate import namemacro, gensym
@@ -82,26 +82,130 @@ with phase[1]:
     from unpythonic.syntax import get_cc, iscontinuation
 
     def myield_function(tree, syntax, **kw):
+        """[syntax, name/expr] Yield from a multi-shot generator.
+
+        For details, see `multishot`.
+        """
         if syntax not in ("name", "expr"):
             raise SyntaxError("myield is a name and expr macro only")
 
-        # Accept `myield` in any non-load context, so that we can below define the macro `it`.
+        # Accept `myield` in any non-load context, so that we can below define the macro `myield`.
         #
         # This is only an issue, because this example uses multi-phase compilation.
         # The phase-1 `myield` is in the macro expander - preventing us from referring to
         # the name `myield` - when the lifted phase-0 definition is being run. During phase 0,
         # that makes the line `myield = namemacro(...)` below into a macro-expansion-time
-        # syntax error, because that `myield` is not inside a `@multishot`.
+        # syntax error, because that `myield` is not inside a `@multishot` generator.
         #
         # We hack around it, by allowing `myield` anywhere as long as the context is not a `Load`.
         if hasattr(tree, "ctx") and type(tree.ctx) is not ast.Load:
             return tree
 
-        raise SyntaxError("myield may only appear inside a multishot function")
+        # `myield` is not really a macro, but a pattern that `multishot` looks for and compiles away.
+        # Hence if any `myield` is left over and reaches the macro expander, it was placed incorrectly,
+        # so we can raise an error at macro expansion time.
+        raise SyntaxError("myield may only appear at the top level of a `@multishot` generator")
     myield = namemacro(myield_function)
 
     def multishot(tree, syntax, expander, **kw):
-        """[syntax, block] Multi-shot generators based on the pattern `k = call_cc[get_cc()]`."""
+        """[syntax, block] Make a function into a multi-shot generator.
+
+        Multi-shot yield is spelled `myield`. When using `multishot`, be sure to
+        macro-import also `myield`, so that `multishot` knows which name you want
+        to use to refer to the `myield` construct (it is automatically queried
+        from the current expander's bindings).
+
+        There are four variants::
+
+            Multi-shot yield    Returns      `k` expects   Single-shot analog
+
+            myield              k            no argument   yield
+            myield[expr]        (k, value)   no argument   yield expr
+            var = myield        k            one argument  var = yield
+            var = myield[expr]  (k, value)   one argument  var = yield expr
+
+        To resume, call the function `k`. In cases where `k` expects an argument,
+        it is the value to send into `var`.
+
+        Important differences:
+
+          - A multi-shot generator may be resumed from any `myield` arbitrarily
+            many times, in any order. There is no concept of a single paused
+            activation. Each continuation is a function (technically a closure).
+
+            When a multi-shot generator "myields", it returns just like a
+            normal function, technically terminating its execution. But it gives
+            you a continuation closure, that you can call to continue execution
+            just after that particular `myield`.
+
+            The magic is in that the continuation closures are nested, so for
+            a given activation of the multi-shot generator, any local variables
+            in the already executed part remain alive as long as at least one
+            reference to any relevant closure instance exists.
+
+            And yes, "nested" does imply that the execution will branch into
+            "alternate timelines" if you re-invoke an earlier continuation.
+            (Maybe you want to send a different value into some algorithm,
+             to alter what it will do from a certain point onward.)
+
+            This works in exactly the same way as manually nested closures.
+            The parent cells (in the technical sense of "cell variable")
+            are shared, but the continuation that was re-invoked is separately
+            activated again (in the sense of "activation record"), so the
+            continuation gets fresh locals. Thus the "timelines" will diverge.
+
+          - `myield` is a *statement*, and it may only appear at the top level
+            of a multishot function definition, due to limitations of our `call_cc`
+            implementation.
+
+        Usage::
+
+            with continuations:
+                @multishot
+                def f():
+                    # Stop, and return a continuation `k` that resumes just after this `myield`.
+                    myield
+
+                    # Stop, and return the tuple `(k, 42)`.
+                    myield[42]
+
+                    # Stop, and return a continuation `k`. Upon resuming `k`,
+                    # set the local `k` to the value that was sent in.
+                    k = myield
+
+                    # Stop, and return the tuple `(k, 42)`. Upon resuming `k`,
+                    # set the local `k` to the value that was sent in.
+                    k = myield[42]
+
+                # Instantiate the multi-shot generator (like calling a gfunc).
+                # There is always an implicit bare `myield` at the beginning.
+                k0 = f()
+
+                # Start, run up to the explicit bare `myield` in the example,
+                # receive new continuation.
+                k1 = k0()
+
+                # Continue to the `myield[42]`, receive new continuation and the `42`.
+                k2, x2 = k1()
+                test[x2 == 42]
+
+                # Continue to the `k = myield`, receive new continuation.
+                k3 = k2()
+
+                # Send `23` as the value of `k`, continue to the `k = myield[42]`.
+                k4, x4 = k3(23)
+                test[x4 == 42]
+
+                # Send `17` as the value of `k`, continue to the end.
+                # As with a regular Python generator, reaching the end raises `StopIteration`.
+                # (As with generators, you can also trigger a `StopIteration` earlier via `return`,
+                #  with an optional value.)
+                test_raises[StopIteration, k4(17)]
+
+                # Re-invoke an earlier continuation:
+                k2, x2 = k1()
+                test[x2 == 42]
+        """
         if syntax != "decorator":
             raise SyntaxError("multishot is a decorator macro only")  # pragma: no cover
         if type(tree) is not ast.FunctionDef:
@@ -121,19 +225,6 @@ with phase[1]:
             if sys.version_info >= (3, 9, 0):  # Python 3.9+: no ast.Index wrapper
                 return subscript_node.slice
             return subscript_node.slice.value
-        # We can work with variations of the pattern
-        #
-        #     k = call_cc[get_cc()]
-        #     if iscontinuation(k):
-        #         return k
-        #     # here `k` is the data sent in via the continuation
-        #
-        # to create a multi-shot resume point. The details will depend on whether our
-        # user wants each particular resume point to return and/or take in a value.
-        #
-        # Note that `myield`, beside optionally yielding a value, always returns the
-        # continuation that resumes execution just after that `myield`. The caller
-        # is free to stash the continuations and invoke earlier ones again, as needed.
         class MultishotYieldTransformer(ASTTransformer):
             def transform(self, tree):
                 if is_captured_value(tree):  # do not recurse into hygienic captures
@@ -481,6 +572,95 @@ def runtests():
             test[k.func.__qualname__ == k2.func.__qualname__]  # same bookmarked position...
             test[k.func is not k2.func]  # ...but different function object instance
             test_raises[StopIteration, k3()]
+
+    with continuations:
+        def f():
+            # original function scope
+            x = None
+
+            # continuation 1 scope begins here
+            # (from the statement following `call_cc` onward, but including the `k1`)
+            k1 = call_cc[get_cc()]
+            nonlocal x
+            if iscontinuation(k1):
+                x = "cont 1 first time"
+                return k1, x
+
+            # continuation 2 scope begins here
+            k2 = call_cc[get_cc()]
+            nonlocal x
+            if iscontinuation(k2):
+                x = "cont 2 first time"
+                return k2, x
+
+            x = "cont 2 second time"
+            return None, x
+
+        k1, x = f()
+        test[x == "cont 1 first time"]
+        k2, x = k1(None)  # when resuming, send `None` as the new value of variable `k1` in continuation 1
+        test[x == "cont 2 first time"]
+        k3, x = k2(None)
+        test[k3 is None]
+        test[x == "cont 2 second time"]
+
+        k2, x = k1(None)  # multi-shotting from earlier resume point
+        test[x == "cont 2 first time"]
+
+    with continuations:
+        def f():
+            # original function scope
+            x = None
+
+            # continuation 1 scope begins here
+            # (from the statement following `call_cc` onward, but including the `k1`)
+            k1 = call_cc[get_cc()]
+            if iscontinuation(k1):
+                x = "cont 1 first time"
+                return k1, x
+
+            # continuation 2 scope begins here
+            k2 = call_cc[get_cc()]
+            if iscontinuation(k2):
+                x = "cont 2 first time"
+                return k2, x
+
+            x = "cont 2 second time"
+            return None, x
+
+        k1, x = f()
+        test[x == "cont 1 first time"]
+        k2, x = k1(None)  # when resuming, send `None` as the new value of variable `k1` in continuation 1
+        test[x == "cont 2 first time"]
+        k3, x = k2(None)
+        test[k3 is None]
+        test[x == "cont 2 second time"]
+
+        k2, x = k1(None)  # multi-shotting from earlier resume point
+        test[x == "cont 2 first time"]
+
+    with continuations:
+        @multishot
+        def f():
+            myield
+            myield[42]
+            k = myield
+            test[k == 23]
+            k = myield[42]
+            test[k == 17]
+
+        k0 = f()
+        k1 = k0()
+        k2, x2 = k1()
+        test[x2 == 42]
+        k3 = k2()
+        k4, x4 = k3(23)
+        test[x4 == 42]
+        test_raises[StopIteration, k4(17)]
+
+        # multi-shot: re-invoke an earlier continuation
+        k2, x2 = k1()
+        test[x2 == 42]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
