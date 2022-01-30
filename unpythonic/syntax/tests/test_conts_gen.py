@@ -168,7 +168,7 @@ with phase[1]:
 
                 # `myield[value]`
                 elif type(tree) is ast.Expr and is_myield_expr(tree.value):
-                    var = ast.Name(id=gensym("myield_cont"))
+                    var = q[n[gensym("k")]]  # kontinuation
                     value = getslice(tree.value)
                     with q as quoted:
                         a[var] = h[call_cc][h[get_cc]()]
@@ -178,7 +178,7 @@ with phase[1]:
 
                 # `myield`
                 elif type(tree) is ast.Expr and is_myield_name(tree.value):
-                    var = ast.Name(id=gensym("myield_cont"))
+                    var = q[n[gensym("k")]]
                     with q as quoted:
                         a[var] = h[call_cc][h[get_cc]()]
                         if h[iscontinuation](a[var]):
