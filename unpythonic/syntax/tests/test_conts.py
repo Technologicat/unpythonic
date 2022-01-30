@@ -789,9 +789,9 @@ def runtests():
     # TODO: Fair enough, that's not standard Python. So let's just disable this for now.
     # with testset("scoping, in presence of nonlocal"):
     #     # TODO: better example
-    #     # It shouldn't matter in this example whether we declare the `x` in the
-    #     # continuations `nonlocal`, because once the parent returns, the only
-    #     # places that can access its locals *from that activation* are the
+    #     # It shouldn't matter in this particular example whether we declare the `x`
+    #     # in the continuations `nonlocal`, because once the parent returns, the
+    #     # only places that can access its locals *from that activation* are the
     #     # continuation closures *created by that activation*.
     #     with continuations:
     #         def f():
