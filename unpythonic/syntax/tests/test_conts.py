@@ -832,45 +832,67 @@ def runtests():
     #         k2, x = k1(None)  # multi-shotting from earlier resume point
     #         test[x == "cont 2 first time"]
 
-    # If you need to scope like `nonlocal`, use the classic solution: box the value
-    # to avoid the need to overwrite the name.
+    # If you need to scope like `nonlocal`, use the classic solution: box the value,
+    # so you have no need to overwrite the name; you can replace the thing in the box.
     #
     # (Classic from before `nonlocal` declarations were a thing. They were added in 3.0;
     #  for historical interest, see https://www.python.org/dev/peps/pep-3104/ )
     with testset("scoping, using a box"):
-        # TODO: better example
         with continuations:
-            def f():
-                # original function scope
-                x = box(None)
+            # poor man's execution trace
+            def make_tracing_box_updater(thebox, trace):
+                def update(value):
+                    trace.append(f"old: {unbox(thebox)}")
+                    thebox << value
+                    trace.append(f"new: {unbox(thebox)}")
+                    return value
+                return update
 
-                # continuation 1 scope begins here
+            # If we wanted to replace the list instance later, we could pass the list in a box, too.
+            def f(lst):
+                # Now there is just one `x`, which is the box; we just update the contents.
+                # Original function scope
+                x = box("f")
+                lst.append(f"initial: {unbox(x)}")
+                update = make_tracing_box_updater(x, lst)
+
+                # Continuation 1 scope begins here
                 # (from the statement following `call_cc` onward, but including the `k1`)
                 k1 = call_cc[get_cc()]
                 if iscontinuation(k1):
-                    # Now there is just one `x`, which is the box; we just update the contents.
-                    x << "cont 1 first time"
-                    return k1, unbox(x)
+                    return k1, update("k1 first")
+                update("k1 again")
 
-                # continuation 2 scope begins here
+                # Continuation 2 scope begins here
                 k2 = call_cc[get_cc()]
                 if iscontinuation(k2):
-                    x << "cont 2 first time"
-                    return k2, unbox(x)
+                    return k2, update("k2 first")
+                update("k2 again")
 
-                x << "cont 2 second time"
                 return None, unbox(x)
 
-            k1, x = f()
-            test[x == "cont 1 first time"]
+            trace = []
+            k1, x = f(trace)
+            test[x == "k1 first"]
+            test[trace == ['initial: f', 'old: f', 'new: k1 first']]
             k2, x = k1(None)  # when resuming, send `None` as the new value of variable `k1` in continuation 1
-            test[x == "cont 2 first time"]
+            test[x == "k2 first"]
+            test[trace == ['initial: f', 'old: f', 'new: k1 first',
+                           'old: k1 first', 'new: k1 again', 'old: k1 again', 'new: k2 first']]
             k3, x = k2(None)
             test[k3 is None]
-            test[x == "cont 2 second time"]
+            test[x == "k2 again"]
+            test[trace == ['initial: f', 'old: f', 'new: k1 first',
+                           'old: k1 first', 'new: k1 again', 'old: k1 again', 'new: k2 first',
+                           'old: k2 first', 'new: k2 again']]
 
             k2, x = k1(None)  # multi-shotting from earlier resume point
-            test[x == "cont 2 first time"]
+            test[x == "k2 first"]
+            test[trace == ['initial: f', 'old: f', 'new: k1 first',
+                           'old: k1 first', 'new: k1 again', 'old: k1 again', 'new: k2 first',
+                           'old: k2 first', 'new: k2 again',
+                           'old: k2 again', 'new: k1 again', 'old: k1 again', 'new: k2 first']]
+            #              ^^^^^^^^^^^^^^^ state as left by `k2` before the multi-shot
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
