@@ -748,6 +748,78 @@ def runtests():
             k([3, 4])
             test[lst == [1, 2, 3, 4]]
 
+    with testset("scoping, locals only"):
+        with continuations:
+            def f():
+                # original function scope
+                x = None
+
+                # continuation 1 scope begins here
+                # (from the statement following `call_cc` onward, but including the `k1`)
+                k1 = call_cc[get_cc()]
+                if iscontinuation(k1):
+                    x = "cont 1 first time"
+                    return k1, x
+
+                # continuation 2 scope begins here
+                k2 = call_cc[get_cc()]
+                if iscontinuation(k2):
+                    x = "cont 2 first time"
+                    return k2, x
+
+                x = "cont 2 second time"
+                return None, x
+
+            k1, x = f()
+            test[x == "cont 1 first time"]
+            k2, x = k1(None)  # when resuming, send `None` as the new value of variable `k1` in continuation 1
+            test[x == "cont 2 first time"]
+            k3, x = k2(None)
+            test[k3 is None]
+            test[x == "cont 2 second time"]
+
+            k2, x = k1(None)  # multi-shotting from earlier resume point
+            test[x == "cont 2 first time"]
+
+    with testset("scoping, in presence of nonlocal"):
+        # It shouldn't matter in this example whether we declare the `x` in the
+        # continuations `nonlocal`, because once the parent returns, the only
+        # places that can access its locals *from that activation* are the
+        # continuation closures *created by that activation*.
+        with continuations:
+            def f():
+                # original function scope
+                x = None
+
+                # continuation 1 scope begins here
+                # (from the statement following `call_cc` onward, but including the `k1`)
+                k1 = call_cc[get_cc()]
+                nonlocal x
+                if iscontinuation(k1):
+                    x = "cont 1 first time"
+                    return k1, x
+
+                # continuation 2 scope begins here
+                k2 = call_cc[get_cc()]
+                nonlocal x
+                if iscontinuation(k2):
+                    x = "cont 2 first time"
+                    return k2, x
+
+                x = "cont 2 second time"
+                return None, x
+
+            k1, x = f()
+            test[x == "cont 1 first time"]
+            k2, x = k1(None)  # when resuming, send `None` as the new value of variable `k1` in continuation 1
+            test[x == "cont 2 first time"]
+            k3, x = k2(None)
+            test[k3 is None]
+            test[x == "cont 2 second time"]
+
+            k2, x = k1(None)  # multi-shotting from earlier resume point
+            test[x == "cont 2 first time"]
+
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()
