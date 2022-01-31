@@ -562,7 +562,32 @@ def runtests():
     with testset("MultishotIterator: adapting @multishot to Python's generator API"):
         # basic use
         test[[x for x in MultishotIterator(g())] == [1, 2, 3]]
-        # TODO: advanced example, exercise all features
+
+        # Re-using `g` from above:
+        mig = MultishotIterator(g())
+        test[next(mig) == 1]
+        k = mig.k  # stash the current continuation tracked by the `MultishotIterator`
+        test[next(mig) == 2]
+        test[next(mig) == 3]
+        mig.k = k  # multi-shot: rewind to the point we stashed
+        test[next(mig) == 2]
+        test[next(mig) == 3]
+
+        # Re-using `f` from above:
+        mif = MultishotIterator(f())
+        test[next(mif) is None]
+        k = mif.k
+        test[next(mif) == 42]
+        test[next(mif) is None]
+        test[mif.send(23) == 42]
+        test_raises[StopIteration, mif.send(17)]
+        mif.k = k  # rewind
+        test[next(mif) == 42]
+        test[next(mif) is None]
+        test[mif.send(23) == 42]
+        test_raises[StopIteration, mif.send(17)]
+
+        # TODO: advanced examples, exercise all features
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
