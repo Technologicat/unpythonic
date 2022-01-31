@@ -426,6 +426,55 @@ def runtests():
             test[k.func is not k2.func]  # ...but different function object instance
             test_raises[StopIteration, k3()]
 
+    with testset("adapting @multishot to Python's generator API"):
+        class MultishotIterator:
+            """Adapt a `@multishot` generator to Python's generator API.
+
+            The current continuation is stored as `self.k`. It is read/write.
+            If you overwrite it with another continuation, the next call to
+            `next` or `send` will resume from that continuation instead.
+
+            This proof-of-concept demo only supports `iter()`, `next()` and `.send(value)`.
+            """
+            def __init__(self, k):
+                self.k = k
+
+            # make writes into `self.k` type-check, for fail-fast
+            def _getk(self):
+                return self._k
+            def _setk(self, k):
+                if not (iscontinuation(k) or (isinstance(k, partial) and iscontinuation(k.func))):
+                    raise TypeError(f"expected `k` to be a continuation or a partially applied continuation, got {k}")
+                self._k = k
+            k = property(fget=_getk, fset=_setk, doc="The current continuation. Read/write.")
+
+            # generator API
+            def __iter__(self):
+                return self
+            def __next__(self):
+                # TODO: Should intercept the `StopIteration` and enter a special closed state,
+                # TODO: to prevent re-running the last part when `next()` is called for an
+                # TODO: "already terminated" multi-shot generator.
+                result = self.k()
+                if isinstance(result, tuple):
+                    self.k, x = result
+                else:
+                    self.k, x = result, None
+                return x
+            def send(self, value):
+                result = self.k(value)
+                if isinstance(result, tuple):
+                    self.k, x = result
+                else:
+                    self.k, x = result, None
+                return x
+            # TODO: Supporting `throw` needs changes to the `@multishot` macro.
+            # Particularly, when the continuation receives a value, check if it
+            # is an exception type or exception instance, and if so, raise it.
+        # basic use
+        test[[x for x in MultishotIterator(g())] == [1, 2, 3]]
+        # TODO: advanced example, exercise all features
+
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()
