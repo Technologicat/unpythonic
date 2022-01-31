@@ -1,42 +1,24 @@
 # -*- coding: utf-8 -*-
 """Multi-shot generator demo using the pattern `k = call_cc[get_cc()]`.
 
-This is a barebones implementation, which does not even conform to Python's
-generator API.
+This is a barebones implementation.
 
-We provide everything in one file, so we use `mcpyrate`'s multi-phase compilation.
+We provide everything in one file, so we use `mcpyrate`'s multi-phase compilation
+to be able to define the macros in the same module that uses them.
 
 Because `with continuations` is a two-pass macro, it will first expand any
-`@multishot` inside the block before performing its own processing, which is
-exactly what we want.
+`@multishot` inside the block before performing its own processing, which
+is exactly what we want. We could force the ordering with the metatool
+`mcpyrate.metatools.expand_first` that was added in `mcpyrate` 3.6.0,
+but we don't need to do that.
 
-We could force the ordering with the metatool `mcpyrate.metatools.expand_first`
-added in `mcpyrate` 3.6.0, but we don't need to do that.
+We provide a minimal `MultishotIterator` wrapper that makes a `@multishot`
+multi-shot generator conform to the most basic parts of Python's generator API.
+A full implementation of the generator API would require much more:
 
-Exercise to the reader:
-
-To make these multi-shot generators support the most basic parts
-of the API of Python's native generators, make a wrapper object:
-
- - `__iter__` on the original function should create the wrapper object
-   and initialize it. Stash the continuation from the implicit initial
-   resume point.
-
- - `__next__` needs a stash for the most recent continuation
-   per activation of the multi-shot generator. It should run
-   the most recent continuation (with no arguments) until the next `myield`,
-   stash the new continuation, and return the myielded value, if any.
-
- - `send` should send a value into the most recent continuation
-   (thus resuming).
-
-A full implementation of the generator API requires much more:
-
- - `close`
- - `throw`
- - Think hard on how to handle exceptions.
+ - There is no `yield from` (delegation); needs a custom `myield_from`.
+ - Think hard about exception handling.
    - Particularly, a `yield` inside a `finally` block is a classic catch.
- - `yield from` (delegation); needs a custom `myield_from`.
 """
 
 from mcpyrate.multiphase import macros, phase
@@ -55,6 +37,7 @@ with phase[1]:
     import sys
 
     from mcpyrate.quotes import macros, q, n, a, h  # noqa: F811
+    from unpythonic.misc import safeissubclass
     from unpythonic.syntax import macros, call_cc  # noqa: F811
 
     from mcpyrate import namemacro, gensym
@@ -92,6 +75,8 @@ with phase[1]:
 
     def multishot(tree, syntax, expander, **kw):
         """[syntax, block] Make a function into a multi-shot generator.
+
+        Only meaningful inside a `with continuations` block. This is not checked.
 
         Multi-shot yield is spelled `myield`. When using `multishot`, be sure to
         macro-import also `myield`, so that `multishot` knows which name you want
@@ -228,6 +213,9 @@ with phase[1]:
                         a[var] = h[call_cc][h[get_cc]()]
                         if h[iscontinuation](a[var]):
                             return a[var], a[value]
+                        # For `throw` support: if we are sent an exception instance or class, raise it.
+                        elif isinstance(a[var], BaseException) or h[safeissubclass](a[var], BaseException):
+                            raise a[var]
                     return quoted
 
                 # `k = myield`
@@ -239,6 +227,8 @@ with phase[1]:
                         a[var] = h[call_cc][h[get_cc]()]
                         if h[iscontinuation](a[var]):
                             return a[var]
+                        elif isinstance(a[var], BaseException) or h[safeissubclass](a[var], BaseException):
+                            raise a[var]
                     return quoted
 
                 # `myield[value]`
@@ -249,6 +239,11 @@ with phase[1]:
                         a[var] = h[call_cc][h[get_cc]()]
                         if h[iscontinuation](a[var]):
                             return h[partial](a[var], None), a[value]
+                        # For `throw` support: `MultishotIterator` digs the `.func` from inside the `partial`
+                        # to force a send, even though this variant of `myield` cannot receive a value by
+                        # a normal `send`.
+                        elif isinstance(a[var], BaseException) or h[safeissubclass](a[var], BaseException):
+                            raise a[var]
                     return quoted
 
                 # `myield`
@@ -258,11 +253,13 @@ with phase[1]:
                         a[var] = h[call_cc][h[get_cc]()]
                         if h[iscontinuation](a[var]):
                             return h[partial](a[var], None)
+                        elif isinstance(a[var], BaseException) or h[safeissubclass](a[var], BaseException):
+                            raise a[var]
                     return quoted
 
                 return self.generic_visit(tree)
 
-        class ReturnToStopIterationTransformer(ASTTransformer):
+        class ReturnToRaiseStopIterationTransformer(ASTTransformer):
             def transform(self, tree):
                 if is_captured_value(tree):  # do not recurse into hygienic captures
                     return tree
@@ -277,7 +274,7 @@ with phase[1]:
                         with q as quoted:
                             raise h[StopIteration]
                         return quoted
-                    # `return value`
+                    # `return expr`
                     with q as quoted:
                         raise h[StopIteration](a[tree.value])
                     return quoted
@@ -296,12 +293,12 @@ with phase[1]:
             with q as quoted:
                 return
             tree.body.extend(quoted)
-        tree.body = ReturnToStopIterationTransformer().visit(tree.body)
+        tree.body = ReturnToRaiseStopIterationTransformer().visit(tree.body)
 
         # Inject a bare `myield` resume point at the beginning of the function body.
         # This makes the resulting function work somewhat like a Python generator.
         # When initially called, the arguments are bound, and you get a continuation;
-        # then resuming that continuation starts the actual computation.
+        # then resuming that continuation actually starts executing the function body.
         tree.body.insert(0, ast.Expr(value=ast.Name(id=names_of_myield[0])))
 
         # Transform multishot yields (`myield`) into `call_cc`.
@@ -312,6 +309,144 @@ with phase[1]:
 
 # macro-import from higher phase; we're now in phase 0
 from __self__ import macros, multishot, myield  # noqa: F811, F401
+
+class MultishotIterator:
+    """Adapt a `@multishot` generator to Python's generator API.
+
+    Example::
+
+        with continuations:
+            @multishot
+            def g():
+                myield[1]
+                myield[2]
+                myield[3]
+
+            # Instantiating the multi-shot generator returns a continuation;
+            # we can send that into a `MultishotIterator`. The resulting iterator
+            # behaves almost like a standard generator.
+            mi = MultishotIterator(g())
+            assert [x for x in mi] == [1, 2, 3]
+
+    `k`: A continuation, or a partially applied continuation
+        (e.g. one that does not usefully expect a value;
+         an `myield` with no assignment target will return such).
+
+         The initial continuation to start execution from.
+
+    Each `next` or `.send` will call the current `self.k`, and then overwrite
+    `self.k` with the new continuation returned by the multi-shot generator.
+    If the multi-shot generator raises `StopIteration` (so there is no new
+    continuation), the `MultishotIterator` marks itself as closed, and re-raises.
+
+    The current continuation is stored as `self.k`. It is read/write,
+    type-checked at write time.
+
+    If you overwrite `self.k` with another continuation, the next call
+    to `next` or `.send` will resume from that continuation instead.
+    If the iterator was closed, overwriting `self.k` will re-open it.
+
+    This proof-of-concept demo only supports a subset of the generator API:
+
+      - `iter(mi)`
+      - `next(mi)`,
+      - `mi.send(value)`
+      - `mi.throw(exc)`
+      - `mi.close()`
+
+    where `mi` is a `MultishotIterator` instance.
+    """
+    def __init__(self, k):
+        self.k = k
+        self._closed = False
+
+    # make writes into `self.k` type-check, for fail-fast
+    def _getk(self):
+        return self._k
+    def _setk(self, k):
+        if not (iscontinuation(k) or (isinstance(k, partial) and iscontinuation(k.func))):
+            raise TypeError(f"expected `k` to be a continuation or a partially applied continuation, got {k}")
+        self._k = k
+        self._closed = False
+    k = property(fget=_getk, fset=_setk, doc="The current continuation. Read/write.")
+
+    # Internal method that implements `next` and `.send`.
+    def _advance(self, mode, value=None):
+        assert mode in ("next", "send")
+        if self._closed:
+            raise StopIteration
+        # Intercept possible `StopIteration` and enter the closed
+        # state, to prevent re-running the last continuation (that
+        # raised `StopIteration`) when `next()` is called again.
+        try:
+            if mode == "next":
+                result = self.k()
+            else:  # mode == "send"
+                result = self.k(value)
+        except StopIteration:  # no new continuation
+            self._closed = True
+            raise
+        if isinstance(result, tuple):
+            self.k, x = result
+        else:
+            self.k, x = result, None
+        return x
+
+    # generator API
+    def __iter__(self):
+        return self
+    def __next__(self):
+        return self._advance("next")
+    def send(self, value):
+        return self._advance("send", value)
+
+    # The `throw` and `close` methods are not so useful as with regular
+    # generators, due to there being no concept of paused execution.
+    #
+    # The continuation is a separate nested closure, and it is not
+    # possible to usefully straddle a `try` or `with` across the
+    # boundary.
+    #
+    # For example, `with` only takes effect whenever it is "entered
+    # from the top", and it will release the context as soon as the
+    # multi-shot generator `myield`s the continuation.
+    #
+    # `throw` pretty much just enters the continuation function, and
+    # makes it raise an exception; in true multi-shot fashion, the same
+    # continuation can still be resumed later (also without making it
+    # raise that time).
+    #
+    # `close` is only useful in that closing makes the multi-shot generator
+    # reject any further attempts to `next` or `.send` (unless you then
+    # overwrite the continuation manually).
+    #
+    # For an example of what serious languages that have `call_cc` do, see
+    # Racket's `dynamic-wind` construct ("wind" as in "winding/unwinding the call stack").
+    # It's the supercharged big sister of Python's `with` construct that accounts for
+    # execution topologies where control may leave the block, and then suddenly return
+    # to the middle of it later (most often due to the invocation of a continuation
+    # that was created inside that block).
+    # https://docs.racket-lang.org/reference/cont.html#%28def._%28%28quote._~23~25kernel%29._dynamic-wind%29%29
+    def throw(self, exc):
+        # If we are stopped at an `myield` that has no assignment target, so
+        # that it normally does not expect a value, we unwrap the original
+        # continuation from the `partial` to force-send the exception.
+        k = self.k.func if isinstance(self.k, partial) else self.k
+        k(exc)
+
+    # https://stackoverflow.com/questions/60137570/explanation-of-generator-close-with-exception-handling
+    def close(self):
+        if self._closed:
+            return
+        self._closed = True
+        try:
+            self.throw(GeneratorExit)
+        except GeneratorExit:
+            return  # ok!
+        # Any other exception is propagated.
+        else:  # No exception means that the generator is trying to yield something.
+            raise RuntimeError("@multishot generator attempted to `myield` a value while it was being closed")
+
 
 def runtests():
     # To start with, here's a sketch of what we want to do.
@@ -395,7 +530,7 @@ def runtests():
             k2, x2 = k1()
             test[x2 == 42]
 
-    # The first example rewritten to use the macro.
+    # The first example rewritten to use the macro:
     with testset("multi-shot generators with @multishot"):
         with continuations:
             @multishot
@@ -426,51 +561,8 @@ def runtests():
             test[k.func is not k2.func]  # ...but different function object instance
             test_raises[StopIteration, k3()]
 
-    with testset("adapting @multishot to Python's generator API"):
-        class MultishotIterator:
-            """Adapt a `@multishot` generator to Python's generator API.
-
-            The current continuation is stored as `self.k`. It is read/write.
-            If you overwrite it with another continuation, the next call to
-            `next` or `send` will resume from that continuation instead.
-
-            This proof-of-concept demo only supports `iter()`, `next()` and `.send(value)`.
-            """
-            def __init__(self, k):
-                self.k = k
-
-            # make writes into `self.k` type-check, for fail-fast
-            def _getk(self):
-                return self._k
-            def _setk(self, k):
-                if not (iscontinuation(k) or (isinstance(k, partial) and iscontinuation(k.func))):
-                    raise TypeError(f"expected `k` to be a continuation or a partially applied continuation, got {k}")
-                self._k = k
-            k = property(fget=_getk, fset=_setk, doc="The current continuation. Read/write.")
-
-            # generator API
-            def __iter__(self):
-                return self
-            def __next__(self):
-                # TODO: Should intercept the `StopIteration` and enter a special closed state,
-                # TODO: to prevent re-running the last part when `next()` is called for an
-                # TODO: "already terminated" multi-shot generator.
-                result = self.k()
-                if isinstance(result, tuple):
-                    self.k, x = result
-                else:
-                    self.k, x = result, None
-                return x
-            def send(self, value):
-                result = self.k(value)
-                if isinstance(result, tuple):
-                    self.k, x = result
-                else:
-                    self.k, x = result, None
-                return x
-            # TODO: Supporting `throw` needs changes to the `@multishot` macro.
-            # Particularly, when the continuation receives a value, check if it
-            # is an exception type or exception instance, and if so, raise it.
+    # Using a `@multishot` as if it was a standard generator:
+    with testset("MultishotIterator: adapting @multishot to Python's generator API"):
         # basic use
         test[[x for x in MultishotIterator(g())] == [1, 2, 3]]
         # TODO: advanced example, exercise all features
