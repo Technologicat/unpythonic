@@ -367,6 +367,8 @@ class MultishotIterator:
         self._closed = False
     k = property(fget=_getk, fset=_setk, doc="The current continuation. Read/write.")
 
+    # TODO: For thread safety, we should lock writes to `self._closed`,
+    # TODO: as well as make `_advance` behave atomically.
     # Internal method that implements `next` and `.send`.
     def _advance(self, mode, value=None):
         assert mode in ("next", "send")
