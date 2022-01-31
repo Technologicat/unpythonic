@@ -46,6 +46,7 @@ with phase[1]:
     from mcpyrate.walkers import ASTTransformer
 
     from unpythonic.syntax import get_cc, iscontinuation
+    from unpythonic.syntax.scopeanalyzer import isnewscope
 
     def myield_function(tree, syntax, **kw):
         """[syntax, name/expr] Yield from a multi-shot generator.
@@ -197,9 +198,7 @@ with phase[1]:
             def transform(self, tree):
                 if is_captured_value(tree):  # do not recurse into hygienic captures
                     return tree
-                # respect scope boundaries
-                if type(tree) in (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
-                                  ast.ListComp, ast.DictComp, ast.SetComp, ast.GeneratorExp):
+                if isnewscope(tree):  # respect scope boundaries
                     return tree
 
                 # `k = myield[value]`
@@ -263,9 +262,7 @@ with phase[1]:
             def transform(self, tree):
                 if is_captured_value(tree):  # do not recurse into hygienic captures
                     return tree
-                # respect scope boundaries
-                if type(tree) in (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef,
-                                  ast.ListComp, ast.DictComp, ast.SetComp, ast.GeneratorExp):
+                if isnewscope(tree):  # respect scope boundaries
                     return tree
 
                 if type(tree) is ast.Return:
