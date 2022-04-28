@@ -113,7 +113,7 @@ class ETAEstimator:
     def _formatted_eta(self) -> str:
         elapsed = self.elapsed
         estimate = self.estimate
-        if estimate:
+        if estimate is not None:
             total = elapsed + estimate
             formatted_estimate = format_human_time(estimate)
             formatted_total = format_human_time(total)
