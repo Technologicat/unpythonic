@@ -5,7 +5,7 @@
 Based on various sources; links provided in the source code comments.
 """
 
-from ..syntax import macros, test  # noqa: F401
+from ..syntax import macros, test, warn  # noqa: F401
 from ..test.fixtures import session, testset, returns_normally
 
 from operator import add, mul
@@ -192,6 +192,30 @@ def runtests():
             return last(within(eps, super_improve(differentiate(h0, f, x))))
         # Thanks to super_improve, this actually requires taking only three terms.
         test[abs(best_differentiate_with_tol(0.1, sin, pi / 2, 1e-8)) < 1e-11]
+
+        # This is strictly speaking not FP, but it is worth noting that
+        # numerical derivatives of real-valued functions can also be estimated
+        # using a not very well known trick based on complex numbers.
+        #
+        # Consider the Taylor series
+        #    f(x + iε) = f(x) + i ε f'(x) + O(ε²)
+        # Therefore
+        #    real(f(x + iε)) = f(x) + O(ε²)
+        #    imag(f(x + iε) / ε) = f'(x)
+        # No cancellation, so we can take a really small ε (e.g. ε = 1e-150).
+        #
+        # This comes from Goodfellow, Bengio and Courville (2016): Deep Learning, MIT press, p. 434:
+        # https://www.deeplearningbook.org/contents/guidelines.html
+        try:
+            # We need a `sin` that can handle complex numbers, so stdlib's won't cut the mustard.
+            import numpy as np
+            eps = 1e-150
+            def complex_diff(f, x):
+                return np.imag((f(x + eps * 1j) / eps))
+            # This is so accurate in this simple case that we can test for floating point equality.
+            test[complex_diff(np.sin, 0.1) == np.cos(0.1)]
+        except ImportError:
+            warn["Could not import NumPy; alternative numerical differentiation test skipped."]
 
     # pi approximation with Euler series acceleration
     #
