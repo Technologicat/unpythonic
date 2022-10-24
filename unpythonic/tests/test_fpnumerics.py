@@ -197,15 +197,30 @@ def runtests():
         # numerical derivatives of real-valued functions can also be estimated
         # using a not very well known trick based on complex numbers.
         #
-        # Consider the Taylor series
+        # Let f be a complex analytic function (or a complex analytic piece of a piecewise defined
+        # function) that takes on real values for inputs on the real line. Consider the Taylor series
         #    f(x + iε) = f(x) + i ε f'(x) + O(ε²)
-        # Therefore
+        # where x is a real number, i = √-1, and ε is a small real number. We have
         #    real(f(x + iε)) = f(x) + O(ε²)
         #    imag(f(x + iε) / ε) = f'(x)
+        # This gives us both f(x) and f'(x) with one complex-valued computation.
         # No cancellation, so we can take a really small ε (e.g. ε = 1e-150).
         #
-        # This comes from Goodfellow, Bengio and Courville (2016): Deep Learning, MIT press, p. 434:
-        # https://www.deeplearningbook.org/contents/guidelines.html
+        # This comes from
+        #   Goodfellow, Bengio and Courville (2016): Deep Learning, MIT press, p. 434:
+        #   https://www.deeplearningbook.org/contents/guidelines.html
+        # who cite it to originate from
+        #   William Squire and George Trapp (1998). Using Complex Variables to Estimate Derivatives
+        #   of Real Functions. SIAM Review, 40(1), 110-112. http://doi.org/10.1137/S003614459631241X
+        # who, in turn, cite it to originate from
+        #   J. N. Lyness and C. B. Moler. 1967. Numerical differentiation of analytic functions,
+        #   SIAM J. Numer. Anal., 4, pp. 202–210.
+        # and
+        #   J. N. Lyness. 1967. Numerical algorithms based on the theory of complex variables,
+        #   Proc. ACM 22nd Nat. Conf., Thompson Book Co., Washington, DC, pp. 124–134.
+        #
+        # So this technique has been known since the late 1960s, but even as of this writing,
+        # 55 years later (2022), it has not seen much use.
         try:
             # We need a `sin` that can handle complex numbers, so stdlib's won't cut the mustard.
             import numpy as np
