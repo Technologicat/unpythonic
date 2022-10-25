@@ -10,7 +10,8 @@ from ..test.fixtures import session, testset, returns_normally
 
 from operator import add, mul
 from itertools import repeat
-from math import sin, pi, log2
+from math import sin, cos, pi, log2
+from cmath import sin as complex_sin
 
 from ..fun import curry
 from ..funutil import Values
@@ -219,18 +220,19 @@ def runtests():
         #   J. N. Lyness. 1967. Numerical algorithms based on the theory of complex variables,
         #   Proc. ACM 22nd Nat. Conf., Thompson Book Co., Washington, DC, pp. 124–134.
         #
+        # See also
+        #   Joaquim J Martins, Peter Sturdza, Juan J Alonso. The complex-step derivative approximation.
+        #   ACM Transactions on Mathematical Software, Association for Computing Machinery, 2003, 29,
+        #   pp.245-262. 10.1145/838250.838251. hal-01483287.
+        #   https://hal.archives-ouvertes.fr/hal-01483287/document
+        #
         # So this technique has been known since the late 1960s, but even as of this writing,
         # 55 years later (2022), it has not seen much use.
-        try:
-            # We need a `sin` that can handle complex numbers, so stdlib's won't cut the mustard.
-            import numpy as np
-            eps = 1e-150
-            def complex_diff(f, x):
-                return np.imag((f(x + eps * 1j) / eps))
-            # This is so accurate in this simple case that we can test for floating point equality.
-            test[complex_diff(np.sin, 0.1) == np.cos(0.1)]
-        except ImportError:
-            warn["Could not import NumPy; alternative numerical differentiation test skipped."]
+        eps = 1e-150
+        def complex_diff(f, x):
+            return (f(x + eps * 1j) / eps).imag
+        # This is so accurate in this simple case that we can test for floating point equality.
+        test[complex_diff(complex_sin, 0.1) == cos(0.1)]
 
     # pi approximation with Euler series acceleration
     #
