@@ -25,7 +25,7 @@ For now, essays are listed in chronological order, most recent last.
 
 # What Belongs in Python?
 
-*Originally written in 2020; updated 9 June 2021.*
+*Originally written in 2020; updated 9 June 2021; small update 16 November 2022.*
 
 You may feel that [my hovercraft is full of eels](http://stupidpythonideas.blogspot.com/2015/05/spam-spam-spam-gouda-spam-and-tulips.html). It is because they come with the territory.
 
