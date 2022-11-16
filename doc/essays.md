@@ -62,7 +62,7 @@ For general programming in the early 2020s, Python still has the ecosystem advan
 
 # Common Lisp, Python, and productivity
 
-*Originally written in 2020; updated 9 June 2021.*
+*Originally written in 2020; updated 9 June 2021; small update 16 November 2022.*
 
 The various essays Paul Graham wrote near the turn of the millennium, especially [Revenge of the Nerds (2002)](http://paulgraham.com/icad.html), have given the initial impulse to many programmers for studying Lisp. The essays are well written and have provided a lot of exposure for the Lisp family of languages. So how does the programming world look in that light now, 20 years later?
 
@@ -78,7 +78,7 @@ As for productivity, [it may be](https://medium.com/smalltalk-talk/lisp-smalltal
 
 Haskell aims at code-data equivalence from a third angle (memoized pure functions are in essence infinite lookup tables), but I have not used it in practice, so I do not have the experience to say whether this is enough to make it feel powerful in a similar way.
 
-Image-based programming (live programming) is a common factor between Pharo and Common Lisp + Swank. This is another productivity booster that much of the programming world is not that familiar with. It eliminates not only the edit/compile/restart cycle, but the edit/restart cycle as well, making the workflow a concurrent *edit/run* instead - without restarting the whole app at each change. Julia has [Revise.jl](https://github.com/timholy/Revise.jl) for something similar. In web applications, [REST](https://en.wikipedia.org/wiki/Representational_state_transfer) is a small step in a somewhat similar direction (as long as one can restart the server app easily, to make it use the latest definitions).
+Image-based programming (live programming) is a common factor between Pharo and Common Lisp + Swank. This is another productivity booster that much of the programming world is not that familiar with. It eliminates not only the edit/compile/restart cycle, but the edit/restart cycle as well, making the workflow a concurrent *edit/run* instead - without restarting the whole app at each change. Julia has [Revise.jl](https://github.com/timholy/Revise.jl) for something similar. In web applications, [REST](https://en.wikipedia.org/wiki/Representational_state_transfer) is a small step in a somewhat similar direction (as long as one can restart the server app easily, to make it use the latest definitions). Notebooks (such as [Jupyter](https://jupyter.org/)) provide the edit/run paradigm for scientific scripts.
 
 But to know exactly what Common Lisp has to offer, **yes**, it does make sense to learn it. As baroque as some parts are, there are a lot of great ideas there. [Conditions](http://www.gigamonkeys.com/book/beyond-exception-handling-conditions-and-restarts.html) are one. [CLOS](http://www.gigamonkeys.com/book/object-reorientation-generic-functions.html) is another. (Nowadays [Julia](https://docs.julialang.org/en/v1/manual/methods/) has CLOS-style [multiple-dispatch generic functions](https://docs.julialang.org/en/v1/manual/methods/).) More widely, in the ecosystem, Swank is one.
 
