@@ -823,7 +823,7 @@ def _test_expr(tree):
     #  For this reason, we provide `with expand_testing_macros_first`, which
     #  in itself is a code-walking block macro, whose only purpose is to force
     #  `test[]` and its sisters to expand first.)
-    sourcecode = unparse(tree)
+    sourcecode = unparse(tree, color=True, expander=dyn._macro_expander)
 
     envname = gensym("e")  # for injecting the captured value
 
@@ -866,7 +866,7 @@ def _record_value(envname, sourcecode, value):
 def _inject_value_recorder(envname, tree):  # wrap tree with the the[] handler
     recorder = q[h[_record_value]]  # TODO: stash hygienic value?
     return q[a[recorder](n[envname],
-                         u[unparse(tree)],
+                         u[unparse(tree, color=True, expander=dyn._macro_expander)],
                          a[tree])]
 def _transform_important_subexpr(tree, envname):
     # The the[] mark mechanism is invoked outside-in, because for reporting,
@@ -915,7 +915,7 @@ def _test_expr_signals_or_raises(tree, syntaxname, asserter):
         raise SyntaxError(f"Expected one of {syntaxname}[exctype, expr], {syntaxname}[exctype, expr, message]")  # pragma: no cover
 
     # Same remark about outside-in source code capture as in `_test_expr`.
-    sourcecode = unparse(tree)
+    sourcecode = unparse(tree, color=True, expander=dyn._macro_expander)
 
     # Name our lambda to make the stack trace more understandable.
     # For consistency, the name matches that used by `_test_expr`.
@@ -952,7 +952,7 @@ def _test_block(block_body, args):
         raise SyntaxError('Expected `with test:` or `with test[message]:`')  # pragma: no cover
 
     # Same remark about outside-in source code capture as in `_test_expr`.
-    sourcecode = unparse(block_body)
+    sourcecode = unparse(block_body, color=True, expander=dyn._macro_expander)
 
     envname = gensym("e")  # for injecting the captured value
 
@@ -1024,7 +1024,7 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
         raise SyntaxError(f'Expected `with {syntaxname}(exctype):` or `with {syntaxname}[exctype, message]:`')  # pragma: no cover
 
     # Same remark about outside-in source code capture as in `_test_expr`.
-    sourcecode = unparse(block_body)
+    sourcecode = unparse(block_body, color=True, expander=dyn._macro_expander)
 
     testblock_function_name = gensym("_test_block")
     thetest = q[(a[asserter])(a[exctype],
