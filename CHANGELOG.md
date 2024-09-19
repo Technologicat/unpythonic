@@ -1,6 +1,25 @@
-**0.15.2** (in progress, last updated 28 January 2022)
+**0.15.3** (in progress, last updated 19 September 2024)
 
 *No user-visible changes yet.*
+
+
+---
+
+**0.15.2** (19 September 2024)
+
+This time, just a small but important fix.
+
+**Fixed**:
+
+- `unpythonic.env.env` is now pickleable. Save your fancy bunches into `.pickle` files and load them back!
+
+**Future plans**:
+
+Contrary to appearances, this project is not dead. But it already does most of what I personally need it to do, so it is pretty much in maintenance mode. And it has not required much maintenance over the past two years.
+
+We still plan to officially support Python 3.11+ later, as well as to update all constructs with assignment semantics to use the more appropriate `:=` operator, when/if I find the time to do so. The syntax uses `<<` for historical reasons - these constructs were originally implemented in 2018, on Python 3.4, back when `:=` did not exist.
+
+The most likely upgrade timeframe is when I personally switch to Python 3.11+, and something breaks. That is also when I'll likely next upgrade the sister project `mcpyrate`.
 
 
 ---
