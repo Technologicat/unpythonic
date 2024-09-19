@@ -55,9 +55,16 @@ class env:
                        "_direct_write", "_reserved_names")
     _direct_write = ("_env", "_finalized")
 
+    # For pickle support, since unpickling calls `__new__` but not `__init__`.
+    # If `self._env` is not present, `__getattr__` will crash with an infinite loop. So create it as early as possible.
+    def __new__(cls, **kwargs):
+        instance = super().__new__(cls)
+        instance._env = {}
+        instance._finalized = False  # "let" sets this once env setup done
+        instance.__init__(**kwargs)
+        return instance
+
     def __init__(self, **bindings):
-        self._env = {}
-        self._finalized = False  # "let" sets this once env setup done
         for name, value in bindings.items():
             setattr(self, name, value)
 
