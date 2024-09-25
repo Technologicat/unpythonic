@@ -25,8 +25,9 @@ except ImportError:  # pragma: no cover
     NamedExpr = _NoSuchNodeType
 
 # No new AST node types in Python 3.9.
-
-# TODO: any new AST node types in Python 3.10? (release expected in October 2021)
+# No new AST node types in Python 3.10.
+# TODO: Any new AST node types in Python 3.11?
+# TODO: Any new AST node types in Python 3.12?
 
 # --------------------------------------------------------------------------------
 # Deprecated AST node types

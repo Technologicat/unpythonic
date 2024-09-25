@@ -57,10 +57,9 @@ def runtests():
             foo = let[[f7 << (lambda x: x)] in f7]       # let-binding: name as "f7"  # noqa: F821
             test[foo.__name__ == "f7"]
 
-            warn["NamedExpr test currently disabled for syntactic compatibility with Python 3.6 and 3.7."]
-            # if foo2 := (lambda x: x):  # NamedExpr a.k.a. walrus operator (Python 3.8+)
-            #     pass
-            # test[foo2.__name__ == "foo2"]
+            if foo2 := (lambda x: x):  # NamedExpr a.k.a. walrus operator (Python 3.8+)
+                pass
+            test[foo2.__name__ == "foo2"]
 
             # function call with named arg
             def foo(func1, func2):
