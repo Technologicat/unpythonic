@@ -92,7 +92,7 @@ def where(tree, *, syntax, **kw):
 
     Usage::
 
-        let[body, where[k0 << v0, ...]]
+        let[body, where[k0 := v0, ...]]
 
     Only meaningful for declaring the bindings in a let-where, for all
     expression-form let constructs: `let`, `letseq`, `letrec`, `let_syntax`,
@@ -100,7 +100,7 @@ def where(tree, *, syntax, **kw):
     """
     if syntax != "name":
         raise SyntaxError("where (unpythonic.syntax.letdo.where) is a name macro only")  # pragma: no cover
-    raise SyntaxError("where (unpythonic.syntax.letdo.where) is only meaningful in a let[body, where[k0 << v0, ...]]")  # pragma: no cover
+    raise SyntaxError("where (unpythonic.syntax.letdo.where) is only meaningful in a let[body, where[k0 := v0, ...]]")  # pragma: no cover
 
 @parametricmacro
 def let(tree, *, args, syntax, expander, **kw):
@@ -110,18 +110,18 @@ def let(tree, *, args, syntax, expander, **kw):
 
     Usage::
 
-        let[k0 << v0, ...][body]
-        let[k0 << v0, ...][[body0, ...]]
+        let[k0 := v0, ...][body]
+        let[k0 := v0, ...][[body0, ...]]
 
     where ``body`` is an expression. The names bound by ``let`` are local;
     they are available in ``body``, and do not exist outside ``body``.
 
     Alternative haskelly syntax is also available::
 
-        let[[k0 << v0, ...] in body]
-        let[[k0 << v0, ...] in [body0, ...]]
-        let[body, where[k0 << v0, ...]]
-        let[[body0, ...], where[k0 << v0, ...]]
+        let[[k0 := v0, ...] in body]
+        let[[k0 := v0, ...] in [body0, ...]]
+        let[body, where[k0 := v0, ...]]
+        let[[body0, ...], where[k0 := v0, ...]]
 
     For a body with multiple expressions, use an extra set of brackets,
     as shown above. This inserts a ``do``. Only the outermost extra brackets
@@ -133,9 +133,14 @@ def let(tree, *, args, syntax, expander, **kw):
 
     Each ``name`` in the same ``let`` must be unique.
 
-    Rebinding of let-bound variables inside `body` is supported with `unpythonic`
-    env-assignment syntax, ``x << 42``. This is an expression, performing the
-    assignment, and returning the new value.
+    Starting at v0.15.3, rebinding of let-bound variables inside `body`
+    is supported using the walrus assignment syntax, ``x := 42``.
+    The new syntax is preferred, but the old one is still available
+    for backward compatibility.
+
+    From v0.15.0 to v0.15.2, rebinding of let-bound variables inside `body`
+    is supported with `unpythonic` env-assignment syntax, ``x << 42``.
+    This is an expression, performing the assignment, and returning the new value.
 
     In a multiple-expression body, also an internal definition context exists
     for local variables that are not part of the ``let``; see ``do`` for details.
@@ -210,9 +215,9 @@ def dlet(tree, *, args, syntax, expander, **kw):
 
     Example::
 
-        @dlet[x << 0]
+        @dlet[x := 0]
         def count():
-            x << x + 1
+            (x := x + 1)  # walrus requires parens here; or use `x << x + 1`
             return x
         assert count() == 1
         assert count() == 2
@@ -222,7 +227,7 @@ def dlet(tree, *, args, syntax, expander, **kw):
     ``let`` environment *for the entirety of that lexical scope*. (This is
     modeled after Python's standard scoping rules.)
 
-    **CAUTION**: assignment to the let environment is ``name << value``;
+    **CAUTION**: assignment to the let environment is ``name := value``;
     the regular syntax ``name = value`` creates a local variable in the
     lexical scope of the ``def``.
     """
@@ -240,9 +245,9 @@ def dletseq(tree, *, args, syntax, expander, **kw):
 
     Example::
 
-        @dletseq[x << 1,
-                 x << x + 1,
-                 x << x + 2]
+        @dletseq[x := 1,
+                 x := x + 1,
+                 x := x + 2]
         def g(a):
             return a + x
         assert g(10) == 14
@@ -259,8 +264,8 @@ def dletrec(tree, *, args, syntax, expander, **kw):
 
     Example::
 
-        @dletrec[evenp << (lambda x: (x == 0) or oddp(x - 1)),
-                 oddp << (lambda x: (x != 0) and evenp(x - 1))]
+        @dletrec[evenp := (lambda x: (x == 0) or oddp(x - 1)),
+                 oddp := (lambda x: (x != 0) and evenp(x - 1))]
         def f(x):
             return evenp(x)
         assert f(42) is True
@@ -280,7 +285,7 @@ def blet(tree, *, args, syntax, expander, **kw):
 
     Example::
 
-        @blet[x << 21]
+        @blet[x := 21]
         def result():
             return 2 * x
         assert result == 42
@@ -297,9 +302,9 @@ def bletseq(tree, *, args, syntax, expander, **kw):
 
     Example::
 
-        @bletseq[x << 1,
-                 x << x + 1,
-                 x << x + 2]
+        @bletseq[x := 1,
+                 x := x + 1,
+                 x := x + 2]
         def result():
             return x
         assert result == 4
@@ -316,8 +321,8 @@ def bletrec(tree, *, args, syntax, expander, **kw):
 
     Example::
 
-        @bletrec[evenp << (lambda x: (x == 0) or oddp(x - 1)),
-                 oddp << (lambda x: (x != 0) and evenp(x - 1))]
+        @bletrec[evenp := (lambda x: (x == 0) or oddp(x - 1)),
+                 oddp := (lambda x: (x != 0) and evenp(x - 1))]
         def result():
             return evenp(42)
         assert result is True
@@ -414,11 +419,12 @@ def _letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
     """Common transformations for let-like operations.
 
     Namely::
+        x := val --> e.set('x', val)
         x << val --> e.set('x', val)
         x --> e.x  (when x appears in load context)
         # ... -> lambda e: ...  (applied if dowrap=True)
 
-    lhsnames: names to recognize on the LHS of x << val as belonging to this env
+    lhsnames: names to recognize on the LHS of x := val as belonging to this env
     rhsnames: names to recognize anywhere in load context as belonging to this env
 
     These are separate mainly for ``do[]``, so that we can have new bindings
@@ -433,7 +439,7 @@ def _letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
     return tree
 
 def _transform_envassignment(tree, lhsnames, envset):
-    """x << val --> e.set('x', val)  (for names bound in this environment)"""
+    """`x := val` or `x << val` --> `e.set('x', val)`  (for names bound in this environment)"""
     # names_in_scope: according to Python's standard binding rules, see scopeanalyzer.py.
     # Variables defined in let envs are thus not listed in `names_in_scope`.
     def transform(tree, names_in_scope):
@@ -446,7 +452,7 @@ def _transform_envassignment(tree, lhsnames, envset):
     return scoped_transform(tree, callback=transform)
 
 def _transform_name(tree, rhsnames, envname):
-    """x --> e.x  (in load context; for names bound in this environment)"""
+    """`x` --> `e.x`  (in load context; for names bound in this environment)"""
     # names_in_scope: according to Python's standard binding rules, see scopeanalyzer.py.
     # Variables defined in let envs are thus not listed in `names_in_scope`.
     def transform(tree, names_in_scope):
@@ -468,7 +474,7 @@ def _transform_name(tree, rhsnames, envname):
         #   leave it alone.
         if type(tree) is Name and tree.id in rhsnames and tree.id not in names_in_scope:
             hasctx = hasattr(tree, "ctx")  # macro-created nodes might not have a ctx.
-            if hasctx and type(tree.ctx) is not Load:  # let variables are rebound using `<<`, not `=`.
+            if hasctx and type(tree.ctx) is not Load:  # let variables are rebound using <<`, not `=`.  # TODO: doesn't work for `:=`, which *is* an assignment. Fix this; needs some changes to `scoped_transform`.
                 return tree
             attr_node = q[n[f"{envname}.{tree.id}"]]
             if hasctx:
@@ -551,20 +557,20 @@ def _let_decorator_impl(bindings, body, mode, kind):
 def _dletseq_impl(bindings, body, kind):
     # What we want:
     #
-    # @dletseq[x << 1,
-    #          x << x + 1,
-    #          x << x + 2]
+    # @dletseq[x := 1,
+    #          x := x + 1,
+    #          x := x + 2]
     # def g(*args, **kwargs):
     #     return x
     # assert g() == 4
     #
     # -->
     #
-    # @dlet[x << 1]
+    # @dlet[x := 1]
     # def g(*args, **kwargs, e1):  # original args from tree go to the outermost def
-    #   @dlet[x << x + 1]          # on RHS, important for e1.x to be in scope
+    #   @dlet[x := x + 1]          # on RHS, important for e1.x to be in scope
     #   def g2(*, e2):
-    #       @dlet[x << x + 2]
+    #       @dlet[x := x + 2]
     #       def g3(*, e3):         # expansion proceeds from inside out
     #           return e3.x        # original args travel here by the closure property
     #       return g3()
@@ -625,7 +631,7 @@ def local(tree, *, syntax, **kw):
 
     Usage::
 
-        local[name << value]
+        local[name := value]
 
     Only meaningful in a ``do[...]``, ``do0[...]``, or an implicit ``do``
     (extra bracket syntax).
@@ -637,7 +643,7 @@ def local(tree, *, syntax, **kw):
     on the RHS.
 
     This means that if you want, you can declare a local ``x`` that takes its
-    initial value from a nonlocal ``x``, by ``local[x << x]``. Here the ``x``
+    initial value from a nonlocal ``x``, by ``local[x := x]``. Here the ``x``
     on the RHS is the nonlocal one (since the declaration has not yet taken
     effect), and the ``x`` on the LHS is the name given to the new local variable
     that only exists inside the ``do``. Any references to ``x`` in any further
@@ -680,14 +686,14 @@ def do(tree, *, syntax, expander, **kw):
 
     Example::
 
-        do[local[x << 42],
+        do[local[x := 42],
            print(x),
-           x << 23,
+           x := 23,
            x]
 
     This is sugar on top of ``unpythonic.seq.do``, but with some extra features.
 
-        - To declare and initialize a local name, use ``local[name << value]``.
+        - To declare and initialize a local name, use ``local[name := value]``.
 
           The operator ``local`` is syntax, not really a function, and it
           only exists inside a ``do``. There is also an operator ``delete``
@@ -702,7 +708,7 @@ def do(tree, *, syntax, expander, **kw):
         - Names declared within the same ``do`` must be unique. Re-declaring
           the same name is an expansion-time error.
 
-        - To assign to an already declared local name, use ``name << value``.
+        - To assign to an already declared local name, use ``name := value``.
 
     **local name declarations**
 
@@ -711,7 +717,7 @@ def do(tree, *, syntax, expander, **kw):
 
         result = []
         let((lst, []))[do[result.append(lst),       # the let "lst"
-                          local[lst << lst + [1]],  # LHS: do "lst", RHS: let "lst"
+                          local[lst := lst + [1]],  # LHS: do "lst", RHS: let "lst"
                           result.append(lst)]]      # the do "lst"
         assert result == [[], [1]]
 
@@ -753,14 +759,14 @@ def do(tree, *, syntax, expander, **kw):
     uses, the ambiguity does not arise. The transformation inserts not only the
     word ``do``, but also the outermost brackets. For example::
 
-        let[x << 1,
-            y << 2][[
+        let[x := 1,
+            y := 2][[
               [x, y]]]
 
     transforms to::
 
-        let[x << 1,
-            y << 2][do[[  # "do[" is inserted between the two opening brackets
+        let[x := 1,
+            y := 2][do[[  # "do[" is inserted between the two opening brackets
               [x, y]]]]   # and its closing "]" is inserted here
 
     which already gets rid of the ambiguity.
@@ -770,24 +776,24 @@ def do(tree, *, syntax, expander, **kw):
     Macros are expanded in an inside-out order, so a nested ``let`` shadows
     names, if the same names appear in the ``do``::
 
-        do[local[x << 17],
-           let[x << 23][
+        do[local[x := 17],
+           let[x := 23][
              print(x)],  # 23, the "x" of the "let"
            print(x)]     # 17, the "x" of the "do"
 
     The reason we require local names to be declared is to allow write access
     to lexically outer environments from inside a ``do``::
 
-        let[x << 17][
-              do[x << 23,         # no "local[...]"; update the "x" of the "let"
-                 local[y << 42],  # "y" is local to the "do"
+        let[x := 17][
+              do[x := 23,         # no "local[...]"; update the "x" of the "let"
+                 local[y := 42],  # "y" is local to the "do"
                  print(x, y)]]
 
     With the extra bracket syntax, the latter example can be written as::
 
-        let[x << 17][[
-              x << 23,
-              local[y << 42],
+        let[x := 17][[
+              x := 23,
+              local[y := 42],
               print(x, y)]]
 
     It's subtly different in that the first version has the do-items in a tuple,
@@ -833,11 +839,11 @@ def _do(tree):
                 expr = islocaldef(tree)
                 if expr:
                     if not isenvassign(expr):
-                        raise SyntaxError("local[...] takes exactly one expression of the form 'name << value'")  # pragma: no cover
+                        raise SyntaxError("local[...] takes exactly one expression of the form 'name := value' or 'name << value'")  # pragma: no cover
                     view = UnexpandedEnvAssignView(expr)
                     self.collect(view.name)
-                    view.value = self.visit(view.value)  # nested local[] (e.g. from `do0[local[y << 5],]`)
-                    return expr  # `local[x << 21]` --> `x << 21`; compiling *that* makes the env-assignment occur.
+                    view.value = self.visit(view.value)  # nested local[] (e.g. from `do0[local[y := 5],]`)
+                    return expr  # `local[x := 21]` --> `x := 21`; compiling *that* makes the env-assignment occur.
                 return tree  # don't recurse!
         c = LocaldefCollector()
         tree = c.visit(tree)
@@ -918,7 +924,7 @@ def _do0(tree):
         raise SyntaxError("do0 body: expected a sequence of comma-separated expressions")  # pragma: no cover
     elts = tree.elts
     # Use `local[]` and `do[]` as hygienically captured macros.
-    newelts = [q[a[_our_local][_do0_result << a[elts[0]]]],  # noqa: F821, local[] defines it inside the do[].
+    newelts = [q[a[_our_local][_do0_result := a[elts[0]]]],  # noqa: F821, local[] defines it inside the do[].
                *elts[1:],
                q[_do0_result]]  # noqa: F821
     return q[a[_our_do][t[newelts]]]  # do0[] is also just a do[]

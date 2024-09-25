@@ -1,5 +1,9 @@
 **0.15.3** (in progress, last updated 25 September 2024)
 
+**New**:
+
+- Walrus syntax `name := value` is now supported, and preferred, for all env-assignments. Old syntax `name << value` still works, and will remain working at least until v0.16.0, whenever that is.
+
 **IMPORTANT**:
 
 - Minimum Python language version is now 3.8.

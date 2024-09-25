@@ -13,7 +13,7 @@ import sys
 from mcpyrate import unparse
 from mcpyrate.core import Done
 
-from .astcompat import getconstant, Str
+from .astcompat import getconstant, Str, NamedExpr
 from .nameutil import isx, getname
 
 letf_name = "letter"  # must match what ``unpythonic.syntax.letdo._let_expr_impl`` uses in its output.
@@ -68,13 +68,15 @@ def canonize_bindings(elts, letsyntax_mode=False):  # public as of v0.14.3+
         [Tuple(elts=[k0, v0]), ...]
 
     elts: `list` of bindings, one of::
+        [k0 := v0, ...]    # v0.15.3+: new env-assignment syntax, preferred
+        [k := v]           # v0.15.3+
+        [k0 << v0, ...]    # v0.15.0+: previous env-assignment syntax
+        [k << v]           # v0.15.0+
+        [[k0, v0], ...]    # v0.15.0+: accept also brackets (for consistency)
+        [[k, v]]           # v0.15.0+
         [(k0, v0), ...]    # multiple bindings contained in a tuple
         [(k, v),]          # single binding contained in a tuple also ok
         [k, v]             # special single binding format, missing tuple container
-        [[k0, v0], ...]    # v0.15.0+: accept also brackets (for consistency)
-        [[k, v]]           # v0.15.0+
-        [k0 << v0, ...]    # v0.15.0+: accept also env-assignment syntax
-        [k << v]           # v0.15.0+
 
     where the ks and vs are AST nodes.
 
@@ -85,31 +87,52 @@ def canonize_bindings(elts, letsyntax_mode=False):  # public as of v0.14.3+
     def iskvpairbinding(lst):
         return len(lst) == 2 and _isbindingtarget(lst[0], letsyntax_mode)
 
-    if len(elts) == 1 and isenvassign(elts[0], letsyntax_mode):  # [k << v]
-        return [Tuple(elts=[elts[0].left, elts[0].right])]
+    if len(elts) == 1:
+        if isenvassign(elts[0], letsyntax_mode) is LShift:  # [k << v]
+            return [Tuple(elts=[elts[0].left, elts[0].right])]
+        if isenvassign(elts[0], letsyntax_mode) is NamedExpr:  # [k := v]
+            return [Tuple(elts=[elts[0].target, elts[0].value])]
     if len(elts) == 2 and iskvpairbinding(elts):  # [k, v]
         return [Tuple(elts=elts)]  # TODO: `mcpyrate`: just `q[t[elts]]`?
     if all((type(b) is Tuple and iskvpairbinding(b.elts)) for b in elts):  # [(k0, v0), ...]
         return elts
     if all((type(b) is List and iskvpairbinding(b.elts)) for b in elts):  # [[k0, v0], ...]
         return [Tuple(elts=b.elts) for b in elts]
-    if all(isenvassign(b, letsyntax_mode) for b in elts):  # [k0 << v0, ...]
-        return [Tuple(elts=[b.left, b.right]) for b in elts]
-    raise SyntaxError("expected bindings to be `(k0, v0), ...`, `[k0, v0], ...`, or `k0 << v0, ...`, or a single `k, v`, or `k << v`")  # pragma: no cover
+    if all(isenvassign(b, letsyntax_mode) for b in elts):  # [k0 << v0, ...] or [k0 := v0, ...]
+        out = []
+        for b in elts:
+            if isenvassign(b, letsyntax_mode) is LShift:
+                out.append(Tuple(elts=[b.left, b.right]))
+            else:  # NamedExpr
+                out.append(Tuple(elts=[b.target, b.value]))
+        return out
+    raise SyntaxError("expected bindings to be `k0 := v0, ...`, `k0 << v0, ...`, `[k0, v0], ...`, or `(k0, v0), ...`, or a single `k := v`, `k << v`, or `k, v`")  # pragma: no cover
 
 def isenvassign(tree, letsyntax_mode=False):
-    """Detect whether tree is an unpythonic ``env`` assignment, ``name << value``.
+    """Detect whether tree is an unpythonic ``env`` assignment.
 
-    The only way this differs from a general left-shift is that the LHS must be
-    an ``ast.Name``.
+    Starting at v0.15.3: new env-assignment syntax ``name := value`` is recommended.
+
+    From v0.15.0 to v0.15.2, env-assignment used the syntax ``name << value``.
+    This is still available for backward compatibility.
+
+    Return value is one of the constants:
+        `NamedExpr`: `tree` is an env-assignment, with modern syntax.
+        `LShift`: `tree` is an env-assignment, with classic syntax,
+        `False`: `tree` is not an env-assignment,
+
+    The only way this differs from a left-shift or the usual kind of walrus assignment
+    is that the LHS must be an ``ast.Name``.
 
     letsyntax_mode: used by let_syntax to allow template definitions.
     This allows, beside a bare name `k`, the formats `k(a0, ...)` and `k[a0, ...]`
     to appear in the variable-name position.
     """
-    if not (type(tree) is BinOp and type(tree.op) is LShift):
-        return False
-    return _isbindingtarget(tree.left, letsyntax_mode)
+    if type(tree) is BinOp and type(tree.op) is LShift and _isbindingtarget(tree.left, letsyntax_mode):
+        return LShift
+    if type(tree) is NamedExpr and _isbindingtarget(tree.target, letsyntax_mode):  # added in 0.15.3
+        return NamedExpr
+    return False
 
 # TODO: This would benefit from macro destructuring in the expander.
 # TODO: See https://github.com/Technologicat/mcpyrate/issues/3
@@ -167,7 +190,7 @@ def islet(tree, expanded=True):
             return (f"{kind}_decorator", mode)  # this call was generated by _let_decorator_impl
         else:
             return (f"{kind}_expr", mode)       # this call was generated by _let_expr_impl
-    # dlet[k0 << v0, ...]  (usually in a decorator list)
+    # dlet[k0 := v0, ...]  (usually in a decorator list)
     deconames = ("dlet", "dletseq", "dletrec",
                  "blet", "bletseq", "bletrec")
     if type(tree) is Subscript and type(tree.value) is Name:  # could be a Subscript decorator (Python 3.9+)
@@ -182,8 +205,8 @@ def islet(tree, expanded=True):
     if not type(tree) is Subscript:
         return False
     # Note we don't care about the bindings format here.
-    # let[k0 << v0, ...][body]
-    # let(k0 << v0, ...)[body]
+    # let[k0 := v0, ...][body]
+    # let(k0 := v0, ...)[body]
     # ^^^^^^^^^^^^^^^^^^
     macro = tree.value
     exprnames = ("let", "letseq", "letrec", "let_syntax", "abbrev")
@@ -199,8 +222,8 @@ def islet(tree, expanded=True):
     elif type(macro) is Name:
         s = macro.id
         if any(s == x for x in exprnames):
-            # let[k0 << v0, ...][body]
-            # let(k0 << v0, ...)[body]
+            # let[k0 := v0, ...][body]
+            # let(k0 := v0, ...)[body]
             #                    ^^^^
             expr = _get_subscript_slice(tree)
             h = _ishaskellylet(expr)
@@ -215,19 +238,19 @@ def _ishaskellylet(tree):
 
     In other words, detect the part inside the brackets in::
 
-        let[[k0 << v0, ...] in body]
-        let[body, where[k0 << v0, ...]]
+        let[[k0 := v0, ...] in body]
+        let[body, where[k0 := v0, ...]]
 
     To detect the full expression including the ``let[]``, use ``islet`` instead.
     """
-    # let[[k0 << v0, ...] in body]
-    # let[(k0 << v0, ...) in body]
+    # let[[k0 := v0, ...] in body]
+    # let[(k0 := v0, ...) in body]
     def maybeiscontentofletin(tree):
         return (type(tree) is Compare and
                 len(tree.ops) == 1 and type(tree.ops[0]) is In and
                 type(tree.left) in (List, Tuple))
-    # let[body, where[k0 << v0, ...]]
-    # let[body, where(k0 << v0, ...)]
+    # let[body, where[k0 := v0, ...]]
+    # let[body, where(k0 := v0, ...)]
     def maybeiscontentofletwhere(tree):
         return type(tree) is Tuple and len(tree.elts) == 2 and type(tree.elts[1]) in (Call, Subscript)
 
@@ -294,10 +317,10 @@ def isdo(tree, expanded=True):
 # -----------------------------------------------------------------------------
 
 class UnexpandedEnvAssignView:
-    """Destructure an env-assignment, writably.
+    """Destructure an unexpanded env-assignment, writably.
 
     If ``tree`` cannot be interpreted as an unpythonic ``env`` assignment
-    of the form ``name << value``, then ``TypeError`` is raised.
+    of the form ``name := value`` or ``name << value``, then ``TypeError`` is raised.
 
     For easy in-place modification of both ``name`` and ``value``. Use before
     the env-assignment is expanded away (so, before the ``let[]`` or ``do[]``
@@ -317,7 +340,7 @@ class UnexpandedEnvAssignView:
 
         ``value``: the thing being assigned, as an AST.
 
-    Writing to either attribute updates the original.
+    Writing to either attribute updates the original, preserving the syntax (`:=` or `<<`).
     """
     def __init__(self, tree):
         if not isenvassign(tree):
@@ -325,21 +348,34 @@ class UnexpandedEnvAssignView:
         self._tree = tree
 
     def _getname(self):
-        return getname(self._tree.left, accept_attr=False)
+        if isenvassign(self._tree) is LShift:
+            return getname(self._tree.left, accept_attr=False)
+        else:  # NamedExpr
+            return getname(self._tree.target, accept_attr=False)
     def _setname(self, newname):
         if not isinstance(newname, str):
             raise TypeError(f"expected str for new name, got {type(newname)} with value {repr(newname)}")
+        if isenvassign(self._tree) is LShift:
+            targetnode = self._tree.left
+        else:  # NamedExpr
+            targetnode = self._tree.target
         # The `Done` may be produced by expanded `@namemacro`s.
-        if isinstance(self._tree.left, Done):
-            self._tree.left.body.id = newname
+        if isinstance(targetnode, Done):
+            targetnode.body.id = newname
         else:
-            self._tree.left.id = newname
+            targetnode.id = newname
     name = property(fget=_getname, fset=_setname, doc="The name of the assigned var, as an str. Writable.")
 
     def _getvalue(self):
-        return self._tree.right
+        if isenvassign(self._tree) is LShift:
+            return self._tree.right
+        else:  # NamedExpr
+            return self._tree.value
     def _setvalue(self, newvalue):
-        self._tree.right = newvalue
+        if isenvassign(self._tree) is LShift:
+            self._tree.right = newvalue
+        else:  # NamedExpr
+            self._tree.value = newvalue
     value = property(fget=_getvalue, fset=_setvalue, doc="The value of the assigned var, as an AST. Writable.")
 
 class UnexpandedLetView:
@@ -353,30 +389,32 @@ class UnexpandedLetView:
 
     **Supported formats**::
 
-        dlet[k0 << v0, ...]              # decorator
-        let[k0 << v0, ...][body]         # lispy expression
-        let[[k0 << v0, ...] in body]     # haskelly expression
-        let[body, where[k0 << v0, ...]]  # haskelly expression, inverted
+        dlet[k0 := v0, ...]              # decorator
+        let[k0 := v0, ...][body]         # lispy expression
+        let[[k0 := v0, ...] in body]     # haskelly expression
+        let[body, where[k0 := v0, ...]]  # haskelly expression, inverted
 
     In addition, we also support *just the bracketed part* of the haskelly
     formats. This is to make it easier for the macro interface to destructure
     these forms (for sending into the ``let`` syntax transformer). So these
     forms are supported, too::
 
-        [k0 << v0, ...] in body
-        (body, where[k0 << v0, ...])
+        [k0 := v0, ...] in body
+        (body, where[k0 := v0, ...])
 
     Finally, in any of these, the bindings subform can actually be in any of
     the formats:
 
-        [k0 << v0, ...]  # preferred, v0.15.0+
+        [k0 := v0, ...]  # preferred, v0.15.3+
+        [k0 << v0, ...]  # preferred, v0.15.0 to v0.15.2
         (k0 << v0, ...)
         [[k0, v0], ...]
         [(k0, v0), ...]
         ([k0, v0], ...)
         ((k0, v0), ...)
         k, v
-        k << v           # preferred for a single binding, v0.15.0+
+        k := v           # preferred for a single binding, v0.15.3+
+        k << v           # preferred for a single binding, v0.15.0 to v0.15.2
 
     This is a data abstraction that hides the detailed structure of the AST,
     since there are many alternate syntaxes that can be used for a ``let``

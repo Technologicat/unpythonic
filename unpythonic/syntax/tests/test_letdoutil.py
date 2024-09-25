@@ -41,7 +41,9 @@ def runtests():
         test[validate(the[canonize_bindings(q[k0, v0].elts)])]  # noqa: F821, it's quoted.
         test[validate(the[canonize_bindings(q[((k0, v0),)].elts)])]  # noqa: F821
         test[validate(the[canonize_bindings(q[(k0, v0), (k1, v1)].elts)])]  # noqa: F821
+        test[validate(the[canonize_bindings([q[k0 := v0]])])]  # noqa: F821, it's quoted.
         test[validate(the[canonize_bindings([q[k0 << v0]])])]  # noqa: F821, it's quoted.
+        test[validate(the[canonize_bindings(q[k0 := v0, k1 := v1].elts)])]  # noqa: F821, it's quoted.
         test[validate(the[canonize_bindings(q[k0 << v0, k1 << v1].elts)])]  # noqa: F821, it's quoted.
 
     # --------------------------------------------------------------------------------
@@ -51,13 +53,19 @@ def runtests():
     # need this utility, so we must test it first.
     with testset("isenvassign"):
         test[not isenvassign(q[x])]  # noqa: F821
+        test[isenvassign(q[x := 42])]  # noqa: F821
         test[isenvassign(q[x << 42])]  # noqa: F821
 
     with testset("islet"):
         test[not islet(q[x])]  # noqa: F821
         test[not islet(q[f()])]  # noqa: F821
 
-        # modern notation for bindings
+        # unpythonic 0.15.3+, Python 3.8+
+        test[islet(the[expandrq[let[x := 21][2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821, `let` defines `x`
+        test[islet(the[expandrq[let[[x := 21] in 2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821
+        test[islet(the[expandrq[let[2 * x, where[x := 21]]]]) == ("expanded_expr", "let")]  # noqa: F821
+
+        # unpythonic 0.15.0 to 0.15.2, previous modern notation for bindings
         test[islet(the[expandrq[let[x << 21][2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821, `let` defines `x`
         test[islet(the[expandrq[let[[x << 21] in 2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821
         test[islet(the[expandrq[let[2 * x, where[x << 21]]]]) == ("expanded_expr", "let")]  # noqa: F821
@@ -67,17 +75,29 @@ def runtests():
         test[islet(the[expandrq[let[(x, 21) in 2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821
         test[islet(the[expandrq[let[2 * x, where(x, 21)]]]) == ("expanded_expr", "let")]  # noqa: F821
 
+        # unpythonic 0.15.3+, Python 3.8+
+        with expandrq as testdata:
+            @dlet(x := 21)  # noqa: F821
+            def f0():
+                return 2 * x  # noqa: F821
+        test[islet(the[testdata[0].decorator_list[0]]) == ("expanded_decorator", "let")]
+
+        # unpythonic 0.15.0 to 0.15.2, previous modern notation for bindings
         with expandrq as testdata:
             @dlet(x << 21)  # noqa: F821
             def f1():
                 return 2 * x  # noqa: F821
         test[islet(the[testdata[0].decorator_list[0]]) == ("expanded_decorator", "let")]
 
+        # classic notation for bindings
         with expandrq as testdata:
             @dlet((x, 21))  # noqa: F821
             def f2():
                 return 2 * x  # noqa: F821
         test[islet(the[testdata[0].decorator_list[0]]) == ("expanded_decorator", "let")]
+
+        testdata = q[let[x := 21][2 * x]]  # noqa: F821
+        test[islet(the[testdata], expanded=False) == ("lispy_expr", "let")]
 
         testdata = q[let[x << 21][2 * x]]  # noqa: F821
         test[islet(the[testdata], expanded=False) == ("lispy_expr", "let")]
@@ -95,6 +115,8 @@ def runtests():
         testdata = q[let[2 * x, where(x, 21)]]  # noqa: F821
         test[islet(the[testdata], expanded=False) == ("where_expr", "let")]
 
+        testdata = q[let[[x := 21, y := 2] in y * x]]  # noqa: F821
+        test[islet(the[testdata], expanded=False) == ("in_expr", "let")]
         testdata = q[let[[x << 21, y << 2] in y * x]]  # noqa: F821
         test[islet(the[testdata], expanded=False) == ("in_expr", "let")]
         testdata = q[let[((x, 21), (y, 2)) in y * x]]  # noqa: F821
@@ -117,6 +139,12 @@ def runtests():
         with q as testdata:
             @dlet(x << 21)  # noqa: F821
             def f4():
+                return 2 * x  # noqa: F821
+        test[islet(the[testdata[0].decorator_list[0]], expanded=False) == ("decorator", "dlet")]
+
+        with q as testdata:
+            @dlet(x := 21)  # noqa: F821
+            def f5():
                 return 2 * x  # noqa: F821
         test[islet(the[testdata[0].decorator_list[0]], expanded=False) == ("decorator", "dlet")]
 
@@ -167,6 +195,10 @@ def runtests():
         test[not isdo(q[x])]  # noqa: F821
         test[not isdo(q[f()])]  # noqa: F821
 
+        # unpythonic 0.15.3+, Python 3.8+
+        test[isdo(the[expandrq[do[x := 21,  # noqa: F821
+                                  2 * x]]]) == "expanded"]  # noqa: F821
+
         test[isdo(the[expandrq[do[x << 21,  # noqa: F821
                                   2 * x]]]) == "expanded"]  # noqa: F821
 
@@ -177,6 +209,21 @@ def runtests():
         thedo = testdata[0].value
         test[isdo(the[thedo]) == "curried"]
 
+        # unpythonic 0.15.3+, Python 3.8+
+        testdata = q[do[x := 21,  # noqa: F821
+                        2 * x]]  # noqa: F821
+        test[isdo(the[testdata], expanded=False) == "do"]
+
+        testdata = q[do0[23,  # noqa: F821
+                         x := 21,  # noqa: F821
+                         2 * x]]  # noqa: F821
+        test[isdo(the[testdata], expanded=False) == "do0"]
+
+        testdata = q[someothermacro[x := 21,  # noqa: F821
+                                    2 * x]]  # noqa: F821
+        test[not isdo(the[testdata], expanded=False)]
+
+        # previous modern notation
         testdata = q[do[x << 21,  # noqa: F821
                         2 * x]]  # noqa: F821
         test[isdo(the[testdata], expanded=False) == "do"]
@@ -193,6 +240,30 @@ def runtests():
     # --------------------------------------------------------------------------------
     # Destructuring - envassign
 
+    with testset("envassign destructuring (new env-assign syntax v0.15.3+)"):
+        testdata = q[x := 42]  # noqa: F821
+        view = UnexpandedEnvAssignView(testdata)
+
+        # read
+        test[view.name == "x"]
+        test[type(the[view.value]) in (Constant, Num) and getconstant(view.value) == 42]  # Python 3.8: ast.Constant
+
+        # write
+        view.name = "y"
+        view.value = q[23]
+        test[view.name == "y"]
+        test[type(the[view.value]) in (Constant, Num) and getconstant(view.value) == 23]  # Python 3.8: ast.Constant
+
+        # it's a live view
+        test[unparse(testdata) == "(y := 23)"]  # syntax type `:=` vs. `<<` is preserved
+
+        # error cases
+        test_raises[TypeError,
+                    UnexpandedEnvAssignView(q[x]),  # noqa: F821
+                    "not an env assignment"]
+        with test_raises[TypeError, "name must be str"]:
+            view.name = 1234
+
     with testset("envassign destructuring"):
         testdata = q[x << 42]  # noqa: F821
         view = UnexpandedEnvAssignView(testdata)
@@ -208,7 +279,7 @@ def runtests():
         test[type(the[view.value]) in (Constant, Num) and getconstant(view.value) == 23]  # Python 3.8: ast.Constant
 
         # it's a live view
-        test[unparse(testdata) == "(y << 23)"]
+        test[unparse(testdata) == "(y << 23)"]  # syntax type `:=` vs. `<<` is preserved
 
         # error cases
         test_raises[TypeError,
@@ -245,6 +316,8 @@ def runtests():
             test[unparse(view.body) == "(z * t)"]
 
         # lispy expr
+        testdata = q[let[x := 21, y := 2][y * x]]  # noqa: F821
+        testletdestructuring(testdata)
         testdata = q[let[x << 21, y << 2][y * x]]  # noqa: F821
         testletdestructuring(testdata)
         testdata = q[let[[x, 21], [y, 2]][y * x]]  # noqa: F821
@@ -253,6 +326,8 @@ def runtests():
         testletdestructuring(testdata)
 
         # haskelly let-in
+        testdata = q[let[[x := 21, y := 2] in y * x]]  # noqa: F821
+        testletdestructuring(testdata)
         testdata = q[let[[x << 21, y << 2] in y * x]]  # noqa: F821
         testletdestructuring(testdata)
         testdata = q[let[(x << 21, y << 2) in y * x]]  # noqa: F821
@@ -267,6 +342,8 @@ def runtests():
         testletdestructuring(testdata)
 
         # haskelly let-where
+        testdata = q[let[y * x, where[x := 21, y := 2]]]  # noqa: F821
+        testletdestructuring(testdata)
         testdata = q[let[y * x, where[x << 21, y << 2]]]  # noqa: F821
         testletdestructuring(testdata)
         testdata = q[let[y * x, where(x << 21, y << 2)]]  # noqa: F821
@@ -281,6 +358,8 @@ def runtests():
         testletdestructuring(testdata)
 
         # disembodied haskelly let-in (just the content, no macro invocation)
+        testdata = q[[x := 21, y := 2] in y * x]  # noqa: F821
+        testletdestructuring(testdata)
         testdata = q[[x << 21, y << 2] in y * x]  # noqa: F821
         testletdestructuring(testdata)
         testdata = q[(x << 21, y << 2) in y * x]  # noqa: F821
@@ -295,6 +374,8 @@ def runtests():
         testletdestructuring(testdata)
 
         # disembodied haskelly let-where (just the content, no macro invocation)
+        testdata = q[y * x, where[x := 21, y := 2]]  # noqa: F821
+        testletdestructuring(testdata)
         testdata = q[y * x, where[x << 21, y << 2]]  # noqa: F821
         testletdestructuring(testdata)
         testdata = q[y * x, where(x << 21, y << 2)]  # noqa: F821
@@ -311,7 +392,7 @@ def runtests():
         # decorator
         with q as testdata:
             @dlet((x, 21), (y, 2))  # noqa: F821
-            def f5():
+            def f6():
                 return 2 * x  # noqa: F821
 
         # read
@@ -392,7 +473,7 @@ def runtests():
         # decorator
         with expandrq as testdata:
             @dlet((x, 21), (y, 2))  # noqa: F821
-            def f6():
+            def f7():
                 return 2 * x  # noqa: F821
         view = ExpandedLetView(testdata[0].decorator_list[0])
         test_raises[TypeError,
@@ -488,7 +569,7 @@ def runtests():
         # decorator, letrec
         with expandrq as testdata:
             @dletrec((x, 21), (y, 2))  # noqa: F821
-            def f7():
+            def f8():
                 return 2 * x  # noqa: F821
         view = ExpandedLetView(testdata[0].decorator_list[0])
         test_raises[TypeError,
@@ -516,6 +597,45 @@ def runtests():
 
     # --------------------------------------------------------------------------------
     # Destructuring - unexpanded do
+
+    with testset("do destructuring (unexpanded) (new env-assign syntax v0.15.3+)"):
+        testdata = q[do[local[x := 21],  # noqa: F821
+                        2 * x]]  # noqa: F821
+        view = UnexpandedDoView(testdata)
+        # read
+        thebody = view.body
+        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+            thing = thebody[0].slice
+        else:
+            thing = thebody[0].slice.value
+        test[isenvassign(the[thing])]
+        # write
+        # This mutates the original, but we have to assign `view.body` to trigger the setter.
+        thebody[0] = q[local[x := 9001]]  # noqa: F821
+        view.body = thebody
+
+        # implicit do, a.k.a. extra bracket syntax
+        testdata = q[let[[local[x := 21],  # noqa: F821
+                          2 * x]]]  # noqa: F821
+        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+            theimplicitdo = testdata.slice
+        else:
+            theimplicitdo = testdata.slice.value
+        view = UnexpandedDoView(theimplicitdo)
+        # read
+        thebody = view.body
+        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
+            thing = thebody[0].slice
+        else:
+            thing = thebody[0].slice.value
+        test[isenvassign(the[thing])]
+        # write
+        thebody[0] = q[local[x := 9001]]  # noqa: F821
+        view.body = thebody
+
+        test_raises[TypeError,
+                    UnexpandedDoView(q[x]),  # noqa: F821
+                    "not a do form"]
 
     with testset("do destructuring (unexpanded)"):
         testdata = q[do[local[x << 21],  # noqa: F821
