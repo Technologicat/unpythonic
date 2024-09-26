@@ -57,6 +57,11 @@ except ImportError:  # pragma: no cover, optional at runtime, but installed at d
     mpf = _NoSuchType
     mpf_almosteq = None
 
+try:
+    import sympy
+except ImportError:  # pragma: no cover, optional at runtime, but installed at development time.
+    sympy = None
+
 def _numsign(x):
     """The sign function, for numeric inputs."""
     if x == 0:
@@ -265,6 +270,8 @@ def s(*spec):
 
     def is_almost_int(x):
         try:
+            if sympy and isinstance(x, sympy.Expr):
+                x = sympy.N(x)
             return almosteq(float(round(x)), x)
         except TypeError:  # likely a SymPy expression that didn't simplify to a number
             return False
