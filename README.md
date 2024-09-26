@@ -594,13 +594,13 @@ As usual in test frameworks, the testing constructs behave somewhat like `assert
 ```python
 from unpythonic.syntax import macros, let, letseq, letrec
 
-x = let[[a << 1, b << 2] in a + b]
-y = letseq[[c << 1,  # LET SEQuential, like Scheme's let*
-            c << 2 * c,
-            c << 2 * c] in
+x = let[[a := 1, b := 2] in a + b]
+y = letseq[[c := 1,  # LET SEQuential, like Scheme's let*
+            c := 2 * c,
+            c := 2 * c] in
            c]
-z = letrec[[evenp << (lambda x: (x == 0) or oddp(x - 1)),  # LET mutually RECursive, like in Scheme
-            oddp << (lambda x: (x != 0) and evenp(x - 1))]
+z = letrec[[evenp := (lambda x: (x == 0) or oddp(x - 1)),  # LET mutually RECursive, like in Scheme
+            oddp := (lambda x: (x != 0) and evenp(x - 1))]
            in evenp(42)]
 ```
 </details>  
@@ -611,10 +611,10 @@ z = letrec[[evenp << (lambda x: (x == 0) or oddp(x - 1)),  # LET mutually RECurs
 ```python
 from unpythonic.syntax import macros, dlet
 
-# Up to Python 3.8, use `@dlet(x << 0)` instead
-@dlet[x << 0]  # let-over-lambda for Python
+# In Python 3.8, use `@dlet(x << 0)` instead; in Python 3.9, use `@dlet(x := 0)`
+@dlet[x := 0]  # let-over-lambda for Python
 def count():
-    return x << x + 1  # `name << value` rebinds in the let env
+    return x := x + 1  # `name := value` rebinds in the let env
 assert count() == 1
 assert count() == 2
 ```
@@ -626,8 +626,8 @@ assert count() == 2
 ```python
 from unpythonic.syntax import macros, do, local, delete
 
-x = do[local[a << 21],
-       local[b << 2 * a],
+x = do[local[a := 21],
+       local[b := 2 * a],
        print(b),
        delete[b],  # do[] local variables can be deleted, too
        4 * a]
@@ -751,8 +751,8 @@ assert square.__name__ == "square"
 # - brackets denote a multiple-expression lambda body
 #   (if you want to have one expression that is a literal list,
 #    double the brackets: `lambda x: [[5 * x]]`)
-# - local[name << value] makes an expression-local variable
-g = lambda x: [local[y << 2 * x],
+# - local[name := value] makes an expression-local variable
+g = lambda x: [local[y := 2 * x],
                y + 1]
 assert g(10) == 21
 ```
