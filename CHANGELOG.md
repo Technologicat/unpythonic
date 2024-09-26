@@ -3,10 +3,14 @@
 **New**:
 
 - Walrus syntax `name := value` is now supported, and preferred, for all env-assignments. Old syntax `name << value` still works, and will remain working at least until v0.16.0, whenever that is.
+  - Note that language support for using an assignment expression inside a subscript *without parenthesizing it* was [added in Python 3.10](https://docs.python.org/3/whatsnew/3.10.html#other-language-changes).
+    That is, if you still use Python 3.8 or 3.9, with the new `:=` syntax you must put parentheses around each `let` binding, because syntactically, the bindings subform looks like a subscript.
+  - All documentation is written in Python 3.10 syntax; all unit tests are written in Python 3.8 syntax.
 
 **Fixed**:
 
 - `ETAEstimator` edge case: at any point after all tasks have been marked completed, return a constant zero estimate for the remaining time.
+- Fix borkage in `mathseq` when running with SymPy 1.13 (SymPy is only used in tests). Bump SymPy version to 1.13.
 
 **IMPORTANT**:
 
