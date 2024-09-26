@@ -26,7 +26,7 @@ from .fup import *  # noqa: F401, F403
 from .gmemo import *  # noqa: F401, F403
 from .gtco import *  # noqa: F401, F403
 from .it import *  # noqa: F401, F403
-from .let import *  # no guarantees on evaluation order (before Python 3.6), nice syntax # noqa: F401, F403
+from .let import *  # # noqa: F401, F403
 
 # As of 0.15.0, lispylet is nowadays primarily a code generation target API for macros.
 from .lispylet import (let as ordered_let, letrec as ordered_letrec,  # noqa: F401

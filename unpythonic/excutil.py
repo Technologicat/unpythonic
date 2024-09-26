@@ -166,10 +166,6 @@ def equip_with_traceback(exc, stacklevel=1):  # Python 3.7+
     The return value is `exc`, with its traceback set to the produced
     traceback.
 
-    Python 3.7 and later only.
-
-    When not supported, raises `NotImplementedError`.
-
     This is useful mainly in special cases, where `raise` cannot be used for
     some reason, and a manually created exception instance needs a traceback.
     (The `signal` function in the conditions-and-restarts system uses this.)
@@ -207,20 +203,17 @@ def equip_with_traceback(exc, stacklevel=1):  # Python 3.7+
             break
 
     # Python 3.7+ allows creating `types.TracebackType` objects in Python code.
-    try:
-        tracebacks = []
-        nxt = None  # tb_next should point toward the level where the exception occurred.
-        for frame in frames:  # walk from top of call stack toward the root
-            tb = TracebackType(nxt, frame, frame.f_lasti, frame.f_lineno)
-            tracebacks.append(tb)
-            nxt = tb
-        if tracebacks:
-            tb = tracebacks[-1]  # root level
-        else:
-            tb = None
-    except TypeError as err:  # Python 3.6 or earlier
-        raise NotImplementedError("Need Python 3.7 or later to create traceback objects") from err
-    return exc.with_traceback(tb)  # Python 3.7+
+    tracebacks = []
+    nxt = None  # tb_next should point toward the level where the exception occurred.
+    for frame in frames:  # walk from top of call stack toward the root
+        tb = TracebackType(nxt, frame, frame.f_lasti, frame.f_lineno)
+        tracebacks.append(tb)
+        nxt = tb
+    if tracebacks:
+        tb = tracebacks[-1]  # root level
+    else:
+        tb = None
+    return exc.with_traceback(tb)
 
 # TODO: To reduce the risk of spaghetti user code, we could require a non-main thread's entrypoint to declare
 # via a decorator that it's willing to accept asynchronous exceptions, and check that mark here, making this

@@ -78,13 +78,8 @@ def runtests():
 
     with testset("equip_with_traceback"):
         e = Exception("just testing")
-        try:
-            e = equip_with_traceback(e)
-        except NotImplementedError:
-            warn["equip_with_traceback only supported on Python 3.7+, skipping test."]
-        else:
-            # Can't do meaningful testing on the result, so just check it's there.
-            test[e.__traceback__ is not None]
+        e = equip_with_traceback(e)
+        test[e.__traceback__ is not None]  # Can't do meaningful testing on the result, so just check it's there.
 
         test_raises[TypeError, equip_with_traceback("not an exception")]
 

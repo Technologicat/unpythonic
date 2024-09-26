@@ -272,7 +272,7 @@ def runtests():
 
     with testset("list_methods"):
         def check_formatted_multimethods(result, expected):
-            def _remove_space_before_typehint(string):  # Python 3.6 doesn't print a space there
+            def _remove_space_before_typehint(string):  # Python 3.6 didn't print a space there, later versions do
                 return string.replace(": ", ":")
             result_list = result.split("\n")
             human_readable_header, *multimethod_descriptions = result_list

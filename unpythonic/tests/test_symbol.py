@@ -34,7 +34,7 @@ def runtests():
         # Symbol interning has nothing to do with string interning.
         many = 5000
         test[the[sym("λ" * many) is sym("λ" * many)]]
-        # To defeat string interning, used to be that 80 exotic characters
+        # To defeat string interning, it used to be that 80 exotic characters
         # would be enough in Python 3.6 to make CPython decide not to intern it,
         # but Python 3.7 bumped that up.
         test[the["λ" * many is not "λ" * many]]

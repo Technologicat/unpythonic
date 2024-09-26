@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Conditionally import AST node types only supported by recent enough Python versions (3.7+)."""
+"""Conditionally import AST node types only supported by recent enough Python versions."""
 
 __all__ = ["NamedExpr",
            "Num", "Str", "Bytes", "NameConstant", "Ellipsis",

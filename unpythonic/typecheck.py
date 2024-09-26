@@ -18,17 +18,8 @@ import collections
 import sys
 import typing
 
-try:
-    _MyGenericAlias = typing._GenericAlias  # Python 3.7+
-except AttributeError:  # Python 3.6 and earlier  # pragma: no cover
-    class _MyGenericAlias:  # unused, but must be a class to support isinstance() check.
-        pass
-
-try:
-    _MySupportsIndex = typing.SupportsIndex  # Python 3.8+
-except AttributeError:  # Python 3.7 and earlier  # pragma: no cover
-    class _MySupportsIndex:  # unused, but must be a class to support isinstance() check.
-        pass
+_MyGenericAlias = typing._GenericAlias  # Python 3.7+
+_MySupportsIndex = typing.SupportsIndex  # Python 3.8+
 
 from .misc import safeissubclass
 
@@ -111,6 +102,11 @@ def isoftype(value, T):
     # TODO: as of Python 3.8 (March 2020). https://docs.python.org/3/library/typing.html
     # TODO: If you add a feature to the type checker, please update this list.
     #
+    # TODO: Update this list for Python 3.9
+    # TODO: Update this list for Python 3.10
+    # TODO: Update this list for Python 3.11
+    # TODO: Update this list for Python 3.12
+    #
     # Python 3.6+:
     #   NamedTuple, DefaultDict, Counter, ChainMap,
     #   IO, TextIO, BinaryIO,
@@ -190,7 +186,7 @@ def isoftype(value, T):
         # In Python 3.10, an instance of `typing.NewType` is now actually such and not just a function. Nice!
         if sys.version_info >= (3, 10, 0):
             return isinstance(T, typing.NewType)
-        # Python 3.6 through Python 3.9
+        # Python 3.6, Python 3.7, Python 3.8, Python 3.9
         # TODO: in Python 3.7+, what is the mysterious callable that doesn't have a `__qualname__`?
         return callable(T) and hasattr(T, "__qualname__") and T.__qualname__ == "NewType.<locals>.new_type"
     if isNewType(T):

@@ -408,7 +408,6 @@ def runtests():
         # An unhandled `error` or `cerror`, when it **raises** `ControlError`,
         # sets the cause of that `ControlError` to the original unhandled signal.
         # In Python 3.7+, this will also produce nice stack traces.
-        # In up to Python 3.6, it will at least show the chain of causes.
         with catch_signals(False):
             try:
                 exc1 = JustTesting("Hullo")

@@ -59,9 +59,8 @@ def runtests():
 
         # Assignment
         #
-        # At least up to Python 3.7, all assignments produce Name nodes in
-        # Store context on their LHS, so we don't need to care what kind of
-        # assignment it is.
+        # All assignments produce Name nodes in #tore context on their LHS,
+        # so we don't need to care what kind of assignment it is.
         test[get_names_in_store_context(getnames_store_simple) == ["x"]]
         with q as getnames_tuple:
             x, y = 1, 2  # noqa: F841

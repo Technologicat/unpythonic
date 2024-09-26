@@ -106,25 +106,8 @@ def letrec(body, **bindings):
                body=lambda e:
                       e.b * e.f(1))  # --> 84
 
-    **CAUTION**:
-
-        Simple values (non-callables) may depend on earlier definitions
-        in the same letrec **only in Python 3.6 and later**.
-
-        Until Python 3.6, initialization of the bindings occurs
-        **in an arbitrary order**, because of the ``kwargs`` mechanism.
-        See PEP 468:
-
-            https://www.python.org/dev/peps/pep-0468/
-
-        In Python < 3.6, in the first example above, trying to reference ``env.a``
-        on the RHS of ``b`` may get either the ``lambda e: ...``, or the value ``1``,
-        depending on whether the binding ``a`` has been initialized at that point or not.
-
-        If you need left-to-right initialization of bindings in Python < 3.6,
-        see ``unpythonic.lispylet``.
-
-    The following applies regardless of Python version.
+    Simple values (non-callables) may depend on earlier definitions
+    in the same letrec.
 
     A callable value may depend on **any** binding, also later ones. This allows
     mutually recursive functions::
@@ -151,9 +134,9 @@ def letrec(body, **bindings):
         L = [1, 1, 3, 1, 3, 2, 3, 2, 2, 2, 4, 4, 1, 2, 3]
         print(u(L))  # [1, 3, 2, 4]
 
-    Works also in Python < 3.6, because here ``see`` is a callable. Hence, ``e.seen``
-    doesn't have to exist when the *definition* of ``see`` is evaluated; it only has to
-    exist when ``e.see(x)`` is *called*.
+    Note that ``see`` is a callable. Hence, strictly speaking it doesn't matter
+    if ``e.seen`` exists when the *definition* of ``see`` is evaluated; it only
+    has to exist when ``e.see(x)`` is *called*.
 
     Parameters:
         `body`: function

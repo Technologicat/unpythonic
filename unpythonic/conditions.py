@@ -123,10 +123,10 @@ def signal(condition, *, cause=None, protocol=None):
     The return value is the input `condition`, canonized to an instance
     (even if originally, an exception *type* was passed to `signal`),
     with its `__cause__` and `__protocol__` attributes filled in,
-    and with a traceback attached (on Python 3.7+). For example, the
-    `error` protocol uses the return value to chain the unhandled signal
-    properly into a `ControlError` exception; as a result, the error report
-    looks like a standard exception chain, with nice-looking tracebacks.
+    and with a traceback attached. For example, the `error` protocol
+    uses the return value to chain the unhandled signal properly into
+    a `ControlError` exception; as a result, the error report looks
+    like a standard exception chain, with nice-looking tracebacks.
 
     If you want to error out on unhandled conditions, see `error`, which is
     otherwise the same as `signal`, except it raises if `signal` would have
@@ -162,9 +162,8 @@ def signal(condition, *, cause=None, protocol=None):
     You can signal any exception or warning object, both builtins and any
     custom ones.
 
-    On Python 3.7 and later, the exception object representing the signaled
-    condition is equipped with a traceback, just like a raised exception.
-    On Python 3.6 this is not possible, so the traceback is `None`.
+    The exception object representing the signaled condition is equipped
+    with a traceback, just like a raised exception.
     """
     # Since the handler is called normally, we don't unwind the call stack,
     # remaining inside the `signal()` call in the low-level code.
@@ -225,12 +224,8 @@ def _prepare_signal_instance(condition, *, cause, protocol, stacklevel):
     condition.__cause__ = cause
     condition.__protocol__ = protocol
 
-    # Embed a stack trace in the signal, like Python does for raised exceptions.
-    # This only works on Python 3.7 and later, because we need to create a traceback object in pure Python code.
-    try:
-        condition = equip_with_traceback(condition, stacklevel=stacklevel)
-    except NotImplementedError:  # pragma: no cover
-        pass  # well, we tried!
+    # Embed a stack trace in the signal, like Python does for raised exceptions. This API was added in Python 3.7.
+    condition = equip_with_traceback(condition, stacklevel=stacklevel)
 
     return condition
 

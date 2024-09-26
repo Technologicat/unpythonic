@@ -21,7 +21,7 @@ class UnknownArity(ValueError):
     """Raised when the arity of a function cannot be inspected."""
 
 # HACK: some built-ins report incorrect arities (0, 0) at least in Python 3.4
-# TODO: re-test on 3.8 and on PyPy3 (3.7), just to be sure.
+# TODO: re-test on 3.8, 3.9, 3.10, 3.11, 3.12 and on PyPy3 (3.8 and later), just to be sure.
 #
 # Full list of built-ins:
 #   https://docs.python.org/3/library/functions.html
@@ -208,7 +208,7 @@ def arities(f):
     This uses inspect.signature; note that the signature of builtin functions
     cannot be inspected. This is worked around to some extent, but e.g.
     methods of built-in classes (such as ``list``) might not be inspectable
-    (at least on CPython < 3.7).
+    (at least on old CPython < 3.7).
 
     For bound methods, ``self`` or ``cls`` does not count toward the arity,
     because these are passed implicitly by Python. Note a `@classmethod` becomes
@@ -352,10 +352,10 @@ def resolve_bindings(f, *args, **kwargs):
     This is an inspection tool, which does not actually call `f`. This is useful for memoizers
     and other similar decorators that need a canonical representation of `f`'s parameter bindings.
 
-    **NOTE**: As of v0.15.0, this is a thin wrapper on top of `inspect.Signature.bind`,
-    which was added in Python 3.5. In `unpythonic` 0.14.2 and 0.14.3, we used to have
-    our own implementation of the parameter binding algorithm (that ran also on Python 3.4),
-    but it is no longer needed, since now we support only Python 3.6 and later.
+    **NOTE**: This is a thin wrapper on top of `inspect.Signature.bind`, which was added in Python 3.5.
+    In `unpythonic` 0.14.2 and 0.14.3, we used to have our own implementation of the parameter binding
+    algorithm (that ran also on Python 3.4), but it is no longer needed, since as of v0.15.3,
+    we support only Python 3.8 and later.
 
     The only thing we do beside call `inspect.Signature.bind` is that we apply default values
     (from the definition of `f`) automatically.
