@@ -475,8 +475,8 @@ def _transform_name(tree, rhsnames, envname):
         #   in those parts of code where it is used, so an outer let will
         #   leave it alone.
         if type(tree) is Name and tree.id in rhsnames and tree.id not in names_in_scope:
-            hasctx = hasattr(tree, "ctx")  # macro-created nodes might not have a ctx.
-            if hasctx and type(tree.ctx) is not Load:  # let variables are rebound using <<`, not `=`.  # TODO: doesn't work for `:=`, which *is* an assignment. Fix this; needs some changes to `scoped_transform`.
+            hasctx = hasattr(tree, "ctx")  # Macro-created nodes might not have a ctx.
+            if hasctx and type(tree.ctx) is not Load:  # Ignore assignments and deletes.
                 return tree
             attr_node = q[n[f"{envname}.{tree.id}"]]
             if hasctx:
