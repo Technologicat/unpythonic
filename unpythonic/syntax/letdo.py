@@ -458,6 +458,8 @@ def _transform_name(tree, rhsnames, envname):
     def transform(tree, names_in_scope):
         # This transformation is deceptively simple, hence requires some comment:
         #
+        # - The goal is to transform read accesses to let variables, `x` --> `e.x`.
+        #
         # - Attributes (and Subscripts) work, because we are called again for
         #   the `value` part of the `Attribute` (or `Subscript`) node, which
         #   then gets transformed if it's a `Name` matching our rules.
