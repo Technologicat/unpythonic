@@ -424,10 +424,10 @@ def _letlike_transform(tree, envname, lhsnames, rhsnames, setter, dowrap=True):
         x --> e.x  (when x appears in load context)
         # ... -> lambda e: ...  (applied if dowrap=True)
 
-    lhsnames: names to recognize on the LHS of x := val as belonging to this env
+    lhsnames: names to recognize on the LHS of env-assignment (`x := val` or `x << val`) as belonging to this env
     rhsnames: names to recognize anywhere in load context as belonging to this env
 
-    These are separate mainly for ``do[]``, so that we can have new bindings
+    The LHS/RHS names are separate mainly for ``do[]``, so that we can have new bindings
     take effect only in following exprs.
 
     setter: function, (k, v) --> v, side effect to set e.k to v
