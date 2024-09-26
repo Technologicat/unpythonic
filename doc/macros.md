@@ -134,7 +134,17 @@ Bindings are established using standard assignment expression syntax, `name := v
 
 The old `unpythonic` env-assignment syntax, `name << value`, is also supported for backward compatibility. This was the preferred syntax in v0.15.0 to v0.15.2.
 
-**CAUTION**: All let-bindings must be established in the bindings subform. If you absolutely need to do establish more bindings in the body, see the sequencing construct `do[]` and its syntax `local[x := 42]`.
+**NOTE**: All let-bindings must be established in the bindings subform. If you absolutely need to do establish more bindings in the body, see the sequencing construct `do[]` and its syntax `local[x := 42]`.
+
+**NOTE**: Language support for using an assignment expression inside a subscript *without parenthesizing it* was [added in Python 3.10](https://docs.python.org/3/whatsnew/3.10.html#other-language-changes). The syntax accepted when running on Python 3.8 or 3.9 is:
+
+```python
+let[(x := 17),
+    (y := 23)][
+      print(x, y)]
+```
+
+That is, Python 3.8 and 3.9 require parentheses around each let binding if you use the new `:=` syntax, because syntactically, the bindings subform looks like a subscript. The unit tests use this syntax so that they work on 3.8 and 3.9. But for new code using Python 3.10 or later, it is preferable to omit the parentheses to improve readability.
 
 The same syntax for the bindings subform is used by:
 
