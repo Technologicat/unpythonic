@@ -15,7 +15,7 @@ None required.
 
  - [`mcpyrate`](https://github.com/Technologicat/mcpyrate) optional, to enable the syntactic macro layer, an interactive macro REPL, and some example dialects.
 
-As of v0.15.3, `unpythonic` runs on CPython 3.8, 3.9 and 3.10, and PyPy3 (language versions 3.8, 3.9, 3.10); the [CI](https://en.wikipedia.org/wiki/Continuous_integration) process verifies the tests pass on those platforms. New Python versions are added and old ones are removed following the [Long-term support roadmap](https://github.com/Technologicat/unpythonic/issues/1).
+As of v0.15.3, `unpythonic` runs on CPython 3.8, 3.9 and 3.10, 3.11, 3.12, and PyPy3 (language versions 3.8, 3.9, 3.10); the [CI](https://en.wikipedia.org/wiki/Continuous_integration) process verifies the tests pass on those platforms. New Python versions are added and old ones are removed following the [Long-term support roadmap](https://github.com/Technologicat/unpythonic/issues/1).
 
 
 ### Documentation
