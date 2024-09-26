@@ -102,6 +102,8 @@ class ETAEstimator:
         # Maybe we could use a Lanczos downsampling filter to make the ETA
         # behave more smoothly?
         remaining = self.total - self.completed
+        if remaining <= 0:
+            return 0.0
         dt_avg = sum(self.que) / len(self.que)
         return remaining * dt_avg
     estimate = property(fget=_estimate, doc="Estimate of time remaining, in seconds. Computed when read; read-only. If no tasks have been marked completed yet, the estimate is `None`.")
