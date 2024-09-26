@@ -120,6 +120,8 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [`pack`: multi-arg constructor for tuple](#pack-multi-arg-constructor-for-tuple)
 - [`namelambda`: rename a function](#namelambda-rename-a-function)
 - [`timer`: a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
+- [`format_human_time`: seconds to days, hours, minutes, seconds](#format_human_time-seconds-to-days-hours-minutes-seconds)
+- [`ETAEstimator`: estimate the time of completion of a long-running task](#etaestimator-estimate-the-time-of-completion-of-a-long-running-task)
 - [`getattrrec`, `setattrrec`: access underlying data in an onion of wrappers](#getattrrec-setattrrec-access-underlying-data-in-an-onion-of-wrappers)
 - [`arities`, `kwargs`, `resolve_bindings`: Function signature inspection utilities](#arities-kwargs-resolve_bindings-function-signature-inspection-utilities)
 - [`Popper`: a pop-while iterator](#popper-a-pop-while-iterator)
@@ -372,6 +374,8 @@ letrec[[evenp << (lambda x:
 
 
 ### `env`: the environment
+
+**Changed in v0.15.2.** *`env` objects are now pickleable.*
 
 The environment used by all the `let` constructs and `assignonce` (but **not** by `dyn`) is essentially a bunch with iteration, subscripting and context manager support. It is somewhat similar to [`types.SimpleNamespace`](https://docs.python.org/3/library/types.html#types.SimpleNamespace), but with many extra features. For details, see `unpythonic.env.env` (and note the unfortunate module name).
 
@@ -4848,6 +4852,39 @@ with timer(p=True):  # if p, auto-print result
 ```
 
 The auto-print mode is a convenience feature to minimize bureaucracy if you just want to see the *Δt*. To instead access the *Δt* programmatically, name the timer instance using the `with ... as ...` syntax. After the context exits, the *Δt* is available in its `dt` attribute. The timer instance itself stays alive due to Python's scoping rules.
+
+
+### `format_human_time`: seconds to days, hours, minutes, seconds
+
+**Added in v0.15.1.**
+
+Convert a duration from seconds (`float` or `int`) to a human-readable string of days, hours, minutes and seconds.
+
+```python
+assert format_human_time(30) == "30 seconds"
+assert format_human_time(90) == "01:30"  # mm:ss
+assert format_human_time(3690) == "01:01:30"  # hh:mm:ss
+assert format_human_time(86400 + 3690) == "1 day 01:01:30"
+assert format_human_time(2 * 86400 + 3690) == "2 days 01:01:30"
+```
+
+
+### `ETAEstimator`: estimate the time of completion of a long-running task
+
+**Added in v0.15.1.**
+
+Simple but useful:
+
+```python
+n = 1000
+est = ETAEstimator(total=n, keep_last=10)
+for k in range(n):
+    print(f"Processing item {k + 1} out of {n}, {est.formatted_eta}")
+    ...  # do something
+    est.tick()
+```
+
+The ETA estimate is automatically formatted using `format_human_time` (see above) to maximize readability.
 
 
 ### `getattrrec`, `setattrrec`: access underlying data in an onion of wrappers
