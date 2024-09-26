@@ -245,6 +245,7 @@ Python clearly wants to be an impure-FP language. A decorator with arguments *is
   - [pyrsistent: Persistent/Immutable/Functional data structures for Python](https://github.com/tobgu/pyrsistent)
 
   - [pampy: Pattern matching for Python](https://github.com/santinic/pampy) (pure Python, no AST transforms!)
+    - Note that Python got [native support for pattern matching in 3.10](https://docs.python.org/3/whatsnew/3.10.html#pep-634-structural-pattern-matching) using the `match`/`case` statement.
 
 - [List of languages that compile to Python](https://github.com/vindarel/languages-that-compile-to-python) including Hy, a Lisp (in the [Lisp-2](https://en.wikipedia.org/wiki/Lisp-1_vs._Lisp-2) family) that can use Python libraries.
 
