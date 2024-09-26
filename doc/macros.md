@@ -100,6 +100,8 @@ Macros that introduce new ways to bind identifiers.
 
 ### `let`, `letseq`, `letrec` as macros
 
+**Changed in v0.15.3.** *Added support for the walrus operator `:=` for env-assignment. This is the new preferred syntax to establish let-bindings. All old syntaxes are still supported for backward compatibility.*
+
 **Changed in v0.15.0.** *Added support for env-assignment syntax in the bindings subform. For consistency with other env-assignments, this is now the preferred syntax to establish let-bindings. Additionally, the old lispy syntax now accepts also brackets, for consistency with the use of brackets for macro invocations.*
 
 These macros provide properly lexically scoped `let` constructs, no boilerplate:
@@ -107,28 +109,32 @@ These macros provide properly lexically scoped `let` constructs, no boilerplate:
 ```python
 from unpythonic.syntax import macros, let, letseq, letrec
 
-let[x << 17,  # parallel binding, i.e. bindings don't see each other
-    y << 23][
+let[x := 17,  # parallel binding, i.e. bindings don't see each other
+    y := 23][
       print(x, y)]
 
-letseq[x << 1,  # sequential binding, i.e. Scheme/Racket let*
-       y << x + 1][
+letseq[x := 1,  # sequential binding, i.e. Scheme/Racket let*
+       y := x + 1][
          print(x, y)]
 
-letrec[evenp << (lambda x: (x == 0) or oddp(x - 1)),  # mutually recursive binding, sequentially evaluated
-       oddp << (lambda x: (x != 0) and evenp(x - 1))][
+letrec[evenp := (lambda x: (x == 0) or oddp(x - 1)),  # mutually recursive binding, sequentially evaluated
+       oddp := (lambda x: (x != 0) and evenp(x - 1))][
          print(evenp(42))]
 ```
 
 Even with just one binding, the syntax remains the same:
 
 ```python
-let[x << 21][2 * x]
+let[x := 21][2 * x]
 ```
 
 There must be at least one binding; `let[][...]` is a syntax error, since Python's parser rejects an empty subscript slice.
 
-Bindings are established using the `unpythonic` *env-assignment* syntax, `name << value`. The let-bindings can be rebound in the body with the same env-assignment syntax, e.g. `x << 42`.
+Bindings are established using standard assignment expression syntax, `name := value`. The let-bindings can be rebound in the body with the same syntax, e.g. `x := 42`.
+
+The old `unpythonic` env-assignment syntax, `name << value`, is also supported for backward compatibility. This was the preferred syntax in v0.15.0 to v0.15.2.
+
+**CAUTION**: All let-bindings must be established in the bindings subform. If you absolutely need to do establish more bindings in the body, see the sequencing construct `do[]` and its syntax `local[x := 42]`.
 
 The same syntax for the bindings subform is used by:
 
@@ -143,18 +149,18 @@ The same syntax for the bindings subform is used by:
 The following Haskell-inspired, perhaps more pythonic alternative syntaxes are also available:
 
 ```python
-let[[x << 21,
-     y << 17,
-     z << 4] in
+let[[x := 21,
+     y := 17,
+     z := 4] in
     x + y + z]
 
 let[x + y + z,
-    where[x << 21,
-          y << 17,
-          z << 4]]
+    where[x := 21,
+          y := 17,
+          z := 4]]
 
-let[[x << 21] in 2 * x]
-let[2 * x, where[x << 21]]
+let[[x := 21] in 2 * x]
+let[2 * x, where[x := 21]]
 ```
 
 These syntaxes take no macro arguments; both the let-body and the bindings are placed inside the `...` in `let[...]`.
@@ -223,20 +229,20 @@ The issue has been fixed in Python 3.9. If you already only use 3.9 and later, p
 The `let` constructs can use a multiple-expression body. The syntax to activate multiple expression mode is an extra set of brackets around the body ([like in `multilambda`](#multilambda-supercharge-your-lambdas)):
 
 ```python
-let[x << 1,
-    y << 2][[  # note extra [
-      y << x + y,
+let[x := 1,
+    y := 2][[  # note extra [
+      y := x + y,
       print(y)]]
 
-let[[x << 1,
-     y << 2] in
-    [y << x + y,  # body starts here
+let[[x := 1,
+     y := 2] in
+    [y := x + y,  # body starts here
      print(y)]]
 
-let[[y << x + y,
+let[[y := x + y,
      print(y)],   # body ends here
-    where[x << 1,
-          y << 2]]
+    where[x := 1,
+          y := 2]]
 ```
 
 The let macros implement this by inserting a `do[...]` (see below). In a multiple-expression body, a separate internal definition context exists for local variables that are not part of the `let`; see [the `do` macro for details](#do-as-a-macro-stuff-imperative-code-into-an-expression-with-style).
@@ -244,17 +250,17 @@ The let macros implement this by inserting a `do[...]` (see below). In a multipl
 Only the outermost set of extra brackets is interpreted as a multiple-expression body. The rest are interpreted as usual, as lists. If you need to return a literal list from a `let` form with only one body expression, double the brackets on the *body* part:
 
 ```python
-let[x << 1,
-    y << 2][[
+let[x := 1,
+    y := 2][[
       [x, y]]]
 
-let[[x << 1,
-     y << 2] in
+let[[x := 1,
+     y := 2] in
     [[x, y]]]
 
 let[[[x, y]],
-    where[x << 1,
-          y << 2]]
+    where[x := 1,
+          y := 2]]
 ```
 
 The outermost brackets delimit the `let` form itself, the middle ones activate multiple-expression mode, and the innermost ones denote a list.
@@ -262,31 +268,33 @@ The outermost brackets delimit the `let` form itself, the middle ones activate m
 Only brackets are affected; parentheses are interpreted as usual, so returning a literal tuple works as expected:
 
 ```python
-let[x << 1,
-    y << 2][
+let[x := 1,
+    y := 2][
       (x, y)]
 
-let[[x << 1,
-     y << 2] in
+let[[x := 1,
+     y := 2] in
     (x, y)]
 
 let[(x, y),
-    where[x << 1,
-          y << 2]]
+    where[x := 1,
+          y := 2]]
 ```
 
 #### Notes
 
-The main difference of the `let` family to Python's own named expressions (a.k.a. the walrus operator, added in Python 3.8) is that `x := 42` does not create a scope, but `let[x << 42][...]` does. The walrus operator assigns to the name `x` in the scope it appears in, whereas in the `let` expression, the `x` only exists in that expression.
+The main difference of the `let` family to Python's own named expressions (a.k.a. the walrus operator, added in Python 3.8) is that `x := 42` does not create a scope, but `let[x := 42][...]` does. The walrus operator assigns to the name `x` in the scope it appears in, whereas in the `let` expression, the `x` only exists in that expression.
 
-`let` and `letrec` expand into the `unpythonic.lispylet` constructs, implicitly inserting the necessary boilerplate: the `lambda e: ...` wrappers, quoting variable names in definitions, and transforming `x` to `e.x` for all `x` declared in the bindings. Assignment syntax `x << 42` transforms to `e.set('x', 42)`. The implicit environment parameter `e` is actually named using a gensym, so lexically outer environments automatically show through. `letseq` expands into a chain of nested `let` expressions.
+As of v0.15.3, this is somewhat complicated by the fact that now the syntax `x := 42` can be used to rebind let variables. See the unit test examples for `@dlet` above, at the beginning of the `let` section.
+
+`let` and `letrec` expand into the `unpythonic.lispylet` constructs, implicitly inserting the necessary boilerplate: the `lambda e: ...` wrappers, quoting variable names in definitions, and transforming `x` to `e.x` for all `x` declared in the bindings. Assignment syntax `x := 42` transforms to `e.set('x', 42)`. The implicit environment parameter `e` is actually named using a gensym, so lexically outer environments automatically show through. `letseq` expands into a chain of nested `let` expressions.
 
 All the `let` macros respect lexical scope, so this works as expected:
 
 ```python
-letrec[z << 1][[
+letrec[z := 1][[
          print(z),
-         letrec[z << 2][
+         letrec[z := 2][
                   print(z)]]]
 ```
 
@@ -304,83 +312,109 @@ Examples:
 ```python
 from unpythonic.syntax import macros, dlet, dletseq, dletrec, blet, bletseq, bletrec
 
-@dlet[x << 0]  # up to Python 3.8, use `@dlet(x << 0)` instead
+@dlet[x := 0]  # up to Python 3.8, use `@dlet(x := 0)` instead (decorator subscripting was added in 3.9)
 def count():
-    x << x + 1  # update `x` in let env
+    (x := x + 1)  # update `x` in let env
     return x
 assert count() == 1
 assert count() == 2
 
-@dletrec[evenp << (lambda x: (x == 0) or oddp(x - 1)),
-         oddp << (lambda x: (x != 0) and evenp(x - 1))]
+@dletrec[evenp := (lambda x: (x == 0) or oddp(x - 1)),
+         oddp := (lambda x: (x != 0) and evenp(x - 1))]
 def f(x):
     return evenp(x)
 assert f(42) is True
 assert f(23) is False
 
-@dletseq[x << 1,
-         x << x + 1,
-         x << x + 2]
+@dletseq[x := 1,
+         x := x + 1,
+         x := x + 2]
 def g(a):
     return a + x
 assert g(10) == 14
 
 # block versions: the def takes no arguments, runs immediately, and is replaced by the return value.
-@blet[x << 21]
+@blet[x := 21]
 def result():
     return 2*x
 assert result == 42
 
-@bletrec[evenp << (lambda x: (x == 0) or oddp(x - 1)),
-         oddp << (lambda x: (x != 0) and evenp(x - 1))]
+@bletrec[evenp := (lambda x: (x == 0) or oddp(x - 1)),
+         oddp := (lambda x: (x != 0) and evenp(x - 1))]
 def result():
     return evenp(42)
 assert result is True
 
-@bletseq[x << 1,
-         x << x + 1,
-         x << x + 2]
+@bletseq[x := 1,
+         x := x + 1,
+         x := x + 2]
 def result():
     return x
 assert result == 4
 ```
 
-**CAUTION**: assignment to the let environment uses the syntax `name << value`, as always with `unpythonic` environments. The standard Python syntax `name = value` creates a local variable, as usual - *shadowing any variable with the same name from the `let`*.
+**CAUTION**: assignment to the let environment uses the assignment expression syntax `name := value`. The assignment statement `name = value` creates a local variable, as usual - *shadowing any variable with the same name from the `let`*.
 
-The write of a `name << value` always occurs to the lexically innermost environment (as seen from the write site) that has that `name`. If no lexically surrounding environment has that `name`, *then* the expression remains untransformed, and means a left-shift (if `name` happens to be otherwise defined).
+The write of a `name := value` always occurs to the lexically innermost environment (as seen from the write site) that has that `name`. If no lexically surrounding environment has that `name`, *then* the expression remains untransformed, and means binding a new lexical variable in the nearest enclosing scope, as per Python's standard rules.
 
-**CAUTION**: formal parameters of a function definition, local variables, and any names declared as `global` or `nonlocal` in a given lexical scope shadow names from the `let` environment. Mostly, this applies *to the entirety of that lexical scope*. This is modeled after Python's standard scoping rules.
+**CAUTION**: formal parameters of a function definition, local variables, and any names declared as `global` or `nonlocal` in a given lexical scope shadow names from an enclosing `let` environment. Mostly, this applies *to the entirety of that lexical scope*. This is modeled after Python's standard scoping rules.
 
 As an exception to the rule, for the purposes of the scope analysis performed by `unpythonic.syntax`, creations and deletions *of lexical local variables* take effect from the next statement, and remain in effect for the **lexically** remaining part of the current scope. This allows `x = ...` to see the old bindings on the RHS, as well as allows the client code to restore access to a surrounding env's `x` (by deleting a local `x` shadowing it) when desired.
 
 To clarify, here is a sampling from [the unit tests](../unpythonic/syntax/tests/test_letdo.py):
 
 ```python
-@dlet[x << "the env x"]
+@dlet[x := "the env x"]
 def f():
-    return x
+    return x  # No lexical variable `x` exists; this refers to the env `x`.
 assert f() == "the env x"
 
-@dlet[x << "the env x"]
+@dlet[x := "the env x"]
 def f():
-    x = "the local x"
+    x = "the local x"  # The lexical variable shadows the env `x`.
     return x
 assert f() == "the local x"
 
-@dlet[x << "the env x"]
+@dlet[x := "the env x"]
 def f():
     return x
-    x = "the unused local x"
+    x = "the unused local x"  # This appears *lexically after* the read access on the previous line.
 assert f() == "the env x"
 
+@dlet[x := "the env x"]
+def test15():
+    def inner():
+        (x := "updated env x")  # noqa: F841, this writes to the let env since there is no `x` in an intervening scope, according to Python's standard rules.
+    inner()
+    return x
+assert test15() == "updated env x"
+
+@dlet[x := "the env x"]
+def test16():
+    def inner():
+        x = "the inner x"  # noqa: F841, unused on purpose, for testing. An assignment *statement* does NOT write to the let env.
+    inner()
+    return x
+assert test16() == "the env x"
+
+@dlet[x := "the env x"]
+def test17():
+    x = "the local x"  # This lexical variable shadows the env x.
+    def inner():
+        # The env x is shadowed. Since we don't say `nonlocal x`, this creates a new lexical variable scoped to `inner`.
+        (x := "the inner x")  # noqa: F841, unused on purpose, for testing.
+    inner()
+    return x
+assert test17() == "the local x"
+
 x = "the global x"
-@dlet[x << "the env x"]
+@dlet[x := "the env x"]
 def f():
     global x
     return x
 assert f() == "the global x"
 
-@dlet[x << "the env x"]
+@dlet[x := "the env x"]
 def f():
     x = "the local x"
     del x           # deleting a local, ok!
@@ -389,7 +423,7 @@ assert f() == "the env x"
 
 try:
     x = "the global x"
-    @dlet[x << "the env x"]
+    @dlet[x := "the env x"]
     def f():
         global x
         del x       # ignored by unpythonic's scope analysis, deletion of globals is too dynamic
@@ -464,28 +498,28 @@ def verylongfunctionname(x=1):
     return x
 
 # works as an expr macro
-y = let_syntax[f << verylongfunctionname][[  # extra brackets: implicit do in body
+y = let_syntax[f := verylongfunctionname][[  # extra brackets: implicit do in body
                  print(f()),
                  f(5)]]
 assert y == 5
 
-y = let_syntax[f[a] << verylongfunctionname(2*a)][[  # template with formal parameter "a"
+y = let_syntax[f[a] := verylongfunctionname(2*a)][[  # template with formal parameter "a"
                  print(f[2]),
                  f[3]]]
 assert y == 6
 
-y = let_syntax[[f << verylongfunctionname] in
+y = let_syntax[[f := verylongfunctionname] in
                [print(f()),
                 f(5)]]
 y = let_syntax[[print(f()),
                 f(5)],
-               where[f << verylongfunctionname]]
-y = let_syntax[[f[a] << verylongfunctionname(2*a)] in
+               where[f := verylongfunctionname]]
+y = let_syntax[[f[a] := verylongfunctionname(2*a)] in
                [print(f[2]),
                 f[3]]]
 y = let_syntax[[print(f[2]),
                 f[3]],
-               where[f[a] << verylongfunctionname(2*a)]]
+               where[f[a] := verylongfunctionname(2*a)]]
 
 # works as a block macro
 with let_syntax:
@@ -545,8 +579,8 @@ The `expr` and `block` operators, if used, must be macro-imported. They may only
 >
 >Within each step, the substitutions are applied **in definition order**:
 >
->  - If the bindings are `[x << y, y << z]`, then an `x` at the use site transforms to `z`. So does a `y` at the use site.
->  - But if the bindings are `[y << z, x << y]`, then an `x` at the use site transforms to `y`, and only an explicit `y` at the use site transforms to `z`.
+>  - If the bindings are `[x := y, y := z]`, then an `x` at the use site transforms to `z`. So does a `y` at the use site.
+>  - But if the bindings are `[y := z, x := y]`, then an `x` at the use site transforms to `y`, and only an explicit `y` at the use site transforms to `z`.
 >
 >Even in block templates, arguments are always expressions, because invoking a template uses the subscript syntax. But names and calls are expressions, so a previously defined substitution (whether bare name or an invocation of a template) can be passed as an argument just fine. Definition order is then important; consult the rules above.
 </details>
@@ -561,15 +595,15 @@ When used as an expr macro, all bindings are registered first, and then the body
 The `abbrev` macro is otherwise exactly like `let_syntax`, but it expands outside-in. Hence, it has no lexically scoped nesting support, but it has the power to locally rename also macros, because the `abbrev` itself expands before any macros invoked in its body. This allows things like:
 
 ```python
-abbrev[m << macrowithverylongname][
+abbrev[m := macrowithverylongname][
     m[tree1] if m[tree2] else m[tree3]]
-abbrev[[m << macrowithverylongname] in
+abbrev[[m := macrowithverylongname] in
        m[tree1] if m[tree2] else m[tree3]]
 abbrev[m[tree1] if m[tree2] else m[tree3],
-       where[m << macrowithverylongname]]
+       where[m := macrowithverylongname]]
 ```
 
-which is sometimes useful when writing macros. (But using `mcpyrate`, note that you can just as-import a macro if you need to rename it.)
+which is sometimes useful when writing macros. But using `mcpyrate`, note that you can just as-import a macro if you need to rename it.
 
 **CAUTION**: `let_syntax` is essentially a toy macro system within the real macro system. The usual caveats of macro systems apply. Especially, `let_syntax` and `abbrev` support absolutely no form of hygiene. Be very, very careful to avoid name conflicts.
 
@@ -609,6 +643,8 @@ Macros that run multiple expressions, in sequence, in place of one expression.
 
 ### `do` as a macro: stuff imperative code into an expression, *with style*
 
+**Changed in v0.15.3.** *Env-assignments now use the walrus syntax `x := 42`. The old syntax `x << 42` is still supported for backward compatibility.*
+
 We provide an `expr` macro wrapper for `unpythonic.do` and `unpythonic.do0`, with some extra features.
 
 This essentially allows writing imperative code in any expression position. For an `if-elif-else` conditional, [see `cond`](#cond-the-missing-elif-for-a-if-p-else-b); for loops, see the functions in the module [`unpythonic.fploop`](../unpythonic/fploop.py) (`looped` and `looped_over`).
@@ -616,21 +652,21 @@ This essentially allows writing imperative code in any expression position. For 
 ```python
 from unpythonic.syntax import macros, do, local, delete
 
-y = do[local[x << 17],
+y = do[local[x := 17],
        print(x),
-       x << 23,
+       x := 23,
        x]
 print(y)  # --> 23
 
 a = 5
-y = do[local[a << 17],
+y = do[local[a := 17],
        print(a),  # --> 17
        delete[a],
        print(a),  # --> 5
        True]
 ```
 
-Local variables are declared and initialized with `local[var << value]`, where `var` is a bare name. To explicitly denote "no value", just use `None`. The syntax `delete[...]` allows deleting a `local[...]` binding. This uses `env.pop()` internally, so a `delete[...]` returns the value the deleted local variable had at the time of deletion. (This also means that if you manually use the `do()` function in some code without macros, you can `env.pop(...)` in a do-item if needed.)
+Local variables are declared and initialized with `local[var := value]`, where `var` is a bare name. To explicitly denote "no value", just use `None`. The syntax `delete[...]` allows deleting a `local[...]` binding. This uses `env.pop()` internally, so a `delete[...]` returns the value the deleted local variable had at the time of deletion. (This also means that if you manually use the `do()` function in some code without macros, you can `env.pop(...)` in a do-item if needed.)
 
 The `local[]` and `delete[]` declarations may only appear at the top level of a `do[]`, `do0[]`, or implicit `do` (extra bracket syntax, e.g. for the body of a `let` form). In any invalid position, `local[]` and `delete[]` are considered a syntax error at macro expansion time.
 
@@ -638,13 +674,13 @@ A `local` declaration comes into effect in the expression following the one wher
 
 ```python
 result = []
-let[lst << []][[result.append(lst),       # the let "lst"
-                local[lst << lst + [1]],  # LHS: do "lst", RHS: let "lst"
+let[lst := []][[result.append(lst),       # the let "lst"
+                local[lst := lst + [1]],  # LHS: do "lst", RHS: let "lst"
                 result.append(lst)]]      # the do "lst"
 assert result == [[], [1]]
 ```
 
-Already declared local variables are updated with `var << value`. Updating variables in lexically outer environments (e.g. a `let` surrounding a `do`) uses the same syntax.
+Already declared local variables are updated with `var := value`. Updating variables in lexically outer environments (e.g. a `let` surrounding a `do`) uses the same syntax.
 
 <details>
 <summary>The reason we require local variables to be declared is to allow write access to lexically outer environments.</summary>
@@ -677,21 +713,21 @@ with multilambda:
     echo = lambda x: [print(x), x]
     assert echo("hi there") == "hi there"
 
-    count = let[x << 0][
-              lambda: [x << x + 1,  # x belongs to the surrounding let
+    count = let[x := 0][
+              lambda: [x := x + 1,  # x belongs to the surrounding let
                        x]]
     assert count() == 1
     assert count() == 2
 
-    test = let[x << 0][
-             lambda: [x << x + 1,
-                      local[y << 42],  # y is local to the implicit do
+    test = let[x := 0][
+             lambda: [x := x + 1,
+                      local[y := 42],  # y is local to the implicit do
                       (x, y)]]
     assert test() == (1, 42)
     assert test() == (2, 42)
 
     myadd = lambda x, y: [print("myadding", x, y),
-                          local[tmp << x + y],
+                          local[tmp := x + y],
                           print("result is", tmp),
                           tmp]
     assert myadd(2, 3) == 5
@@ -716,14 +752,14 @@ from unpythonic.syntax import macros, namedlambda
 with namedlambda:
     f = lambda x: x**3                       # assignment: name as "f"
     assert f.__name__ == "f"
-    gn, hn = let[x << 42, g << None, h << None][[
-                   g << (lambda x: x**2),    # env-assignment: name as "g"
-                   h << f,                   # still "f" (no literal lambda on RHS)
+    gn, hn = let[x := 42, g := None, h := None][[
+                   g := (lambda x: x**2),    # env-assignment: name as "g"
+                   h := f,                   # still "f" (no literal lambda on RHS)
                    (g.__name__, h.__name__)]]
     assert gn == "g"
     assert hn == "f"
 
-    foo = let[[f7 << (lambda x: x)] in f7]       # let-binding: name as "f7"
+    foo = let[[f7 := (lambda x: x)] in f7]       # let-binding: name as "f7"
 
     def foo(func1, func2):
         assert func1.__name__ == "func1"
@@ -750,10 +786,10 @@ The naming is performed using the function `unpythonic.namelambda`, which will r
 
  - Named expressions (a.k.a. walrus operator, Python 3.8+), `f := lambda ...: ...`. **Added in v0.15.0.**
 
- - Expression-assignment to an unpythonic environment, `f << (lambda ...: ...)`
+ - Expression-assignment to an unpythonic environment, `f := (lambda ...: ...)`, and the old syntax `f << (lambda ...: ...)`.
    - Env-assignments are processed lexically, just like regular assignments. This should not cause problems, because left-shifting by a literal lambda most often makes no sense (whence, that syntax is *almost* guaranteed to mean an env-assignment).
 
- - Let-bindings, `let[[f << (lambda ...: ...)] in ...]`, using any let syntax supported by unpythonic (here using the haskelly let-in with env-assign style bindings just as an example).
+ - Let-bindings, `let[[f := (lambda ...: ...)] in ...]`, using any let syntax supported by unpythonic (here using the haskelly let-in with env-assign style bindings just as an example).
 
  - Named argument in a function call, as in `foo(f=lambda ...: ...)`. **Added in v0.14.2.**
 
@@ -804,8 +840,8 @@ from unpythonic.syntax import macros, multilambda, quicklambda, fn, local
 from unpythonic.syntax import _  # optional, makes IDEs happy
 
 with quicklambda, multilambda:
-    func = fn[[local[x << _],
-               local[y << _],
+    func = fn[[local[x := _],
+               local[y := _],
                x + y]]
     assert func(1, 2) == 3
 ```
@@ -861,26 +897,28 @@ Let's use the let-over-lambda idiom:
 
 ```python
 def foo(n0):
-    return let[[n << n0] in
-               (lambda i: n << n + i)]
+    return let[[n := n0] in
+               (lambda i: (n := n + i))]
 ```
 
-This is already shorter, but the `let` is used only for (in effect) altering the passed-in value of `n0`; we do not place any other variables into the `let` environment. Considering the source text already introduces a name `n0` which is just used to initialize `n`, that's an extra element that could be eliminated.
+This is already shorter, but the `let` is used only for (in effect) storing the passed-in value of `n0`; we do not place any other variables into the `let` environment. Considering the source text already introduces a name `n0` which is just used to initialize `n`, that's an extra element that could be eliminated.
 
 Enter the `envify` macro, which automates this:
 
 ```python
 with envify:
     def foo(n):
-        return lambda i: n << n + i
+        return lambda i: (n := n + i)
 ```
+
+Note this does not work without `envify`, because then the assignment expression will create a local variable (local to the lambda) instead of rebinding the outer existing `n`.
 
 Combining with `autoreturn` yields the fewest-source-code-elements optimal solution to the accumulator puzzle:
 
 ```python
 with autoreturn, envify:
     def foo(n):
-        lambda i: n << n + i
+        lambda i: (n := n + i)
 ```
 
 The `with` block adds a few elements, but if desired, it can be refactored into the definition of a custom dialect using `mcpyrate`. See [dialect examples](dialects.md).
@@ -1233,6 +1271,8 @@ As a consequence of the approach, our continuations are [*delimited*](https://en
 Hence, if porting some code that uses `call/cc` from Racket to Python, in the Python version the `call_cc[]` may be need to be placed further out to capture the relevant part of the computation. For example, see `amb` in the demonstration below; a Scheme or Racket equivalent usually has the `call/cc` placed inside the `amb` operator itself, whereas in Python we must place the `call_cc[]` at the call site of `amb`, so that the continuation captures the remainder of the call site.
 
 Observe that while our outermost `call_cc` already somewhat acts like a prompt (in the sense of delimited continuations), we are currently missing the ability to set a prompt wherever (inside code that already uses `call_cc` somewhere) and make the continuation terminate there. So what we have right now is something between proper delimited continuations and classic whole-computation continuations - not really [co-values](http://okmij.org/ftp/continuations/undelimited.html), but not really delimited continuations, either.
+
+(TODO: If I interpret the wiki page right, our `call_cc` performs the job of `reset`; the called function forms the body of the `reset`. The `cc` argument passed into the called function performs the job of `shift`.)
 
 For various possible program topologies that continuations may introduce, see [these clarifying pictures](callcc_topology.pdf).
 
@@ -1761,6 +1801,8 @@ For code using **conditions and restarts**: there is no special integration betw
 
 ### `forall`: nondeterministic evaluation
 
+**Changed in v0.15.3.** *Env-assignment now uses the assignment expression syntax `x := range(3)`. The old syntax `x << range(3)` is still supported for backward compatibility.*
+
 This is essentially a macro implementation of Haskell's do-notation for Python, specialized to the List monad.
 
 The `forall[]` expr macro behaves the same as the multiple-body-expression tuple comprehension `unpythonic.forall`, but the macro is implemented purely by AST transformation, using real lexical variables.
@@ -1771,23 +1813,23 @@ The implementation is generic and very short; if interested, see the module [`un
 from unpythonic.syntax import macros, forall
 from unpythonic.syntax import insist, deny  # regular functions, not macros
 
-out = forall[y << range(3),
-             x << range(3),
+out = forall[y := range(3),
+             x := range(3),
              insist(x % 2 == 0),
              (x, y)]
 assert out == ((0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2))
 
 # pythagorean triples
-pt = forall[z << range(1, 21),   # hypotenuse
-            x << range(1, z+1),  # shorter leg
-            y << range(x, z+1),  # longer leg
+pt = forall[z := range(1, 21),   # hypotenuse
+            x := range(1, z+1),  # shorter leg
+            y := range(x, z+1),  # longer leg
             insist(x*x + y*y == z*z),
             (x, y, z)]
 assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                              (8, 15, 17), (9, 12, 15), (12, 16, 20))
 ```
 
-Assignment, **with** List-monadic magic, is `var << iterable`. It is only valid at the top level of the `forall` (e.g. not inside any possibly nested `let`).
+Assignment, **with** List-monadic magic, is `var := iterable`. It is only valid at the top level of the `forall` (e.g. not inside any possibly nested `let`).
 
 `insist` and `deny` are not macros; they are just the functions from `unpythonic.amb`, re-exported for convenience.
 
