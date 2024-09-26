@@ -254,16 +254,17 @@ def runtests():
             with dyn.let(curry_context=["whatever"]):
                 return the[curry(double, 2, nosucharg="foo")] == Values(4, nosucharg="foo")
 
-    # This doesn't occur on PyPy3.
+    # This doesn't occur on PyPy3, or on CPython 3.11+.
     if sys.implementation.name == "cpython":  # pragma: no cover
-        with testset("uninspectable builtin functions"):
-            test_raises[ValueError, curry(print)]  # builtin function that fails `inspect.signature`
+        if sys.version_info < (3, 11, 0):
+            with testset("uninspectable builtin functions"):
+                test_raises[ValueError, curry(print)]  # builtin function that fails `inspect.signature`
 
-            # Internal feature, used by curry macro. If uninspectables are said to be ok,
-            # then attempting to curry an uninspectable simply returns the original function.
-            m1 = print
-            m2 = curry(print, _curry_allow_uninspectable=True)
-            test[the[m2] is the[m1]]
+                # Internal feature, used by curry macro. If uninspectables are said to be ok,
+                # then attempting to curry an uninspectable simply returns the original function.
+                m1 = print
+                m2 = curry(print, _curry_allow_uninspectable=True)
+                test[the[m2] is the[m1]]
 
     with testset("curry kwargs support"):
         @curry
