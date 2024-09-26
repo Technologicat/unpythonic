@@ -4,11 +4,19 @@
 
 - Walrus syntax `name := value` is now supported, and preferred, for all env-assignments. Old syntax `name << value` still works, and will remain working at least until v0.16.0, whenever that is.
 
+**Fixed**:
+
+- `ETAEstimator` edge case: at any point after all tasks have been marked completed, return a constant zero estimate for the remaining time.
+
 **IMPORTANT**:
 
 - Minimum Python language version is now 3.8.
 - Python 3.6 and 3.7 support dropped, as these language versions have officially reached end-of-life. Code has not been fully cleaned of historical cruft yet, so parts of it may still work in these versions.
 - 3.8 becomes EOL after October 2024, so support for that version might be dropped soon, too.
+
+**Future plans**:
+
+Near-term focus will likely be on introducing support for Python 3.11 and 3.12, with no major changes to functionality. No promises though (except of the `lazy[]`/`force()` kind, which see).
 
 
 ---
