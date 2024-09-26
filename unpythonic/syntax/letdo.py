@@ -217,7 +217,7 @@ def dlet(tree, *, args, syntax, expander, **kw):
 
         @dlet[x := 0]
         def count():
-            (x := x + 1)  # walrus requires parens here; or use `x << x + 1`
+            (x := x + 1)
             return x
         assert count() == 1
         assert count() == 2
@@ -926,7 +926,12 @@ def _do0(tree):
         raise SyntaxError("do0 body: expected a sequence of comma-separated expressions")  # pragma: no cover
     elts = tree.elts
     # Use `local[]` and `do[]` as hygienically captured macros.
-    newelts = [q[a[_our_local][_do0_result := a[elts[0]]]],  # noqa: F821, local[] defines it inside the do[].
+    #
+    # Python 3.8 and Python 3.9 require the parens around the walrus when used inside a subscript.
+    # TODO: Remove the parens when we bump minimum Python to 3.10.
+    # From https://docs.python.org/3/whatsnew/3.10.html:
+    #    Assignment expressions can now be used unparenthesized within set literals and set comprehensions, as well as in sequence indexes (but not slices).
+    newelts = [q[a[_our_local][(_do0_result := a[elts[0]])]],  # noqa: F821, local[] defines it inside the do[].
                *elts[1:],
                q[_do0_result]]  # noqa: F821
     return q[a[_our_do][t[newelts]]]  # do0[] is also just a do[]

@@ -38,12 +38,16 @@ def runtests():
                 if type(k) is not Name:
                     return False  # pragma: no cover, only reached if the test fails.
             return True
+        # Python 3.8 and Python 3.9 require the parens around the walrus when used inside a subscript.
+        # TODO: Remove the parens (in all walrus-inside-subscript instances in this file) when we bump minimum Python to 3.10.
+        # From https://docs.python.org/3/whatsnew/3.10.html:
+        #    Assignment expressions can now be used unparenthesized within set literals and set comprehensions, as well as in sequence indexes (but not slices).
         test[validate(the[canonize_bindings(q[k0, v0].elts)])]  # noqa: F821, it's quoted.
         test[validate(the[canonize_bindings(q[((k0, v0),)].elts)])]  # noqa: F821
         test[validate(the[canonize_bindings(q[(k0, v0), (k1, v1)].elts)])]  # noqa: F821
-        test[validate(the[canonize_bindings([q[k0 := v0]])])]  # noqa: F821, it's quoted.
+        test[validate(the[canonize_bindings([q[(k0 := v0)]])])]  # noqa: F821, it's quoted.
         test[validate(the[canonize_bindings([q[k0 << v0]])])]  # noqa: F821, it's quoted.
-        test[validate(the[canonize_bindings(q[k0 := v0, k1 := v1].elts)])]  # noqa: F821, it's quoted.
+        test[validate(the[canonize_bindings(q[(k0 := v0), (k1 := v1)].elts)])]  # noqa: F821, it's quoted.
         test[validate(the[canonize_bindings(q[k0 << v0, k1 << v1].elts)])]  # noqa: F821, it's quoted.
 
     # --------------------------------------------------------------------------------
@@ -53,7 +57,7 @@ def runtests():
     # need this utility, so we must test it first.
     with testset("isenvassign"):
         test[not isenvassign(q[x])]  # noqa: F821
-        test[isenvassign(q[x := 42])]  # noqa: F821
+        test[isenvassign(q[(x := 42)])]  # noqa: F821
         test[isenvassign(q[x << 42])]  # noqa: F821
 
     with testset("islet"):
@@ -61,9 +65,9 @@ def runtests():
         test[not islet(q[f()])]  # noqa: F821
 
         # unpythonic 0.15.3+, Python 3.8+
-        test[islet(the[expandrq[let[x := 21][2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821, `let` defines `x`
+        test[islet(the[expandrq[let[(x := 21)][2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821, `let` defines `x`
         test[islet(the[expandrq[let[[x := 21] in 2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821
-        test[islet(the[expandrq[let[2 * x, where[x := 21]]]]) == ("expanded_expr", "let")]  # noqa: F821
+        test[islet(the[expandrq[let[2 * x, where[(x := 21)]]]]) == ("expanded_expr", "let")]  # noqa: F821
 
         # unpythonic 0.15.0 to 0.15.2, previous modern notation for bindings
         test[islet(the[expandrq[let[x << 21][2 * x]]]) == ("expanded_expr", "let")]  # noqa: F821, `let` defines `x`
@@ -96,7 +100,7 @@ def runtests():
                 return 2 * x  # noqa: F821
         test[islet(the[testdata[0].decorator_list[0]]) == ("expanded_decorator", "let")]
 
-        testdata = q[let[x := 21][2 * x]]  # noqa: F821
+        testdata = q[let[(x := 21)][2 * x]]  # noqa: F821
         test[islet(the[testdata], expanded=False) == ("lispy_expr", "let")]
 
         testdata = q[let[x << 21][2 * x]]  # noqa: F821
@@ -196,7 +200,7 @@ def runtests():
         test[not isdo(q[f()])]  # noqa: F821
 
         # unpythonic 0.15.3+, Python 3.8+
-        test[isdo(the[expandrq[do[x := 21,  # noqa: F821
+        test[isdo(the[expandrq[do[(x := 21),  # noqa: F821
                                   2 * x]]]) == "expanded"]  # noqa: F821
 
         test[isdo(the[expandrq[do[x << 21,  # noqa: F821
@@ -210,16 +214,16 @@ def runtests():
         test[isdo(the[thedo]) == "curried"]
 
         # unpythonic 0.15.3+, Python 3.8+
-        testdata = q[do[x := 21,  # noqa: F821
+        testdata = q[do[(x := 21),  # noqa: F821
                         2 * x]]  # noqa: F821
         test[isdo(the[testdata], expanded=False) == "do"]
 
         testdata = q[do0[23,  # noqa: F821
-                         x := 21,  # noqa: F821
+                         (x := 21),  # noqa: F821
                          2 * x]]  # noqa: F821
         test[isdo(the[testdata], expanded=False) == "do0"]
 
-        testdata = q[someothermacro[x := 21,  # noqa: F821
+        testdata = q[someothermacro[(x := 21),  # noqa: F821
                                     2 * x]]  # noqa: F821
         test[not isdo(the[testdata], expanded=False)]
 
@@ -241,7 +245,7 @@ def runtests():
     # Destructuring - envassign
 
     with testset("envassign destructuring (new env-assign syntax v0.15.3+)"):
-        testdata = q[x := 42]  # noqa: F821
+        testdata = q[(x := 42)]  # noqa: F821
         view = UnexpandedEnvAssignView(testdata)
 
         # read
@@ -316,7 +320,7 @@ def runtests():
             test[unparse(view.body) == "(z * t)"]
 
         # lispy expr
-        testdata = q[let[x := 21, y := 2][y * x]]  # noqa: F821
+        testdata = q[let[(x := 21), (y := 2)][y * x]]  # noqa: F821
         testletdestructuring(testdata)
         testdata = q[let[x << 21, y << 2][y * x]]  # noqa: F821
         testletdestructuring(testdata)
@@ -374,7 +378,7 @@ def runtests():
         testletdestructuring(testdata)
 
         # disembodied haskelly let-where (just the content, no macro invocation)
-        testdata = q[y * x, where[x := 21, y := 2]]  # noqa: F821
+        testdata = q[y * x, where[(x := 21), (y := 2)]]  # noqa: F821
         testletdestructuring(testdata)
         testdata = q[y * x, where[x << 21, y << 2]]  # noqa: F821
         testletdestructuring(testdata)
@@ -599,7 +603,7 @@ def runtests():
     # Destructuring - unexpanded do
 
     with testset("do destructuring (unexpanded) (new env-assign syntax v0.15.3+)"):
-        testdata = q[do[local[x := 21],  # noqa: F821
+        testdata = q[do[local[(x := 21)],  # noqa: F821
                         2 * x]]  # noqa: F821
         view = UnexpandedDoView(testdata)
         # read
@@ -611,11 +615,11 @@ def runtests():
         test[isenvassign(the[thing])]
         # write
         # This mutates the original, but we have to assign `view.body` to trigger the setter.
-        thebody[0] = q[local[x := 9001]]  # noqa: F821
+        thebody[0] = q[local[(x := 9001)]]  # noqa: F821
         view.body = thebody
 
         # implicit do, a.k.a. extra bracket syntax
-        testdata = q[let[[local[x := 21],  # noqa: F821
+        testdata = q[let[[local[(x := 21)],  # noqa: F821
                           2 * x]]]  # noqa: F821
         if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
             theimplicitdo = testdata.slice
@@ -630,7 +634,7 @@ def runtests():
             thing = thebody[0].slice.value
         test[isenvassign(the[thing])]
         # write
-        thebody[0] = q[local[x := 9001]]  # noqa: F821
+        thebody[0] = q[local[(x := 9001)]]  # noqa: F821
         view.body = thebody
 
         test_raises[TypeError,

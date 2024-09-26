@@ -26,7 +26,12 @@ def runtests():
         #    (including nested ``let`` constructs and similar).
         #  - No need for ``lambda e: ...`` wrappers. Inserted automatically,
         #    so the lines are only evaluated as the underlying seq.do() runs.
-        d1 = do[local[x := 17],
+        #
+        # Python 3.8 and Python 3.9 require the parens around the walrus when used inside a subscript.
+        # TODO: Remove the parens (in all walrus-inside-subscript instances in this file) when we bump minimum Python to 3.10.
+        # From https://docs.python.org/3/whatsnew/3.10.html:
+        #    Assignment expressions can now be used unparenthesized within set literals and set comprehensions, as well as in sequence indexes (but not slices).
+        d1 = do[local[(x := 17)],
                 print(x),
                 x := 23,
                 x]
@@ -37,7 +42,7 @@ def runtests():
 
         # v0.14.0: do[] now supports deleting previously defined local names with delete[]
         a = 5
-        d = do[local[a := 17],  # noqa: F841, yes, d is unused.
+        d = do[local[(a := 17)],  # noqa: F841, yes, d is unused.
                test[a == 17],
                delete[a],
                test[a == 5],  # lexical scoping
@@ -46,7 +51,7 @@ def runtests():
         test_raises[KeyError, do[delete[a], ], "should have complained about deleting nonexistent local 'a'"]
 
         # do0[]: like do[], but return the value of the **first** expression
-        d2 = do0[local[y := 5],  # noqa: F821, `local` defines the name on the LHS of the `<<`.
+        d2 = do0[local[(y := 5)],  # noqa: F821, `local` defines the name on the LHS of the `<<`.
                  print("hi there, y =", y),  # noqa: F821
                  42]  # evaluated but not used
         test[d2 == 5]
@@ -75,30 +80,30 @@ def runtests():
     # Let macros. Lexical scoping supported.
     with testset("let, letseq, letrec basic usage (new env-assignment syntax 0.15.3+)"):
         # parallel binding, i.e. bindings don't see each other
-        test[let[x := 17,
-                 y := 23][  # noqa: F821, `let` defines `y` here.
+        test[let[(x := 17),
+                 (y := 23)][  # noqa: F821, `let` defines `y` here.
                      (x, y)] == (17, 23)]  # noqa: F821
 
         # sequential binding, i.e. Scheme/Racket let*
-        test[letseq[x := 1,
-                    y := x + 1][  # noqa: F821
+        test[letseq[(x := 1),
+                    (y := x + 1)][  # noqa: F821
                         (x, y)] == (1, 2)]  # noqa: F821
 
-        test[letseq[x := 1,
-                    x := x + 1][  # in a letseq, rebinding the same name is ok
+        test[letseq[(x := 1),
+                    (x := x + 1)][  # in a letseq, rebinding the same name is ok
                         x] == 2]
 
         # letrec sugars unpythonic.lispylet.letrec, removing the need for quotes on LHS
         # and "lambda e: ..." wrappers on RHS (these are inserted by the macro):
-        test[letrec[evenp := (lambda x: (x == 0) or oddp(x - 1)),  # noqa: F821, `letrec` defines `evenp` here.
-                    oddp := (lambda x: (x != 0) and evenp(x - 1))][  # noqa: F821
+        test[letrec[(evenp := (lambda x: (x == 0) or oddp(x - 1))),  # noqa: F821, `letrec` defines `evenp` here.
+                    (oddp := (lambda x: (x != 0) and evenp(x - 1)))][  # noqa: F821
                         evenp(42)] is True]  # noqa: F821
 
         # nested letrecs work, too - each environment is internally named by a gensym
         # so that outer ones "show through":
-        test[letrec[z := 9000][  # noqa: F821
-                 letrec[evenp := (lambda x: (x == 0) or oddp(x - 1)),  # noqa: F821
-                        oddp := (lambda x: (x != 0) and evenp(x - 1))][  # noqa: F821
+        test[letrec[(z := 9000)][  # noqa: F821
+                 letrec[(evenp := (lambda x: (x == 0) or oddp(x - 1))),  # noqa: F821
+                        (oddp := (lambda x: (x != 0) and evenp(x - 1)))][  # noqa: F821
                             (evenp(42), z)]] == (True, 9000)]  # noqa: F821
 
     with testset("let, letseq, letrec basic usage (previous modern env-assignment syntax)"):
@@ -151,8 +156,8 @@ def runtests():
 
     # implicit do: an extra set of brackets denotes a multi-expr body
     with testset("implicit do (extra bracket syntax for multi-expr let body) (new env-assignment syntax v0.15.3+)"):
-        a = let[x := 1,
-                y := 2][[  # noqa: F821
+        a = let[(x := 1),
+                (y := 2)][[  # noqa: F821
                     y := 1337,  # noqa: F821
                     (x, y)]]  # noqa: F821
         test[a == (1, 1337)]
@@ -164,14 +169,14 @@ def runtests():
         test[a == [1, 2]]
 
         # implicit do works also in letseq, letrec
-        a = letseq[x := 1,
-                   y := x + 1][[  # noqa: F821
+        a = letseq[(x := 1),
+                   (y := x + 1)][[  # noqa: F821
                        x := 1337,
                        (x, y)]]  # noqa: F821
         test[a == (1337, 2)]
 
-        a = letrec[x := 1,
-                   y := x + 1][[  # noqa: F821
+        a = letrec[(x := 1),
+                   (y := x + 1)][[  # noqa: F821
                        x := 1337,
                        (x, y)]]  # noqa: F821
         test[a == (1337, 2)]
@@ -486,7 +491,7 @@ def runtests():
         x = "the nonlocal x"  # restore the test environment
 
         # v0.15.3+: walrus syntax
-        @dlet[x := "the env x"]
+        @dlet[(x := "the env x")]
         def test15():
             def inner():
                 (x := "updated env x")  # noqa: F841, this writes to the let env since there is no `x` in an intervening scope, according to Python's standard rules.
@@ -494,7 +499,7 @@ def runtests():
             return x
         test[test15() == "updated env x"]
 
-        @dlet[x := "the env x"]
+        @dlet[(x := "the env x")]
         def test16():
             def inner():
                 x = "the inner x"  # noqa: F841, unused on purpose, for testing. An assignment *statement* does NOT write to the let env.
@@ -502,7 +507,7 @@ def runtests():
             return x
         test[test16() == "the env x"]
 
-        @dlet[x := "the env x"]
+        @dlet[(x := "the env x")]
         def test17():
             x = "the local x"  # This lexical variable shadows the env x.
             def inner():
