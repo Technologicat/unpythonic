@@ -485,6 +485,33 @@ def runtests():
             test14()
         x = "the nonlocal x"  # restore the test environment
 
+        # v0.15.3+: walrus syntax
+        @dlet[x := "the env x"]
+        def test15():
+            def inner():
+                (x := "updated env x")  # noqa: F841, this writes to the let env since there is no `x` in an intervening scope, according to Python's standard rules.
+            inner()
+            return x
+        test[test15() == "updated env x"]
+
+        @dlet[x := "the env x"]
+        def test16():
+            def inner():
+                x = "the inner x"  # noqa: F841, unused on purpose, for testing. An assignment *statement* does NOT write to the let env.
+            inner()
+            return x
+        test[test16() == "the env x"]
+
+        @dlet[x := "the env x"]
+        def test17():
+            x = "the local x"  # This lexical variable shadows the env x.
+            def inner():
+                # The env x is shadowed. Since we don't say `nonlocal x`, this creates a new lexical variable scoped to `inner`.
+                (x := "the inner x")  # noqa: F841, unused on purpose, for testing.
+            inner()
+            return x
+        test[test17() == "the local x"]
+
         # in do[] (also the implicit do), local[] takes effect from the next item
         test[let[x << "the let x",
                  y << None][  # noqa: F821
