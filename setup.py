@@ -74,7 +74,7 @@ setup(
               "tail-call-optimization", "tco", "continuations", "currying", "lazy-evaluation",
               "dynamic-variable", "macros", "lisp", "scheme", "racket", "haskell"],
     install_requires=[],  # mcpyrate is optional for us, so we can't really put it here even though we recommend it.
-    python_requires=">=3.8,<3.11",
+    python_requires=">=3.8,<3.13",
     author="Juha Jeronen",
     author_email="juha.m.jeronen@gmail.com",
     url="https://github.com/Technologicat/unpythonic",
@@ -93,6 +93,8 @@ setup(
                  "Programming Language :: Python :: 3.8",
                  "Programming Language :: Python :: 3.9",
                  "Programming Language :: Python :: 3.10",
+                 "Programming Language :: Python :: 3.11",
+                 "Programming Language :: Python :: 3.12",
                  "Programming Language :: Python :: Implementation :: CPython",
                  "Programming Language :: Python :: Implementation :: PyPy",
                  "Topic :: Software Development :: Libraries",
