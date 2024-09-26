@@ -346,7 +346,7 @@ def runtests():
         testletdestructuring(testdata)
 
         # haskelly let-where
-        testdata = q[let[y * x, where[x := 21, y := 2]]]  # noqa: F821
+        testdata = q[let[y * x, where[(x := 21), (y := 2)]]]  # noqa: F821
         testletdestructuring(testdata)
         testdata = q[let[y * x, where[x << 21, y << 2]]]  # noqa: F821
         testletdestructuring(testdata)

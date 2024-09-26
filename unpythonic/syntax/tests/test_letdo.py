@@ -33,7 +33,7 @@ def runtests():
         #    Assignment expressions can now be used unparenthesized within set literals and set comprehensions, as well as in sequence indexes (but not slices).
         d1 = do[local[(x := 17)],
                 print(x),
-                x := 23,
+                (x := 23),
                 x]
         test[d1 == 23]
 
