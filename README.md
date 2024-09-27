@@ -808,31 +808,21 @@ assert (my_map, double, (q, 1, 2, 3)) == (ll, 2, 4, 6)
 
 **PyPI**
 
-``pip3 install unpythonic --user``
-
-or
-
-``sudo pip3 install unpythonic``
+``pip install unpythonic``
 
 **GitHub**
 
-Clone (or pull) from GitHub. Then,
+Clone the repo from GitHub. Then, navigate to it in a terminal, and:
 
-``python3 setup.py install --user``
+```bash
+pip install .
+```
 
-or
+To uninstall:
 
-``sudo python3 setup.py install``
-
-**Uninstall**
-
-Uninstallation must be invoked in a folder which has no subfolder called ``unpythonic``, so that ``pip`` recognizes it as a package name (instead of a filename). Then,
-
-``pip3 uninstall unpythonic``
-
-or
-
-``sudo pip3 uninstall unpythonic``
+```bash
+pip uninstall unpythonic
+```
 
 
 ## Support
