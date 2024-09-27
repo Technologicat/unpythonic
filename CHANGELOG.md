@@ -1,4 +1,4 @@
-**0.15.3** (in progress, last updated 27 September 2024)
+**0.15.3** (27 September 2024) - *New tree snakes* edition:
 
 **IMPORTANT**:
 
