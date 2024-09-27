@@ -83,7 +83,7 @@ from ast import (Name, Tuple, Lambda, FunctionDef, AsyncFunctionDef, ClassDef,
 from mcpyrate.core import Done
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
-from .astcompat import TryStar
+from .astcompat import TryStar, MatchStar, MatchMapping, MatchClass, MatchAs
 
 from ..it import uniqify
 
@@ -313,6 +313,12 @@ def get_names_in_store_context(tree):
     by ``get_lexical_variables`` for the nearest lexically surrounding parent
     tree that represents a scope.
     """
+    class MatchCapturesCollector(ASTVisitor):  # Python 3.10+: `match`/`case`
+        def examine(self, tree):
+            if type(tree) is Name:
+                self.collect(tree.id)
+            self.generic_visit(tree)
+
     class StoreNamesCollector(ASTVisitor):
         # def _collect_name_or_list(self, t):
         #     if type(t) is Name:
@@ -346,6 +352,29 @@ def get_names_in_store_context(tree):
                 # TODO: `try`, even inside the `except` blocks, will be bound in the whole parent scope.
                 for h in tree.handlers:
                     self.collect(h.name)
+            # Python 3.10+: `match`/`case` uses names in `Load` context to denote captures.
+            # Also there are some bare strings, and sometimes `None` actually means "_" (but doesn't capture).
+            # So we special-case all of this.
+            elif type(tree) in (MatchAs, MatchStar):  # a `MatchSequence` also consists of these
+                if tree.name is not None:
+                    self.collect(tree.name)
+            elif type(tree) is MatchMapping:
+                mcc = MatchCapturesCollector(tree.patterns)
+                mcc.visit()
+                for name in mcc.collected:
+                    self.collect(name)
+                if tree.rest is not None:  # `rest` is a capture if present
+                    self.collect(tree.rest)
+            elif type(tree) is MatchClass:
+                mcc = MatchCapturesCollector(tree.patterns)
+                mcc.visit()
+                for name in mcc.collected:
+                    self.collect(name)
+                mcc = MatchCapturesCollector(tree.kwd_patterns)
+                mcc.visit()
+                for name in mcc.collected:
+                    self.collect(name)
+
             # Python 3.12+: `TypeAlias` uses a name in `Store` context on its LHS so it needs no special handling here.
 
             # Same note as for for loops.
