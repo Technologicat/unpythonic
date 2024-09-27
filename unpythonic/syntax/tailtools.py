@@ -26,7 +26,7 @@ from mcpyrate.quotes import capture_as_macro, is_captured_value
 from mcpyrate.utils import NestingLevelTracker
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
-from .astcompat import getconstant, NameConstant
+from .astcompat import getconstant, NameConstant, TryStar
 from .ifexprs import aif, it
 from .letdoutil import isdo, islet, ExpandedLetView, ExpandedDoView
 from .util import (isx, isec,
@@ -691,7 +691,7 @@ def _autoreturn(block_body):
                     tree.orelse[-1] = self.visit(tree.orelse[-1])
             elif type(tree) in (With, AsyncWith):
                 tree.body[-1] = self.visit(tree.body[-1])
-            elif type(tree) is Try:
+            elif type(tree) in (Try, TryStar):
                 # We don't care about finalbody; typically used for unwinding only.
                 if tree.orelse:  # tail position is in else clause if present
                     tree.orelse[-1] = self.visit(tree.orelse[-1])
