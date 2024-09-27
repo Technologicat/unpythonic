@@ -14,6 +14,9 @@ from ...syntax.scopeanalyzer import (isnewscope,
                                      get_lexical_variables,
                                      scoped_transform)
 
+# TODO: Add tests for `match`/`case` once we bump minimum language version to Python 3.10.
+# TODO: Add tests for `try`/`except*` once we bump minimum language version to Python 3.11.
+
 def runtests():
     # test data
     with q as getnames_load:

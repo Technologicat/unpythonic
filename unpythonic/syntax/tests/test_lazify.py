@@ -28,6 +28,8 @@ from ...lazyutil import islazy, Lazy, force1, force  # Lazy usually not needed i
 from sys import stderr
 import gc
 
+# TODO: Add test that `lazify` leaves `type` statements alone once we bump minimum language version to Python 3.12.
+
 def runtests():
     # first test the low-level tools
     with testset("lazyrec (lazify a container literal, recursing into sub-containers)"):

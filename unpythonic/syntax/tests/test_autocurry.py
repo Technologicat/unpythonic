@@ -11,6 +11,8 @@ from ...fold import foldr
 from ...llist import cons, nil, ll
 from ...collections import frozendict
 
+# TODO: Add test that `autocurry` leaves `type` statements alone once we bump minimum language version to Python 3.12.
+
 def runtests():
     with testset("basic usage"):
         with autocurry:
