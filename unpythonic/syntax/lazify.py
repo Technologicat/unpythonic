@@ -9,12 +9,12 @@ from functools import partial
 
 from mcpyrate.quotes import macros, q, u, a, h  # noqa: F401
 
+from mcpyrate.astcompat import TypeAlias
 from mcpyrate.astfixers import fix_ctx
 from mcpyrate.quotes import capture_as_macro, is_captured_value
 from mcpyrate.unparser import unparse
 from mcpyrate.walkers import ASTTransformer
 
-from .astcompat import TypeAlias
 from .util import (suggest_decorator_index, sort_lambda_decorators, detect_lambda,
                    isx, getname, is_decorator)
 from .letdoutil import islet, isdo, ExpandedLetView

@@ -4,6 +4,7 @@
 from ...syntax import macros, test, test_raises, warn, the  # noqa: F401
 from ...test.fixtures import session, testset
 
+from mcpyrate.astcompat import getconstant, Num
 from mcpyrate.quotes import macros, q, n  # noqa: F401, F811
 from mcpyrate.metatools import macros, expandrq  # noqa: F811
 
@@ -16,7 +17,6 @@ import sys
 
 from mcpyrate import unparse
 
-from ...syntax.astcompat import getconstant, Num
 from ...syntax.letdoutil import (canonize_bindings,
                                  isenvassign, islet, isdo,
                                  UnexpandedEnvAssignView,

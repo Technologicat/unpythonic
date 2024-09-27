@@ -11,9 +11,9 @@ from ast import (Call, Name, Subscript, Compare, In,
 import sys
 
 from mcpyrate import unparse
+from mcpyrate.astcompat import getconstant, Str, NamedExpr
 from mcpyrate.core import Done
 
-from .astcompat import getconstant, Str, NamedExpr
 from .nameutil import isx, getname
 
 letf_name = "letter"  # must match what ``unpythonic.syntax.letdo._let_expr_impl`` uses in its output.

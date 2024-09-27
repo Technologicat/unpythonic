@@ -14,6 +14,7 @@ from copy import deepcopy
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym
+from mcpyrate.astcompat import getconstant, Str, NamedExpr
 from mcpyrate.expander import MacroExpander
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.splicing import splice_expression
@@ -25,7 +26,6 @@ from ..env import env
 from ..misc import namelambda
 from ..symbol import sym
 
-from .astcompat import getconstant, Str, NamedExpr
 from .letdo import _implicit_do, _do
 from .letdoutil import islet, isenvassign, UnexpandedLetView, UnexpandedEnvAssignView, ExpandedDoView
 from .nameutil import getname

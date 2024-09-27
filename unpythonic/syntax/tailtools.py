@@ -22,11 +22,11 @@ import sys
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym
+from mcpyrate.astcompat import getconstant, NameConstant, TryStar
 from mcpyrate.quotes import capture_as_macro, is_captured_value
 from mcpyrate.utils import NestingLevelTracker
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
-from .astcompat import getconstant, NameConstant, TryStar
 from .ifexprs import aif, it
 from .letdoutil import isdo, islet, ExpandedLetView, ExpandedDoView
 from .util import (isx, isec,

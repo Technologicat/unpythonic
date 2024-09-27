@@ -80,10 +80,9 @@ from ast import (Name, Tuple, Lambda, FunctionDef, AsyncFunctionDef, ClassDef,
                  Import, ImportFrom, Try, ListComp, SetComp, GeneratorExp,
                  DictComp, Store, Del, Global, Nonlocal)
 
+from mcpyrate.astcompat import TryStar, MatchStar, MatchMapping, MatchClass, MatchAs
 from mcpyrate.core import Done
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
-
-from .astcompat import TryStar, MatchStar, MatchMapping, MatchClass, MatchAs
 
 from ..it import uniqify
 

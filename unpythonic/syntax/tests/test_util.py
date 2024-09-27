@@ -4,10 +4,10 @@
 from ...syntax import macros, do, local, test, test_raises, fail, the  # noqa: F401
 from ...test.fixtures import session, testset
 
+from mcpyrate.astcompat import getconstant, Num, Str
 from mcpyrate.quotes import macros, q, n, h  # noqa: F401, F811
 from mcpyrate.metatools import macros, expandrq  # noqa: F401, F811
 
-from ...syntax.astcompat import getconstant, Num, Str
 from ...syntax.util import (isec, detect_callec,
                             detect_lambda,
                             is_decorator, has_tco, has_curry, has_deco,

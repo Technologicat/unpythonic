@@ -7,10 +7,10 @@ from ast import Call, Lambda, FunctionDef, AsyncFunctionDef
 
 from mcpyrate.quotes import macros, q, a, h  # noqa: F401
 
+from mcpyrate.astcompat import TypeAlias
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
-from .astcompat import TypeAlias
 from .util import (suggest_decorator_index, isx, has_curry, sort_lambda_decorators)
 
 from ..dynassign import dyn

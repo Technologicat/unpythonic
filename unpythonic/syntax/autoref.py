@@ -9,11 +9,11 @@ from ast import (Name, Load, Call, Lambda, arg,
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym, parametricmacro
+from mcpyrate.astcompat import getconstant
 from mcpyrate.astfixers import fix_ctx
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
-from .astcompat import getconstant
 from .nameutil import isx
 from .util import ExpandedAutorefMarker
 from .letdoutil import isdo, islet, ExpandedDoView, ExpandedLetView

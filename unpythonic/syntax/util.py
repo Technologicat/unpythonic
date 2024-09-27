@@ -18,12 +18,12 @@ from functools import partial
 
 from ast import Call, Lambda, FunctionDef, AsyncFunctionDef, If, stmt
 
+from mcpyrate.astcompat import getconstant
 from mcpyrate.core import add_postprocessor
 from mcpyrate.markers import ASTMarker, delete_markers
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
 
-from .astcompat import getconstant
 from .letdoutil import isdo, ExpandedDoView
 from .nameutil import isx, getname
 
