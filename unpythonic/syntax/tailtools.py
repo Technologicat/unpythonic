@@ -691,7 +691,7 @@ def _autoreturn(block_body):
                     tree.orelse[-1] = self.visit(tree.orelse[-1])
             elif type(tree) in (With, AsyncWith):
                 tree.body[-1] = self.visit(tree.body[-1])
-            elif type(tree) in (Try, TryStar):
+            elif type(tree) in (Try, TryStar):  # Python 3.11+: `try`/`except*`
                 # We don't care about finalbody; typically used for unwinding only.
                 if tree.orelse:  # tail position is in else clause if present
                     tree.orelse[-1] = self.visit(tree.orelse[-1])

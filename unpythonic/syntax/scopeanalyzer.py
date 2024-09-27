@@ -334,7 +334,7 @@ def get_names_in_store_context(tree):
             elif type(tree) in (Import, ImportFrom):
                 for x in tree.names:
                     self.collect(x.asname if x.asname is not None else x.name)
-            elif type(tree) in (Try, TryStar):
+            elif type(tree) in (Try, TryStar):  # Python 3.11+: `try`/`except*`
                 # https://docs.python.org/3/reference/compound_stmts.html#the-try-statement
                 #
                 # TODO: The `err` in  `except SomeException as err` is only bound within the `except` block,
