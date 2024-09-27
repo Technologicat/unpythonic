@@ -17,6 +17,7 @@
   - Note that language support for using an assignment expression inside a subscript *without parenthesizing it* was [added in Python 3.10](https://docs.python.org/3/whatsnew/3.10.html#other-language-changes).
   - If you still use Python 3.8 or 3.9, with the new `:=` syntax you must put parentheses around each `let` binding, because syntactically, the bindings subform looks like a subscript.
   - All documentation is written in Python 3.10 syntax; all unit tests are written in Python 3.8 syntax.
+- Internal module `unpythonic.syntax.astcompat`, used by the macro layer, moved to `mcpyrate.astcompat`. This module handles version differences in the `ast` module in various versions of Python.
 
 
 **Fixed**:
