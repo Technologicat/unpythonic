@@ -1,8 +1,11 @@
 # Changelog
 
-**0.15.4** (in progress, last updated 27 September 2024)
+**0.15.4** (27 September 2024) - hotfix:
 
-*No user-visible changes yet.*
+**Fixed**
+
+- Bump `mcpyrate` to the hotfix version 3.6.3.
+  - This is only to make sure no one accidentally installs the broken version, `mcpyrate` 3.6.2, which had a bug in interactive console mode that wasn't caught by CI.
 
 
 ---
