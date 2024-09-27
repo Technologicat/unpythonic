@@ -1,11 +1,10 @@
-**0.15.3** (in progress, last updated 26 September 2024)
+**0.15.3** (in progress, last updated 27 September 2024)
 
 **IMPORTANT**:
 
 - Minimum Python language version is now 3.8.
   - We support 3.8, 3.9, 3.10, 3.11, 3.12, and PyPy3 (language versions 3.8, 3.9, and 3.10).
   - Python 3.6 and 3.7 support dropped, as these language versions have officially reached end-of-life.
-- Note this release of `unpythonic` is still in progress. Python 3.8 becomes EOL after October 2024, so support for 3.8 might be dropped before `unpythonic` 0.15.3 is released.
 
 
 **New**:
