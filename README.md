@@ -804,21 +804,31 @@ assert (my_map, double, (q, 1, 2, 3)) == (ll, 2, 4, 6)
 ```
 </details>
 
-## Installation
+## Install & uninstall
 
-**PyPI**
+### PyPI
 
-``pip install unpythonic``
+```bash
+pip install unpythonic
+```
 
-**GitHub**
+### From source
 
 Clone the repo from GitHub. Then, navigate to it in a terminal, and:
 
 ```bash
-pip install .
+pip install . --no-compile
 ```
 
-To uninstall:
+If you intend to use the macro layer of `unpythonic`, the `--no-compile` flag is important. It prevents an **incorrect** precompilation, without macro support, that `pip install` would otherwise do at its `bdist_wheel` step.
+
+For most Python projects such precompilation is just fine - it's just macro-enabled projects that shouldn't be precompiled with standard tools.
+
+If `--no-compile` is NOT used, the precompiled bytecode cache may cause errors such as `ImportError: cannot import name 'macros' from 'mcpyrate.quotes'`, when you try to e.g. `from unpythonic.syntax import macros, let`. In-tree, it might work, but against an installed copy, it will fail. It has happened that my CI setup did not detect this kind of failure.
+
+This is a common issue when using macro expanders in Python.
+
+### Uninstall
 
 ```bash
 pip uninstall unpythonic
