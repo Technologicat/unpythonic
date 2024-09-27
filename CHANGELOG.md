@@ -11,13 +11,17 @@
 **New**:
 
 - **Python 3.12 support**.
-  - As in, all tests pass, so there are no regressions. Some undiscovered interactions with new language features (`type` statement) may still be broken.
+  - As in, all tests pass, so there are no regressions. Some undiscovered interactions with new language features (`type` statement) may still be broken, although the most obvious cases are already implemented.
 - **Python 3.11 support**.
-  - As in, all tests pass, so there are no regressions. Some undiscovered interactions with new language features (`try`/`except*` construct) may still be broken.
+  - As in, all tests pass, so there are no regressions. Some undiscovered interactions with new language features (`try`/`except*` construct) may still be broken, although the most obvious cases are already implemented.
 - Walrus syntax `name := value` is now supported, and preferred, for all env-assignments. Old syntax `name << value` still works, and will remain working at least until v0.16.0, whenever that is.
   - Note that language support for using an assignment expression inside a subscript *without parenthesizing it* was [added in Python 3.10](https://docs.python.org/3/whatsnew/3.10.html#other-language-changes).
   - If you still use Python 3.8 or 3.9, with the new `:=` syntax you must put parentheses around each `let` binding, because syntactically, the bindings subform looks like a subscript.
   - All documentation is written in Python 3.10 syntax; all unit tests are written in Python 3.8 syntax.
+
+
+**Changed**:
+
 - Utility module `unpythonic.syntax.astcompat`, used by the macro layer, moved to `mcpyrate.astcompat`. This module handles version differences in the `ast` module in various versions of Python.
 
 
