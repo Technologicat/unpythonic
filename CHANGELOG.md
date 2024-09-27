@@ -29,6 +29,7 @@
 
 - `ETAEstimator` edge case: at any point after all tasks have been marked completed, return a constant zero estimate for the remaining time.
 - Fix borkage in `mathseq` when running with SymPy 1.13 (SymPy is only used in tests). Bump SymPy version to 1.13.
+- Fix bug in scopeanalyzer: `get_names_in_store_context` now collects also names bound in `match`/`case` constructs (pattern matching, Python 3.10).
 
 
 ---
