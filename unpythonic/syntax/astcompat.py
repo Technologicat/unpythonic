@@ -2,6 +2,9 @@
 """Conditionally import AST node types only supported by recent enough Python versions."""
 
 __all__ = ["NamedExpr",
+           "Match", "match_case", "MatchValue", "MatchSingleton", "MatchSequence", "MatchStar", "MatchMapping", "MatchClass", "MatchAs", "MatchOr",
+           "TryStar",
+           "TypeAlias", "TypeVar", "ParamSpec", "TypeVarTuple",
            "Num", "Str", "Bytes", "NameConstant", "Ellipsis",
            "Index", "ExtSlice",
            "getconstant"]
@@ -25,9 +28,23 @@ except ImportError:  # pragma: no cover
     NamedExpr = _NoSuchNodeType
 
 # No new AST node types in Python 3.9.
-# No new AST node types in Python 3.10.
-# TODO: Any new AST node types in Python 3.11?
-# TODO: Any new AST node types in Python 3.12?
+
+try:  # Python 3.10+
+    from ast import (Match, match_case,
+                     MatchValue, MatchSingleton, MatchSequence, MatchStar,
+                     MatchMapping, MatchClass, MatchAs, MatchOr)  # `match`/`case`
+except ImportError:  # pragma: no cover
+    Match = match_case = MatchValue = MatchSingleton = MatchSequence = MatchStar = MatchMapping = MatchClass = MatchAs = MatchOr = _NoSuchNodeType
+
+try:  # Python 3.11+
+    from ast import TryStar  # `try`/`except*` (exception groups)
+except ImportError:  # pragma: no cover
+    TryStar = _NoSuchNodeType
+
+try:  # Python 3.12+
+    from ast import TypeAlias, TypeVar, ParamSpec, TypeVarTuple  # `type` statement (type alias)
+except ImportError:  # pragma: no cover
+    TypeAlias = TypeVar = ParamSpec = TypeVarTuple = _NoSuchNodeType
 
 # --------------------------------------------------------------------------------
 # Deprecated AST node types
