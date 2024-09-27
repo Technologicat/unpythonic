@@ -1,2 +1,2 @@
-mcpyrate>=3.6.0
+mcpyrate>=3.6.2
 sympy>=1.13
