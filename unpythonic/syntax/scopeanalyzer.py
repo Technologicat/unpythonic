@@ -303,6 +303,8 @@ def get_names_in_store_context(tree):
 
         - The names in the as-part of ``With``
 
+        - The names bound in `match`/`case` patterns (Python 3.10+)
+
     Duplicates may be returned; use ``set(...)`` or ``list(uniqify(...))``
     on the output to remove them.
 
