@@ -806,7 +806,7 @@ assert (my_map, double, (q, 1, 2, 3)) == (ll, 2, 4, 6)
 
 ## Install & uninstall
 
-### PyPI
+### From PyPI
 
 ```bash
 pip install unpythonic
