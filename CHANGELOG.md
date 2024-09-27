@@ -5,6 +5,7 @@
 - Minimum Python language version is now 3.8.
   - We support 3.8, 3.9, 3.10, 3.11, 3.12, and PyPy3 (language versions 3.8, 3.9, and 3.10).
   - Python 3.6 and 3.7 support dropped, as these language versions have officially reached end-of-life. If you need `unpythonic` for Python 3.6 or 3.7, use version 0.15.2.
+- Minimum version for optional macro expander `mcpyrate` is now 3.6.2, because the `astcompat` utility module was moved there.
 
 
 **New**:
@@ -17,7 +18,7 @@
   - Note that language support for using an assignment expression inside a subscript *without parenthesizing it* was [added in Python 3.10](https://docs.python.org/3/whatsnew/3.10.html#other-language-changes).
   - If you still use Python 3.8 or 3.9, with the new `:=` syntax you must put parentheses around each `let` binding, because syntactically, the bindings subform looks like a subscript.
   - All documentation is written in Python 3.10 syntax; all unit tests are written in Python 3.8 syntax.
-- Internal module `unpythonic.syntax.astcompat`, used by the macro layer, moved to `mcpyrate.astcompat`. This module handles version differences in the `ast` module in various versions of Python.
+- Utility module `unpythonic.syntax.astcompat`, used by the macro layer, moved to `mcpyrate.astcompat`. This module handles version differences in the `ast` module in various versions of Python.
 
 
 **Fixed**:
