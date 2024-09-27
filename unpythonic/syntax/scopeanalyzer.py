@@ -346,6 +346,8 @@ def get_names_in_store_context(tree):
                 # TODO: `try`, even inside the `except` blocks, will be bound in the whole parent scope.
                 for h in tree.handlers:
                     self.collect(h.name)
+            # Python 3.12+: `TypeAlias` uses a name in `Store` context on its LHS so it needs no special handling here.
+
             # Same note as for for loops.
             # elif type(tree) in (With, AsyncWith):
             #     for item in tree.items:
