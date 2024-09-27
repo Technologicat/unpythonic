@@ -10,6 +10,7 @@ from mcpyrate.quotes import macros, q, a, h  # noqa: F401
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.walkers import ASTTransformer
 
+from .astcompat import TypeAlias
 from .util import (suggest_decorator_index, isx, has_curry, sort_lambda_decorators)
 
 from ..dynassign import dyn
@@ -83,6 +84,10 @@ def _autocurry(block_body):
             # In `mcpyrate`, they are represented by Call nodes that match
             # `mcpyrate.quotes.is_captured_value`.
             if is_captured_value(tree):
+                return tree
+
+            # Python 3.12+: leave `type` statements alone (autocurrying a type declaration makes no sense)
+            if type(tree) is TypeAlias:
                 return tree
 
             hascurry = self.state.hascurry

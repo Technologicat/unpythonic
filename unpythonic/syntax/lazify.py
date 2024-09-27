@@ -14,6 +14,7 @@ from mcpyrate.quotes import capture_as_macro, is_captured_value
 from mcpyrate.unparser import unparse
 from mcpyrate.walkers import ASTTransformer
 
+from .astcompat import TypeAlias
 from .util import (suggest_decorator_index, sort_lambda_decorators, detect_lambda,
                    isx, getname, is_decorator)
 from .letdoutil import islet, isdo, ExpandedLetView
@@ -646,6 +647,10 @@ def _lazify(body):
                 if forcing_mode in ("full", "flat"):
                     return q[h[force](a[tree])]
                 # else forcing_mode == "off"
+                return tree
+
+            # Python 3.12+: leave `type` statements alone (lazifying a type declaration makes no sense)
+            elif type(tree) is TypeAlias:
                 return tree
 
             elif type(tree) in (FunctionDef, AsyncFunctionDef, Lambda):
