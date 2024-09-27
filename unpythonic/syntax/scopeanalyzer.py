@@ -301,6 +301,8 @@ def get_names_in_store_context(tree):
 
         - The exception name of any ``except`` handlers
 
+        - The exception name of any ``except*`` handlers (Python 3.11+)
+
         - The names in the as-part of ``With``
 
         - The names bound in `match`/`case` patterns (Python 3.10+)
