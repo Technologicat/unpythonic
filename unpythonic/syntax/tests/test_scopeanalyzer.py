@@ -179,8 +179,8 @@ def runtests():
         with q as getlexvars_fdef:
             y = 21
             def myfunc(x, *args, kwonlyarg, **kwargs):
-                nonlocal y  # not really needed here, except for exercising the analyzer.
-                global g
+                nonlocal y  # noqa: F824, for Python 3.12+; just testing our scope analyzer; it's correct that there's no local `y`. Also, not really needed here, except for exercising the analyzer.
+                global g  # noqa: F824, Python 3.12+ complain about this; just testing our scope analyzer; it's correct that there's no local `g`.
                 def inner(blah):
                     abc = 123  # noqa: F841
                 z = 2 * y  # noqa: F841

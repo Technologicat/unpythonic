@@ -385,13 +385,13 @@ def runtests():
 
         @dlet(x << "the env x")
         def test4():
-            nonlocal x
+            nonlocal x  # noqa: F824, Python 3.12+ complain about this; just testing our let construct; it's correct that there's no local `x` as per Python's normal scoping rules.
             return x
         test[test4() == "the nonlocal x"]
 
         @dlet(x << "the env x")
         def test5():
-            global x
+            global x  # noqa: F824, Python 3.12+ complain about this; just testing our let construct; it's correct that there's no local `x` as per Python's normal scoping rules.
             return x
         test[test5() == "the global x"]
 
