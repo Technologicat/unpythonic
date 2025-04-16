@@ -42,9 +42,11 @@ jobs:
         # https://stackoverflow.com/questions/74668349/how-to-activate-a-virtualenv-in-a-github-action
         echo "PATH=$PATH" >> "$GITHUB_ENV"
         echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
-        echo "unset PYTHONHOME" >> "$GITHUB_ENV"
     - name: Generate coverage report
       run: |
+        # coverage report
+        # https://stackoverflow.com/questions/70137245/how-to-remove-an-environment-variable-on-github-actions
+        unset PYTHONHOME
         coverage run --source=. -m runtests
         coverage xml
     - name: Upload coverage to Codecov
