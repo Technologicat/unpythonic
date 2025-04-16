@@ -30,22 +30,25 @@ jobs:
         python -m pip install --upgrade pip
         pip install flake8
         pip install pdm
-    - name: Create virtualenv
-      run: |
-        pdm python install ${{ matrix.python-version }}
-    - name: Install dependencies
-      run: |
-        pdm install
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --config=flake8rc --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --config=flake8rc --count --exit-zero --max-complexity=100 --max-line-length=127 --statistics
+    - name: Create virtualenv
+      run: |
+        pdm python install ${{ matrix.python-version }}
+    - name: Install dependencies into virtualenv
+      run: |
+        pdm install
     - name: Activate virtualenv
       run: |
-        . .venv/bin/activate
-        echo PATH=$PATH >> $GITHUB_ENV
+        # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-an-environment-variable
+        # https://stackoverflow.com/questions/74668349/how-to-activate-a-virtualenv-in-a-github-action
+        source .venv/bin/activate
+        echo "PATH=$PATH" >> "$GITHUB_ENV"
+        echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
     - name: Test with unpythonic.test.fixtures
       run: |
         python runtests.py
