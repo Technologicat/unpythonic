@@ -53,4 +53,6 @@ jobs:
         echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
     - name: Test with unpythonic.test.fixtures
       run: |
+        pdm use --venv in-project
+        source .venv/bin/activate
         python runtests.py
