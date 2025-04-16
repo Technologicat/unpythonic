@@ -38,11 +38,10 @@ jobs:
         flake8 . --config=flake8rc --count --exit-zero --max-complexity=100 --max-line-length=127 --statistics
     - name: Determine Python version string for PDM
       run: |
-        TARGET_PYTHON_VERSION_FOR_PDM=$( python -c 'import sys; v = sys.argv[1]; print(v if "-" not in v else v.replace("-", "@"))' ${{ matrix.python-version }} )
+        echo "TARGET_PYTHON_VERSION_FOR_PDM=${{ matrix.python-version }}" | tr - @ >> "$GITHUB_ENV"
         # We need this hack at all because CI expects e.g. "pypy-3.10", whereas PDM expects "pypy@3.10".
         # Now that we have the result, send it to an environment variable so that the next step can use it.
         #     https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-an-environment-variable
-        echo "TARGET_PYTHON_VERSION=$TARGET_PYTHON_VERSION_FOR_PDM" >> "$GITHUB_ENV"
     - name: Create in-project virtualenv and install dependencies
       run: |
         pdm python install "$TARGET_PYTHON_VERSION_FOR_PDM"
