@@ -33,7 +33,7 @@ jobs:
     - name: Generate coverage report
       run: |
         pip install coverage
-        $(pdm venv activate)
+        . .venv/bin/activate
         coverage run --source=. -m runtests
         coverage xml
     - name: Upload coverage to Codecov

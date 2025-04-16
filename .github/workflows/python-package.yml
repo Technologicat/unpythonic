@@ -40,5 +40,5 @@ jobs:
         flake8 . --config=flake8rc --count --exit-zero --max-complexity=100 --max-line-length=127 --statistics
     - name: Test with unpythonic.test.fixtures
       run: |
-        $(pdm venv activate)
+        . .venv/bin/activate
         python runtests.py
