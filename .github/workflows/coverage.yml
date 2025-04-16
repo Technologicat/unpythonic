@@ -29,11 +29,12 @@ jobs:
         pip install flake8
         pip install coverage
         pip install pdm
-    - name: Create virtualenv
+    - name: Install Python for pdm venv
       run: |
         pdm python install ${{ matrix.python-version }}
     - name: Activate virtualenv
       run: |
+        pdm use --venv in-project
         source .venv/bin/activate
         # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-an-environment-variable
         # https://stackoverflow.com/questions/74668349/how-to-activate-a-virtualenv-in-a-github-action
