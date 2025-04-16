@@ -1,5 +1,16 @@
 # Changelog
 
+**0.15.5** (16 April 2025) - hotfix:
+
+**Changed**:
+
+- Internal: Upgrade build system to `pdm`. This is important for the road ahead, since the old `setuptools` build system has been deprecated.
+- Bump `mcpyrate` to the hotfix version 3.6.4.
+  - The only difference is (beside `mcpyrate` too internally upgrading its build system to `pdm`) that the text colorizer now works correctly also for `input` with `readline`.
+
+
+---
+
 **0.15.4** (27 September 2024) - hotfix:
 
 **Fixed**

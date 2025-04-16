@@ -1,0 +1,76 @@
+[project]
+name = "unpythonic"
+description = "Supercharge your Python with parts of Lisp and Haskell."
+authors = [
+    { name = "Juha Jeronen", email = "juha.m.jeronen@gmail.com" },
+]
+requires-python = ">=3.8,<3.13"
+
+# the `read` function and long_description_content_type from setup.py are no longer needed,
+# modern build tools like pdm/hatch already know how to handle markdown if you point them at a .md file
+# they will set the long_description and long_description_content_type for you
+readme = "README.md"
+
+license = { text = "BSD" }
+
+# This tells whichever build backend you use (pdm in our case) to run its own mechanism to find the version
+# of the project and plug it into the metadata
+# details for how we instruct pdm to find the version are in the `[tool.pdm.version]` section below
+dynamic = ["version"]
+
+dependencies = [
+    "mcpyrate>=3.6.4",
+    "sympy>=1.13"
+]
+keywords=["functional-programming", "language-extension", "syntactic-macros",
+          "tail-call-optimization", "tco", "continuations", "currying", "lazy-evaluation",
+          "dynamic-variable", "macros", "lisp", "scheme", "racket", "haskell"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules"
+]
+
+[project.urls]
+Repository = "https://github.com/Technologicat/unpythonic"
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"
+
+[tool.pdm.version]
+# the `file` source tells pdm to look for a line in a file that matches the regex `__version__ = ".*"`
+# The regex parse is fairly robust, it can handle arbitray whitespace and comments
+source = "file"
+path = "unpythonic/__init__.py"
+
+[tool.pdm.build]
+# we don't need to explicitly inclue `mcpyrate.repl`. Unlink with setuptools, pdm automatically includes
+# all packages and modules in the source tree pointed to by `includes`, minus any paths matching `excludes`
+includes = ["unpythonic"]
+excludes = ["**/tests", "**/__pycache__"]
+
+# note the exclusion of an equivalent to zip_safe. I used to think that zip_safe was a core python metadata flag
+# telling pip and other python tools not to include the package in any kind of zip-import or zipapp file.
+# I was wrong. zip_safe is a setuptools-specific flag that tells setuptools to not include the package in a bdist_egg
+# Since bdist_eggs are no longer really used by anything and have been completely supplanted by wheels, zip_safe has no meaningful effect.
+# The effect i think you hoped to achieve with zip_safe is achieved by excluding `__pycache__` folders from
+# the built wheels, using the `excludes` field in the `[tool.pdm.build]` section above.
+
+# most python tools at this point, including mypy, have support for sourcing configuration from pyproject.toml
+# making the setup.cfg file unnecessary
+[tool.mypy]
+show_error_codes = true

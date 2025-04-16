@@ -1,2 +1,0 @@
-mcpyrate>=3.6.3
-sympy>=1.13
