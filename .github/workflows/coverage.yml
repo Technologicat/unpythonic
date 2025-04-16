@@ -37,11 +37,12 @@ jobs:
         pdm install
     - name: Activate virtualenv
       run: |
+        source .venv/bin/activate
         # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-an-environment-variable
         # https://stackoverflow.com/questions/74668349/how-to-activate-a-virtualenv-in-a-github-action
-        source .venv/bin/activate
         echo "PATH=$PATH" >> "$GITHUB_ENV"
         echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
+        echo "unset PYTHONHOME" >> "$GITHUB_ENV"
     - name: Generate coverage report
       run: |
         coverage run --source=. -m runtests
