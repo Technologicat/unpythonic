@@ -33,10 +33,10 @@ jobs:
     - name: Generate coverage report
       run: |
         pip install coverage
-        source .venv/bin/activate
+        # For some reason, the install step creates the venv one directory too deep. Maybe doesn't matter.
+        source /home/runner/work/unpythonic/unpythonic/.venv/bin/activate
         coverage run --source=. -m runtests
         coverage xml
-      working-directory: /home/runner/work/unpythonic/
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
