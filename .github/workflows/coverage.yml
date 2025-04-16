@@ -38,6 +38,7 @@ jobs:
     - name: Install coverage tool in in-project virtualenv
       run: |
         pdm run python -m ensurepip
+        # coverage must run in the same venv as the code being tested.
         pdm run python -m pip install coverage
     - name: Generate coverage report
       run: |

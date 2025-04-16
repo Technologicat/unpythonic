@@ -40,7 +40,7 @@ jobs:
       run: |
         echo "TARGET_PYTHON_VERSION_FOR_PDM=${{ matrix.python-version }}" | tr - @ >> "$GITHUB_ENV"
         # We need this hack at all because CI expects e.g. "pypy-3.10", whereas PDM expects "pypy@3.10".
-        # Now that we have the result, send it to an environment variable so that the next step can use it.
+        # We send the result into an environment variable so that the next step can use it.
         #     https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-an-environment-variable
     - name: Create in-project virtualenv and install dependencies
       run: |
