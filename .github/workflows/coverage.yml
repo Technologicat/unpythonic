@@ -27,23 +27,19 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install flake8
-        pip install coverage
         pip install pdm
-    - name: Create virtualenv
+    - name: Create virtualenv and install dependencies
       run: |
         pdm python install ${{ matrix.python-version }}
         # "When you run pdm install the first time on a new PDM-managed project, whose Python interpreter is not decided yet,
         #  PDM will create a virtualenv in <project_root>/.venv, and install dependencies into it."
         #     --https://pdm-project.org/en/latest/usage/venv/
         pdm install
-    - name: Activate virtualenv
+    - name: Install coverage tool in virtualenv
       run: |
         pdm use --venv in-project
         source .venv/bin/activate
-        # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-an-environment-variable
-        # https://stackoverflow.com/questions/74668349/how-to-activate-a-virtualenv-in-a-github-action
-        echo "PATH=$PATH" >> "$GITHUB_ENV"
-        echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
+        pip install coverage
     - name: Generate coverage report
       run: |
         pdm use --venv in-project

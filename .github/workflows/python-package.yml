@@ -36,21 +36,13 @@ jobs:
         flake8 . --config=flake8rc --count --select=E9,F63,F7,F82 --show-source --statistics
         # exit-zero treats all errors as warnings. The GitHub editor is 127 chars wide
         flake8 . --config=flake8rc --count --exit-zero --max-complexity=100 --max-line-length=127 --statistics
-    - name: Create virtualenv
+    - name: Create virtualenv and install dependencies
       run: |
         pdm python install ${{ matrix.python-version }}
         # "When you run pdm install the first time on a new PDM-managed project, whose Python interpreter is not decided yet,
         #  PDM will create a virtualenv in <project_root>/.venv, and install dependencies into it."
         #     --https://pdm-project.org/en/latest/usage/venv/
         pdm install
-    - name: Activate virtualenv
-      run: |
-        pdm use --venv in-project
-        source .venv/bin/activate
-        # https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-an-environment-variable
-        # https://stackoverflow.com/questions/74668349/how-to-activate-a-virtualenv-in-a-github-action
-        echo "PATH=$PATH" >> "$GITHUB_ENV"
-        echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
     - name: Test with unpythonic.test.fixtures
       run: |
         pdm use --venv in-project
