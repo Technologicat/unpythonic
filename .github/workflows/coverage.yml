@@ -30,12 +30,14 @@ jobs:
         pip install pdm
         pdm python install ${{ matrix.python-version }}
         pdm install
+      working-directory: /home/runner/work/unpythonic/
     - name: Generate coverage report
       run: |
         pip install coverage
-        . .venv/bin/activate
+        source .venv/bin/activate
         coverage run --source=. -m runtests
         coverage xml
+      working-directory: /home/runner/work/unpythonic/
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v1
       with:
