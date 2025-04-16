@@ -4,7 +4,10 @@
 
 **Changed**:
 
-- Internal: Upgrade build system to `pdm`. This is important for the road ahead, since the old `setuptools` build system has been deprecated.
+- Internal: Upgrade build system to `pdm`.
+  - This is important for the road ahead, since the old `setuptools` build system has been deprecated.
+  - The GitHub CI scripts for `unpythonic` now use PDM to manage the testing venv and dependencies, too. Now the tests should run the same way as they would on a local system.
+
 - Bump `mcpyrate` to the hotfix version 3.6.4.
   - The only difference is (beside `mcpyrate` too internally upgrading its build system to `pdm`) that the text colorizer now works correctly also for `input` with `readline`.
 
