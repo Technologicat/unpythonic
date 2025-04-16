@@ -37,9 +37,8 @@ jobs:
         pdm install
     - name: Install coverage tool in virtualenv
       run: |
-        pdm use --venv in-project
-        source .venv/bin/activate
-        pip install coverage
+        pdm run python -m ensurepip
+        pdm run python -m pip install coverage
     - name: Generate coverage report
       run: |
         pdm use --venv in-project
