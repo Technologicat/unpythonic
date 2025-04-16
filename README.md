@@ -864,6 +864,14 @@ This creates the development venv into the `.venv` hidden subfolder of the `unpy
 
 If you are a seasoned pythonista, note that there is no `requirements.txt`; the dependency list lives in `pyproject.toml`.
 
+#### Upgrade dependencies (later)
+
+To upgrade dependencies to latest available versions compatible with the specifications in `pyproject.toml`:
+
+```bash
+pdm update
+```
+
 #### Develop
 
 To activate the development venv, in a terminal that sees your Python environment, navigate to the `unpythonic` folder, and issue the command:
