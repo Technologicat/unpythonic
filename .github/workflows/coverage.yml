@@ -23,19 +23,19 @@ jobs:
       uses: actions/setup-python@v2
       with:
         python-version: ${{ matrix.python-version }}
-    - name: Install tools
+    - name: Install tools in CI virtualenv
       run: |
         python -m pip install --upgrade pip
         pip install flake8
         pip install pdm
-    - name: Create virtualenv and install dependencies
+    - name: Create in-project virtualenv and install dependencies
       run: |
         pdm python install ${{ matrix.python-version }}
         # "When you run pdm install the first time on a new PDM-managed project, whose Python interpreter is not decided yet,
         #  PDM will create a virtualenv in <project_root>/.venv, and install dependencies into it."
-        #     --https://pdm-project.org/en/latest/usage/venv/
+        #     https://pdm-project.org/en/latest/usage/venv/
         pdm install
-    - name: Install coverage tool in virtualenv
+    - name: Install coverage tool in in-project virtualenv
       run: |
         pdm run python -m ensurepip
         pdm run python -m pip install coverage
