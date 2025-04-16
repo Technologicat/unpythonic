@@ -46,6 +46,8 @@ jobs:
         echo "VIRTUAL_ENV=$VIRTUAL_ENV" >> "$GITHUB_ENV"
     - name: Generate coverage report
       run: |
+        pdm use --venv in-project
+        source .venv/bin/activate
         coverage run --source=. -m runtests
         coverage xml
     - name: Upload coverage to Codecov
