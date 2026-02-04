@@ -1,7 +1,15 @@
+00_stuff
+__pycache__
 *~
 *.pyc
 *.c
 build
 dist
+MANIFEST
+pdm.lock
+.pdm-python
 .spyproject
+:venv
 *.egg-info
+*.mypy_cache
+.python-version
