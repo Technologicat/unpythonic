@@ -2,6 +2,7 @@
 
 - Juha Jeronen (@Technologicat) - original author
 - @aisha-w - documentation improvements
+- @Technologicat with Claude (Anthropic) as AI pair programmer - CI modernization
 
 **Design inspiration from the internet**:
 
