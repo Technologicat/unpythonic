@@ -1,5 +1,12 @@
 # Changelog
 
+**1.0.0** (21 February 2026) — *"Same supercharger, new badge"* edition:
+
+Re-release of 0.15.5 as 1.0.0. No code changes. The library has been stable and in light maintenance mode for years; the version number now reflects this de facto status quo.
+
+
+---
+
 **0.15.5** (16 April 2025) - hotfix:
 
 **Changed**:
