@@ -6,6 +6,8 @@ In the spirit of [toolz](https://github.com/pytoolz/toolz), we provide missing f
 ![version on PyPI](https://img.shields.io/pypi/v/unpythonic) ![PyPI package format](https://img.shields.io/pypi/format/unpythonic) ![dependency status](https://img.shields.io/librariesio/github/Technologicat/unpythonic)  
 ![license: BSD](https://img.shields.io/pypi/l/unpythonic) ![open issues](https://img.shields.io/github/issues/Technologicat/unpythonic) [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen)](http://makeapullrequest.com/)
 
+We use [semantic versioning](https://semver.org/).
+
 *Some hypertext features of this README, such as local links to detailed documentation, and expandable example highlights, are not supported when viewed on PyPI; [view on GitHub](https://github.com/Technologicat/unpythonic) to have those work properly.*
 
 
