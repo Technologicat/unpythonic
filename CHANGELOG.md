@@ -1,5 +1,16 @@
 # Changelog
 
+**1.0.1** (March 2026, in progress) — *"Same supercharger, new badge"* edition:
+
+**Fixed**:
+
+- MS Windows: `unpythonic.net.util` failed to load, due to missing `termios` module (which is *nix only) being loaded by `unpythonic.net.__init__` when it imports `unpythonic.net.ptyproxy`.
+  - Fixed by catching `ModuleNotFoundError`, disabling `ptyproxy` on MS Windows systems.
+  - This means that the live REPL server is not available on MS Windows. This is usually harmless, as most applications using `unpythonic` do not need it.
+
+
+---
+
 **1.0.0** (21 February 2026) — *"Same supercharger, new badge"* edition:
 
 Re-release of 0.15.5 as 1.0.0. No code changes. The library has been stable and in light maintenance mode for years; the version number now reflects this de facto status quo.
