@@ -1,6 +1,6 @@
 # Changelog
 
-**1.0.1** (March 2026, in progress) — *"Same supercharger, new badge"* edition:
+**1.0.1** (March 2026, in progress) — hotfix:
 
 **Fixed**:
 
