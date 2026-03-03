@@ -10,5 +10,12 @@ directly (and consult the corresponding docstrings).
 """
 
 from .msg import *
-from .ptyproxy import *
+try:
+    from .ptyproxy import *
+except ModuleNotFoundError:
+    import logging
+    logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+    logger.info("`unpythonic.net.ptyproxy` could not be loaded, the REPL server will not be available. Usually this is harmless; most applications do not need the REPL server.")
+    PTYSocketProxy = None
 from .util import *
