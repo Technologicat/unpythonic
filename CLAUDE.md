@@ -10,9 +10,13 @@ A Python library providing language extensions and utilities inspired by Lisp, H
 2. **Macro layer** (`unpythonic/syntax/`): Syntactic macros via `mcpyrate` providing cleaner syntax for let-bindings, autocurry, lazify, TCO, continuations, etc.
 3. **Dialect layer** (`unpythonic/dialects/`): Full language variants (Lispython, Listhell, Pytkell) built on the macro layer.
 
+## API stability
+
+Released as 1.0.0 in February 2026, signalling API stability. The public API (everything in `__all__`) should remain backward-compatible. If backward-incompatible changes become necessary (e.g. due to Python 3.13/3.14 compat), they warrant a 2.0.0 release. Prefer non-breaking solutions when possible.
+
 ## Build and development
 
-Uses PDM with `pdm-backend`. Python 3.8–3.12, also PyPy 3.8–3.10.
+Uses PDM with `pdm-backend`. Python 3.8–3.12, also PyPy 3.8–3.10. Version 3.13/3.14 compatibility update pending (will be released as 1.1.0).
 
 ```bash
 # Set up development environment
@@ -25,7 +29,7 @@ source .venv/bin/activate
 
 ## Running tests
 
-Custom test framework (not pytest). Tests use macros (`test[]`, `test_raises[]`) and conditions/restarts for reporting. The test runner does not need the `macropython` wrapper—it activates macros via `import mcpyrate.activate`.
+Custom test framework (`unpythonic.test.fixtures`, not pytest). Tests use macros (`test[]`, `test_raises[]`) and conditions/restarts for reporting. The test runner does not need the `macropython` wrapper—it activates macros via `import mcpyrate.activate`. Note: test *framework* is at `unpythonic/test/` (singular); actual *tests* are in `tests/` (plural) subdirectories.
 
 ```bash
 # Run all tests (from repo root, with venv activated)
@@ -67,7 +71,7 @@ flake8 . --config=flake8rc --exit-zero --max-line-length=127
 - **Macros are the nuclear option**: Only make a macro when a regular function can't do the job. Prefer a pure-Python core with a thin macro layer for UX.
 - **Macro `**kw` passing**: Use `dyn` (dynamic variables) to pass `mcpyrate` `**kw` arguments through to syntax transformers, rather than threading them through parameter lists.
 - **Line width** ~110 characters. Docstrings in reStructuredText.
-- **Module size target**: ~100–300 SLOC, rough max ~700 lines.
+- **Module size target**: ~100–300 SLOC, rough max ~700 lines. Some modules are longer when appropriate (e.g. `syntax/tailtools.py` at ~1600 lines). Never split just because the line count was exceeded.
 - **Dependencies**: Avoid external dependencies. `mcpyrate` is the only allowed external dep and must remain strictly optional for the pure-Python layer.
 
 ## Key cross-cutting concerns
