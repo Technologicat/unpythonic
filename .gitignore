@@ -9,7 +9,7 @@ MANIFEST
 pdm.lock
 .pdm-python
 .spyproject
-:venv
+.venv
 *.egg-info
 *.mypy_cache
 .python-version
