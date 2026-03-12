@@ -3,7 +3,11 @@
 from ..syntax import macros, test, test_raises, warn  # noqa: F401
 from ..test.fixtures import session, testset
 
+import asyncio
 import collections
+import contextlib
+import io
+import re
 import sys
 import typing
 
@@ -280,6 +284,94 @@ def runtests():
         #  https://docs.python.org/3/library/collections.abc.html#collections.abc.MappingView
         #  https://docs.python.org/3/glossary.html#term-dictionary-view
         #  https://docs.python.org/3/library/stdtypes.html#dict-views
+
+    with testset("typing.IO, typing.TextIO, typing.BinaryIO"):
+        sio = io.StringIO("hello")
+        bio = io.BytesIO(b"hello")
+        test[isoftype(sio, typing.IO)]
+        test[isoftype(bio, typing.IO)]
+        test[isoftype(sio, typing.TextIO)]
+        test[not isoftype(bio, typing.TextIO)]
+        test[isoftype(bio, typing.BinaryIO)]
+        test[not isoftype(sio, typing.BinaryIO)]
+        test[not isoftype(42, typing.IO)]
+        # Parametric IO: IO[str] matches text, IO[bytes] matches binary
+        test[isoftype(sio, typing.IO[str])]
+        test[not isoftype(bio, typing.IO[str])]
+        test[isoftype(bio, typing.IO[bytes])]
+        test[not isoftype(sio, typing.IO[bytes])]
+
+    with testset("typing.Pattern, typing.Match"):
+        pstr = re.compile(r"\d+")
+        pbytes = re.compile(rb"\d+")
+        mstr = pstr.match("123")
+        mbytes = pbytes.match(b"123")
+        # Bare Pattern/Match — any string type
+        test[isoftype(pstr, typing.Pattern)]
+        test[isoftype(pbytes, typing.Pattern)]
+        test[isoftype(mstr, typing.Match)]
+        test[isoftype(mbytes, typing.Match)]
+        test[not isoftype("not a pattern", typing.Pattern)]
+        test[not isoftype(42, typing.Match)]
+        # Parametric — string type checked
+        test[isoftype(pstr, typing.Pattern[str])]
+        test[not isoftype(pstr, typing.Pattern[bytes])]
+        test[isoftype(pbytes, typing.Pattern[bytes])]
+        test[not isoftype(pbytes, typing.Pattern[str])]
+        test[isoftype(mstr, typing.Match[str])]
+        test[not isoftype(mstr, typing.Match[bytes])]
+        test[isoftype(mbytes, typing.Match[bytes])]
+        test[not isoftype(mbytes, typing.Match[str])]
+
+    with testset("typing.ContextManager"):
+        # contextlib.nullcontext is a context manager
+        cm = contextlib.nullcontext()
+        test[isoftype(cm, typing.ContextManager)]
+        test[isoftype(cm, typing.ContextManager[None])]  # type arg ignored (can't check)
+        test[not isoftype(42, typing.ContextManager)]
+
+    with testset("typing.Generator"):
+        def mygen():
+            yield 1
+            yield 2
+        g = mygen()
+        test[isoftype(g, typing.Generator)]
+        test[isoftype(g, typing.Generator[int, None, None])]  # type args ignored
+        test[not isoftype(42, typing.Generator)]
+        test[not isoftype([1, 2, 3], typing.Generator)]  # iterable, but not a generator
+
+    with testset("typing.Awaitable, typing.Coroutine"):
+        async def mycoro():
+            return 42
+        c = mycoro()
+        test[isoftype(c, typing.Awaitable)]
+        test[isoftype(c, typing.Coroutine)]
+        test[isoftype(c, typing.Awaitable[int])]  # type arg ignored
+        test[not isoftype(42, typing.Awaitable)]
+        test[not isoftype(42, typing.Coroutine)]
+        c.close()  # prevent RuntimeWarning about unawaited coroutine
+
+    with testset("typing.AsyncIterable, typing.AsyncIterator"):
+        class MyAsyncIter:
+            def __aiter__(self):
+                return self
+            async def __anext__(self):
+                raise StopAsyncIteration
+        ai = MyAsyncIter()
+        test[isoftype(ai, typing.AsyncIterable)]
+        test[isoftype(ai, typing.AsyncIterator)]
+        test[isoftype(ai, typing.AsyncIterable[int])]  # type arg ignored
+        test[not isoftype(42, typing.AsyncIterable)]
+        test[not isoftype([1, 2], typing.AsyncIterator)]  # sync iterable, not async
+
+    with testset("typing.AsyncGenerator"):
+        async def myasyncgen():
+            yield 1
+        ag = myasyncgen()
+        test[isoftype(ag, typing.AsyncGenerator)]
+        test[isoftype(ag, typing.AsyncGenerator[int, None])]  # type args ignored
+        test[not isoftype(42, typing.AsyncGenerator)]
+        asyncio.run(ag.aclose())  # prevent RuntimeWarning
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

@@ -14,6 +14,9 @@ see `typeguard`:
 """
 
 import collections
+import contextlib
+import io
+import re
 import sys
 import types
 import typing
@@ -54,6 +57,12 @@ def isoftype(value, T):
                  - `MutableMapping[K, V]`, `Mapping[K, V]`
                  - `ItemsView[K, V]`, `KeysView[K]`, `ValuesView[V]`
                  - `Callable` (argument and return value types currently NOT checked)
+                 - `IO`, `TextIO`, `BinaryIO` (mapped to ``io`` module ABCs)
+                 - `Pattern[T]`, `Match[T]` (string type checked when parametric)
+                 - `ContextManager[T]`, `AsyncContextManager[T]`
+                 - `Awaitable[T]`, `Coroutine[T1, T2, T3]`
+                 - `AsyncIterable[T]`, `AsyncIterator[T]`
+                 - `Generator[Y, S, R]`, `AsyncGenerator[Y, S]`
                  - `Text` (deprecated since Python 3.11; will be removed at floor Python 3.12)
 
                Any checks on the type arguments of the meta-utilities are performed
@@ -73,10 +82,7 @@ def isoftype(value, T):
     # Python provides no official public API for run-time type introspection.
     #
     # Unsupported typing features:
-    #   NamedTuple,
-    #   IO, TextIO, BinaryIO, Pattern, Match,
-    #   Awaitable, Coroutine, AsyncIterable, AsyncIterator,
-    #   ContextManager, AsyncContextManager, Generator, AsyncGenerator,
+    #   NamedTuple (specific NamedTuple subclasses work via isinstance fallback),
     #   Generic, Protocol, TypedDict, ForwardRef
 
     if T is typing.Any:
@@ -168,6 +174,56 @@ def isoftype(value, T):
     # TODO: Remove this branch when the floor bumps to Python 3.12.
     if safeissubclass(T, typing.Text):
         return isinstance(value, str)
+
+    # IO, TextIO, BinaryIO — typing module stubs that don't participate in the
+    # MRO of real IO classes. Map to the io module ABCs instead.
+    # IO[str] → TextIO, IO[bytes] → BinaryIO when parametric.
+    if T is typing.IO or typing.get_origin(T) is typing.IO:
+        args = getattr(T, "__args__", None)
+        if args is not None:
+            if args[0] is str:
+                return isinstance(value, io.TextIOBase)
+            if args[0] is bytes:
+                return isinstance(value, (io.RawIOBase, io.BufferedIOBase))
+        return isinstance(value, io.IOBase)
+    if T is typing.TextIO:
+        return isinstance(value, io.TextIOBase)
+    if T is typing.BinaryIO:
+        return isinstance(value, (io.RawIOBase, io.BufferedIOBase))
+
+    # Pattern[T] and Match[T] — the type arg (str or bytes) can be checked.
+    if typing.get_origin(T) is re.Pattern:
+        if not isinstance(value, re.Pattern):
+            return False
+        args = getattr(T, "__args__", None)
+        if args is not None:
+            return isinstance(value.pattern, args[0])
+        return True
+    if typing.get_origin(T) is re.Match:
+        if not isinstance(value, re.Match):
+            return False
+        args = getattr(T, "__args__", None)
+        if args is not None:
+            return isinstance(value.string, args[0])
+        return True
+
+    # ContextManager and AsyncContextManager — can't check the return type
+    # of __enter__ non-destructively, so just check the ABC.
+    if typing.get_origin(T) is contextlib.AbstractContextManager:
+        return isinstance(value, contextlib.AbstractContextManager)
+    if typing.get_origin(T) is contextlib.AbstractAsyncContextManager:
+        return isinstance(value, contextlib.AbstractAsyncContextManager)
+
+    # Async ABCs and generator types — type parameters (yield, send, return)
+    # can't be checked non-destructively, so just check the ABC.
+    for runtimetype in (collections.abc.Awaitable,
+                        collections.abc.Coroutine,
+                        collections.abc.AsyncIterable,
+                        collections.abc.AsyncIterator,
+                        collections.abc.Generator,
+                        collections.abc.AsyncGenerator):
+        if typing.get_origin(T) is runtimetype:
+            return isinstance(value, runtimetype)
 
     if typing.get_origin(T) is tuple:
         if not isinstance(value, tuple):

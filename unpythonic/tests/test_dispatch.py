@@ -3,7 +3,12 @@
 from ..syntax import macros, test, test_raises, fail, the  # noqa: F401
 from ..test.fixtures import session, testset, returns_normally
 
+import collections
+import contextlib
+import io
+import re
 import typing
+
 from ..fun import curry
 from ..dispatch import generic, augment, typed, format_methods
 
@@ -378,6 +383,90 @@ def runtests():
         test[flip("abc") == "cba"]
         test_raises[TypeError, flip(42), "int should not be flippable"]
         test_raises[NotImplementedError, flip(2.0), "float should not be registered for the flippable trait"]
+
+    # Exercise new typing features (D4 sets 1 and 2) through the dispatch machinery.
+    # Most-recently-registered multimethod is tried first, so register the
+    # general case first and the specific ones after (to override).
+    with testset("@generic with Literal dispatch"):
+        @generic
+        def handle_code(code: int):
+            return "other"
+        @generic
+        def handle_code(code: typing.Literal[200, 201]):  # noqa: F811
+            return "success"
+        @generic
+        def handle_code(code: typing.Literal[404]):  # noqa: F811
+            return "not found"
+        test[handle_code(200) == "success"]
+        test[handle_code(201) == "success"]
+        test[handle_code(404) == "not found"]
+        test[handle_code(500) == "other"]
+
+    with testset("@generic with Type dispatch"):
+        @generic
+        def describe_type(cls: typing.Type[int]):
+            return "integer type"
+        @generic
+        def describe_type(cls: typing.Type[str]):  # noqa: F811
+            return "string type"
+        test[describe_type(int) == "integer type"]
+        test[describe_type(bool) == "integer type"]  # bool is a subclass of int
+        test[describe_type(str) == "string type"]
+        test_raises[TypeError, describe_type(float)]
+
+    with testset("@generic with mapping variants"):
+        @generic
+        def process_mapping(d: typing.Dict[str, int]):
+            return "dict"
+        @generic
+        def process_mapping(d: typing.DefaultDict[str, int]):  # noqa: F811
+            return "defaultdict"
+        @generic
+        def process_mapping(d: typing.Counter[str]):  # noqa: F811
+            return "counter"
+        @generic
+        def process_mapping(d: typing.OrderedDict[str, int]):  # noqa: F811
+            return "ordereddict"
+        test[process_mapping(collections.defaultdict(int, a=1)) == "defaultdict"]
+        test[process_mapping(collections.Counter("abc")) == "counter"]
+        test[process_mapping(collections.OrderedDict(a=1)) == "ordereddict"]
+        test[process_mapping({"a": 1}) == "dict"]
+
+    with testset("@generic with IO dispatch"):
+        @generic
+        def read_stream(s: typing.TextIO):
+            return "text"
+        @generic
+        def read_stream(s: typing.BinaryIO):  # noqa: F811
+            return "binary"
+        test[read_stream(io.StringIO("hello")) == "text"]
+        test[read_stream(io.BytesIO(b"hello")) == "binary"]
+
+    with testset("@generic with Pattern dispatch"):
+        @generic
+        def describe_pattern(p: typing.Pattern[str]):
+            return "str pattern"
+        @generic
+        def describe_pattern(p: typing.Pattern[bytes]):  # noqa: F811
+            return "bytes pattern"
+        test[describe_pattern(re.compile(r"\d+")) == "str pattern"]
+        test[describe_pattern(re.compile(rb"\d+")) == "bytes pattern"]
+
+    with testset("@generic with Generator and ContextManager"):
+        @generic
+        def classify(x: typing.Generator):
+            return "generator"
+        @generic
+        def classify(x: typing.ContextManager):  # noqa: F811
+            return "context manager"
+        @generic
+        def classify(x: int):  # noqa: F811
+            return "int"
+        def mygen():
+            yield 1
+        test[classify(mygen()) == "generator"]
+        test[classify(contextlib.nullcontext()) == "context manager"]
+        test[classify(42) == "int"]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
