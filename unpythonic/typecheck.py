@@ -1,10 +1,9 @@
 # -*- coding: utf-8; -*-
-"""Simplistic run-time type checker.
+"""Lightweight run-time type checker.
 
-This implements just a minimal feature set needed for checking function
-arguments in typical uses of multiple dispatch (see `unpythonic.dispatch`).
-That said, this DOES support many (but not all) features of the `typing` stdlib
-module.
+Originally built for the minimal feature set needed by multiple dispatch
+(see `unpythonic.dispatch`), but designed as a general-purpose utility.
+Supports many (but not all) features of the `typing` stdlib module.
 
 We currently provide `isoftype` (cf. `isinstance`), but no `issubtype` (cf. `issubclass`).
 
@@ -15,6 +14,7 @@ see `typeguard`:
 """
 
 import collections
+import sys
 import types
 import typing
 
@@ -40,14 +40,21 @@ def isoftype(value, T):
                  - `TypeVar`
                  - `NewType` (any instance of the underlying actual type will match)
                  - `Union[T1, T2, ..., TN]`
+                 - `NoReturn`, `Never` (no value matches; `Never` requires Python 3.11+)
+                 - `Literal[v1, v2, ...]`
+                 - `Type[X]` (value must be a class that is `X` or a subclass of `X`)
+                 - `ClassVar[T]`, `Final[T]` (wrapper stripped, inner type checked)
                  - `Tuple`, `Tuple[T, ...]`, `Tuple[T1, T2, ..., TN]`, `Sequence[T]`
                  - `List[T]`, `MutableSequence[T]`
                  - `FrozenSet[T]`, `AbstractSet[T]`
                  - `Set[T]`, `MutableSet[T]`
-                 - `Dict[K, V]`, `MutableMapping[K, V]`, `Mapping[K, V]`
+                 - `Dict[K, V]`, `DefaultDict[K, V]`, `OrderedDict[K, V]`
+                 - `Counter[T]` (element type checked; value type is always `int`)
+                 - `ChainMap[K, V]`
+                 - `MutableMapping[K, V]`, `Mapping[K, V]`
                  - `ItemsView[K, V]`, `KeysView[K]`, `ValuesView[V]`
                  - `Callable` (argument and return value types currently NOT checked)
-                 - `Text`
+                 - `Text` (deprecated since Python 3.11; will be removed at floor Python 3.12)
 
                Any checks on the type arguments of the meta-utilities are performed
                recursively using `isoftype`, in order to allow compound specifications.
@@ -66,14 +73,21 @@ def isoftype(value, T):
     # Python provides no official public API for run-time type introspection.
     #
     # Unsupported typing features:
-    #   NamedTuple, DefaultDict, Counter, ChainMap, OrderedDict,
-    #   IO, TextIO, BinaryIO, Pattern, Match, Generic, Type,
+    #   NamedTuple,
+    #   IO, TextIO, BinaryIO, Pattern, Match,
     #   Awaitable, Coroutine, AsyncIterable, AsyncIterator,
     #   ContextManager, AsyncContextManager, Generator, AsyncGenerator,
-    #   NoReturn, ClassVar, Final, Protocol, TypedDict, Literal, ForwardRef
+    #   Generic, Protocol, TypedDict, ForwardRef
 
     if T is typing.Any:
         return True
+
+    # NoReturn means a function never returns — no value has this type.
+    # Never (3.11+) is the bottom type; semantically the same for our purposes.
+    if T is typing.NoReturn:
+        return False
+    if sys.version_info >= (3, 11) and T is typing.Never:
+        return False
 
     # AnyStr normalizes to TypeVar("AnyStr", str, bytes)
     if isinstance(T, typing.TypeVar):
@@ -102,6 +116,28 @@ def isoftype(value, T):
         #   print(type(i))  # int
         return isinstance(value, T.__supertype__)
 
+    # Literal[v1, v2, ...] — value must be one of the listed constants.
+    if typing.get_origin(T) is typing.Literal:
+        return value in T.__args__
+
+    # Type[X] — value must be a class that is X or a subclass of X.
+    if typing.get_origin(T) is type:
+        if not isinstance(value, type):
+            return False
+        args = getattr(T, "__args__", None)
+        if args is None:
+            return True  # bare Type, any class matches
+        return issubclass(value, args[0])
+
+    # ClassVar[T] and Final[T] — these are declaration wrappers. At runtime,
+    # we just strip the wrapper and check the inner type.
+    for wrapper_origin in (typing.ClassVar, typing.Final):
+        if typing.get_origin(T) is wrapper_origin:
+            args = getattr(T, "__args__", None)
+            if args is None:
+                return True  # bare ClassVar or Final, no inner type constraint
+            return isoftype(value, args[0])
+
     # Some one-trick ponies.
     for U in (typing.Iterator,    # can't non-destructively check element type
               typing.Iterable,    # can't non-destructively check element type
@@ -128,8 +164,10 @@ def isoftype(value, T):
 
     # We don't have a match yet, so T might still be one of those meta-utilities
     # that hate `issubclass` with a passion.
-    if safeissubclass(T, typing.Text):  # https://docs.python.org/3/library/typing.html#typing.Text
-        return isinstance(value, str)  # alias for str
+    # DEPRECATED: typing.Text is deprecated since Python 3.11 (it's just an alias for str).
+    # TODO: Remove this branch when the floor bumps to Python 3.12.
+    if safeissubclass(T, typing.Text):
+        return isinstance(value, str)
 
     if typing.get_origin(T) is tuple:
         if not isinstance(value, tuple):
@@ -162,7 +200,25 @@ def isoftype(value, T):
             return False
         K, V = args
         return all(isoftype(k, K) and isoftype(v, V) for k, v in value.items())
-    for runtimetype in (dict, collections.abc.MutableMapping, collections.abc.Mapping):
+    # Counter[T] is a mapping (keys: T, values: int), but has only one type arg.
+    if typing.get_origin(T) is collections.Counter:
+        if not isinstance(value, collections.Counter):
+            return False
+        args = getattr(T, "__args__", None)
+        if args is None:
+            args = (typing.TypeVar("T"),)
+        assert len(args) == 1
+        if not value:
+            return False
+        U = args[0]
+        return all(isoftype(k, U) and isinstance(v, int) for k, v in value.items())
+
+    for runtimetype in (dict,
+                        collections.defaultdict,
+                        collections.OrderedDict,
+                        collections.ChainMap,
+                        collections.abc.MutableMapping,
+                        collections.abc.Mapping):
         if typing.get_origin(T) is runtimetype:
             return ismapping(runtimetype)
 
@@ -190,8 +246,12 @@ def isoftype(value, T):
             if not isinstance(value, runtimetype):
                 return False
             if typing.get_origin(statictype) is collections.abc.ByteString:
+                # DEPRECATED: typing.ByteString is deprecated since Python 3.12.
+                # TODO: Remove this branch and the ByteString entry in the loop below
+                # when the floor bumps to Python 3.12.
+                #
                 # WTF? A ByteString is a Sequence[int], but only statically.
-                # At run time, the `__args__` are actually empty - it looks
+                # At run time, the `__args__` are actually empty — it looks
                 # like a bare Sequence, which is invalid. HACK the special case.
                 typeargs = (int,)
             else:
@@ -209,7 +269,7 @@ def isoftype(value, T):
                                         (typing.FrozenSet, frozenset),
                                         (typing.Set, set),
                                         (typing.Deque, collections.deque),
-                                        (typing.ByteString, collections.abc.ByteString),  # must check before Sequence
+                                        (typing.ByteString, collections.abc.ByteString),  # DEPRECATED; must check before Sequence
                                         (typing.MutableSet, collections.abc.MutableSet),  # must check mutable first
                                         # because a mutable value has *also* the interface of the immutable variant
                                         # (e.g. MutableSet is a subtype of AbstractSet)

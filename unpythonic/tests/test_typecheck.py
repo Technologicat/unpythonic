@@ -4,6 +4,7 @@ from ..syntax import macros, test, test_raises, warn  # noqa: F401
 from ..test.fixtures import session, testset
 
 import collections
+import sys
 import typing
 
 from ..collections import frozendict
@@ -31,6 +32,17 @@ def runtests():
         test[isoftype(5, typing.Any)]
         test[isoftype("something", typing.Any)]
         test[isoftype(lambda: ..., typing.Any)]
+
+    # NoReturn / Never — the bottom type; no value can match.
+    with testset("typing.NoReturn"):
+        test[not isoftype(None, typing.NoReturn)]
+        test[not isoftype(42, typing.NoReturn)]
+        test[not isoftype("anything", typing.NoReturn)]
+
+    if sys.version_info >= (3, 11):
+        with testset("typing.Never"):
+            test[not isoftype(None, typing.Never)]
+            test[not isoftype(42, typing.Never)]
 
     # TypeVar, bare; a named type, but behaves like Any.
     with testset("typing.TypeVar (bare; like a named Any)"):
@@ -67,6 +79,45 @@ def runtests():
         test[isoftype(1337, typing.Optional[int])]
         test[not isoftype(3.14, typing.Optional[int])]
 
+    with testset("typing.Literal"):
+        test[isoftype(1, typing.Literal[1, 2, 3])]
+        test[isoftype(3, typing.Literal[1, 2, 3])]
+        test[not isoftype(4, typing.Literal[1, 2, 3])]
+        test[isoftype("red", typing.Literal["red", "green", "blue"])]
+        test[not isoftype("yellow", typing.Literal["red", "green", "blue"])]
+        # Literal values are compared by equality, not identity
+        test[isoftype(True, typing.Literal[True, False])]
+        test[not isoftype(None, typing.Literal[True, False])]
+
+    with testset("typing.Type"):
+        test[isoftype(int, typing.Type[int])]
+        test[isoftype(bool, typing.Type[int])]  # bool is a subclass of int
+        test[not isoftype(str, typing.Type[int])]
+        test[not isoftype(42, typing.Type[int])]  # an instance, not a class
+        # bare Type: any class matches
+        test[isoftype(int, typing.Type)]
+        test[isoftype(str, typing.Type)]
+        test[not isoftype(42, typing.Type)]
+
+    with testset("typing.ClassVar"):
+        test[isoftype(42, typing.ClassVar[int])]
+        test[not isoftype("hello", typing.ClassVar[int])]
+        # Compound: ClassVar wrapping a Union
+        test[isoftype(42, typing.ClassVar[typing.Union[int, str]])]
+        test[isoftype("hello", typing.ClassVar[typing.Union[int, str]])]
+        test[not isoftype(3.14, typing.ClassVar[typing.Union[int, str]])]
+
+    with testset("typing.Final"):
+        test[isoftype(42, typing.Final[int])]
+        test[not isoftype("hello", typing.Final[int])]
+        test[isoftype("hello", typing.Final[str])]
+
+    # Empty collections reject parametric type specs (e.g. `Tuple[int, ...]`,
+    # `List[int]`, `Dict[str, int]`). An empty collection has no elements to
+    # infer the type from, so matching it against a specific element type would
+    # be guesswork — which would make multiple dispatch unpredictable.
+    # Bare (unparametrized) specs like `Tuple` or `Dict` still accept empties.
+
     with testset("typing.Tuple"):
         test[isoftype((1, 2, 3), typing.Tuple)]
         test[isoftype((1, 2, 3), typing.Tuple[int, ...])]
@@ -100,6 +151,34 @@ def runtests():
         test[not isoftype(42, typing.Dict[int, str])]
         # no type arguments: any key/value types ok (consistent with Python 3.7+)
         test[isoftype({"cat": "animal", "pi": 3.14159, 2.71828: "e"}, typing.Dict)]
+
+    with testset("typing.DefaultDict"):
+        dd = collections.defaultdict(int, {"a": 1, "b": 2})
+        test[isoftype(dd, typing.DefaultDict[str, int])]
+        test[not isoftype(dd, typing.DefaultDict[int, int])]
+        test[not isoftype({}, typing.DefaultDict[str, int])]  # regular dict is not defaultdict
+        test[not isoftype(collections.defaultdict(int), typing.DefaultDict[str, int])]  # empty
+
+    with testset("typing.OrderedDict"):
+        od = collections.OrderedDict({"x": 1, "y": 2})
+        test[isoftype(od, typing.OrderedDict[str, int])]
+        test[not isoftype(od, typing.OrderedDict[int, int])]
+        test[not isoftype({}, typing.OrderedDict[str, int])]  # regular dict is not OrderedDict
+        test[not isoftype(collections.OrderedDict(), typing.OrderedDict[str, int])]  # empty
+
+    with testset("typing.Counter"):
+        c = collections.Counter("abracadabra")
+        test[isoftype(c, typing.Counter[str])]
+        test[not isoftype(c, typing.Counter[int])]
+        test[not isoftype({}, typing.Counter[str])]  # regular dict is not Counter
+        test[not isoftype(collections.Counter(), typing.Counter[str])]  # empty
+
+    with testset("typing.ChainMap"):
+        cm = collections.ChainMap({"a": 1}, {"b": 2})
+        test[isoftype(cm, typing.ChainMap[str, int])]
+        test[not isoftype(cm, typing.ChainMap[int, int])]
+        test[not isoftype({}, typing.ChainMap[str, int])]  # regular dict is not ChainMap
+        test[not isoftype(collections.ChainMap(), typing.ChainMap[str, int])]  # empty
 
     # type alias (at run time, this is just an assignment)
     with testset("type alias"):
@@ -179,8 +258,7 @@ def runtests():
         test[isoftype([1, 2, 3], typing.Iterable)]
         test[isoftype([1, 2, 3], typing.Reversible)]
         test[isoftype([1, 2, 3], typing.Container)]
-        if hasattr(typing, "Collection"):  # Python 3.6+
-            test[isoftype([1, 2, 3], typing.Collection)]  # Sized Iterable Container
+        test[isoftype([1, 2, 3], typing.Collection)]  # Sized Iterable Container
 
     with testset("typing.KeysView, typing.ValuesView, typing.ItemsView"):
         d = {17: "cat", 23: "fox", 42: "python"}
