@@ -2053,6 +2053,31 @@ if not run(testsets):
 
 `discover_testmodules` finds `test_*.py` files in a directory and returns dotted module names. `run` wraps the session/testset/import pattern, with automatic version-suffix gating (e.g. `test_foo_3_11.py` is skipped with a warning on Python < 3.11).
 
+#### Important: bytecode cache pitfall
+
+**Never compile `.py` files in a macro-enabled project** using `py_compile`, `python -m compileall`, pip's `--compile` flag, or any other mechanism that bypasses the macro expander. These tools produce `.pyc` files that do not contain macro-expanded code, which will break macro imports at run time.
+
+The symptom is typically `ImportError: cannot import name 'macros' from 'mcpyrate.quotes'` (or similar). This happens because the stale `.pyc` is loaded instead of the `.py` source, so the macro expander never runs.
+
+To fix this, clean the bytecode caches:
+
+```bash
+macropython -c mypackage
+```
+
+This removes all `__pycache__` directories under the given path. After cleaning, re-run your tests normally — the macro expander will recompile the source files correctly.
+
+#### Reading test results
+
+The framework reports **Pass**, **Fail**, **Error**, and **Total** per testset, with optional **Warn** counts. These categories mean:
+
+- **Pass**: test assertion succeeded.
+- **Fail**: test ran to completion, but the assertion was not satisfied.
+- **Error**: test did not run to completion (unexpected exception or signal inside a `test[]` expression). This also includes intentional `error[]` signals — so a few errors from skip patterns (e.g. optional dependency not installed) may be normal. Check the actual error messages, not just the count. (Since 2.0.0, optional dependency skips use `warn[]` instead.)
+- **Warn**: a human-initiated warning (via `warn[]` or `emit_warning()`). Warnings are not counted in the total, and do not cause the test suite to fail.
+
+Nested testsets show hierarchy with indentation and asterisk depth (`**`, `****`, `******`, etc.). Counts propagate upward — the top-level summary reflects all tests across all testsets.
+
 #### Testing syntax quick reference
 
 **Imports** - complete list:
