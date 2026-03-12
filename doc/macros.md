@@ -2038,7 +2038,20 @@ All the variants of the testing constructs catch any uncaught exceptions and sig
 
 Because `unpythonic.test.fixtures` is, by design, a minimalistic *no-framework* (cf. "NoSQL"), it is up to you to define - in your custom test runner - whether having any failures, errors or warnings should lead to the whole test suite failing. Whether the program's exit code is zero, is important e.g. for GitHub's CI workflows.
 
-For example, in `unpythonic`'s own tests, warnings do not cause the test suite to fail, but errors and failures do. The very short [`runtests.py`](../runtests.py) (just under 60 SLOC) is a complete test runner using `unpythonic.test.fixtures`.
+For example, in `unpythonic`'s own tests, warnings do not cause the test suite to fail, but errors and failures do. The top-level [`runtests.py`](../runtests.py) is a complete test runner using the reusable `unpythonic.test.runner` module:
+
+```python
+import os
+from unpythonic.test.runner import discover_testmodules, run
+
+import mcpyrate.activate  # noqa: F401
+
+testsets = [("my tests", discover_testmodules(os.path.join("mypackage", "tests")))]
+if not run(testsets):
+    raise SystemExit(1)
+```
+
+`discover_testmodules` finds `test_*.py` files in a directory and returns dotted module names. `run` wraps the session/testset/import pattern, with automatic version-suffix gating (e.g. `test_foo_3_11.py` is skipped with a warning on Python < 3.11).
 
 #### Testing syntax quick reference
 

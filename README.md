@@ -587,6 +587,8 @@ with session("simple framework demo"):
         test[2 * 2 == 4]  # not reached
 ```
 
+For running tests, `unpythonic.test.runner` provides a reusable test runner with module discovery and version-suffix gating. See [`doc/macros.md`](doc/macros.md#unpythonictestfixtures-a-test-framework-for-macro-enabled-python) for details, and [`runtests.py`](runtests.py) for a usage example.
+
 We provide the low-level syntactic constructs `test[]`, `test_raises[]` and `test_signals[]`, with the usual meanings. The last one is for testing code that uses conditions and restarts; see `unpythonic.conditions`.
 
 The test macros also come in block variants, `with test`, `with test_raises`, `with test_signals`.

@@ -1,76 +1,29 @@
 # -*- coding: utf-8 -*-
-"""Run all tests for `unpythonic`.
+"""Run all tests for ``unpythonic``.
 
 The test framework uses macros, but this top-level script does not. This can be
-run under regular `python3` (i.e. does not need the `macropython` wrapper from
-`mcpyrate`).
+run under regular ``python3`` (i.e. does not need the ``macropython`` wrapper
+from ``mcpyrate``).
 """
 
 import os
-import re
 import sys
-from importlib import import_module
 
-from unpythonic.test.fixtures import (session, testset, emit_warning,
-                                      tests_errored, tests_failed)
-from unpythonic.collections import unbox
+from unpythonic.test.runner import discover_testmodules, run
 
 import mcpyrate.activate  # noqa: F401
 
-def listtestmodules(path):
-    testfiles = listtestfiles(path)
-    testmodules = [modname(path, fn) for fn in testfiles]
-    return list(sorted(testmodules))
-
-def listtestfiles(path, prefix="test_", suffix=".py"):
-    return [fn for fn in os.listdir(path) if fn.startswith(prefix) and fn.endswith(suffix)]
-
-def modname(path, filename):  # some/dir/mod.py --> some.dir.mod
-    modpath = re.sub(os.path.sep, r".", path)
-    themod = re.sub(r"\.py$", r"", filename)
-    return ".".join([modpath, themod])
-
-def _version_suffix(modulename):
-    """Parse version suffix from module name.
-
-    E.g. ``unpythonic.syntax.tests.test_scopeanalyzer_3_11`` → ``(3, 11)``, or ``None``.
-    """
-    # Match the final component of a dotted module name.
-    m = re.search(r"_(\d+)_(\d+)$", modulename)
-    if m:
-        return (int(m.group(1)), int(m.group(2)))
-    return None
-
 def main():
-    with session():
-        # All folders containing unit tests are named `tests` (plural).
-        #
-        # The testing framework is called `unpythonic.test.fixtures`,
-        # so it lives in the only subfolder in the project that is named
-        # `test` (singular).
-        testsets = (("regular code", (listtestmodules(os.path.join("unpythonic", "tests")) +
-                                      listtestmodules(os.path.join("unpythonic", "net", "tests")))),
-                    ("macros", listtestmodules(os.path.join("unpythonic", "syntax", "tests"))),
-                    ("dialects", listtestmodules(os.path.join("unpythonic", "dialects", "tests"))))
-        for tsname, modnames in testsets:
-            with testset(tsname):
-                for m in modnames:
-                    # Wrap each module in its own testset to protect the umbrella testset
-                    # against ImportError as well as any failures at macro expansion time.
-                    with testset(m):
-                        ver = _version_suffix(m)
-                        if ver is not None and sys.version_info < ver:
-                            msg = (f"Skipping '{m}' (requires Python {ver[0]}.{ver[1]}+, "
-                                   f"running {sys.version_info.major}.{sys.version_info.minor})")
-                            emit_warning(msg)
-                            continue
-                        # TODO: We're not inside a package, so we currently can't use a relative import.
-                        # TODO: So we just hope this resolves to the local `unpythonic` source code,
-                        # TODO: not to an installed copy of the library.
-                        mod = import_module(m)
-                        mod.runtests()
-    all_passed = (unbox(tests_failed) + unbox(tests_errored)) == 0
-    return all_passed
+    # All folders containing unit tests are named `tests` (plural).
+    #
+    # The testing framework is called `unpythonic.test.fixtures`,
+    # so it lives in the only subfolder in the project that is named
+    # `test` (singular).
+    testsets = [("regular code", (discover_testmodules(os.path.join("unpythonic", "tests")) +
+                                  discover_testmodules(os.path.join("unpythonic", "net", "tests")))),
+                ("macros", discover_testmodules(os.path.join("unpythonic", "syntax", "tests"))),
+                ("dialects", discover_testmodules(os.path.join("unpythonic", "dialects", "tests")))]
+    return run(testsets)
 
 if __name__ == '__main__':
     if not main():
