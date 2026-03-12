@@ -25,7 +25,7 @@ pdm use --venv in-project
 source .venv/bin/activate
 ```
 
-**Critical**: When installing from source, never use `--compile` / precompilation. Precompiled bytecode without macro support breaks macro imports like `from unpythonic.syntax import macros, let`.
+**Critical**: Never compile `.py` files in this project using `py_compile`, `python -m compileall`, `--compile`, or any other mechanism that bypasses the macro expander. Stale `.pyc` files compiled without macro support will break macro imports (symptom: `ImportError: cannot import name 'macros' from 'mcpyrate.quotes'`). If this happens, clean the caches with `macropython -c unpythonic` and re-run.
 
 ## Running tests
 
@@ -50,6 +50,8 @@ Test suites discovered by `runtests.py`:
 
 Each test module exports a `runtests()` function. Tests are grouped with `testset()` context managers.
 
+**Reading test results**: The framework reports Pass/Fail/Error/Total per testset. "Error" means an unexpected exception inside a `test[]` expression — this includes intentional skip-with-message patterns (e.g. "SymPy not installed"), so a few errors from optional-dependency tests are normal. Look at the actual error messages, not just the count. Nested testsets show hierarchy with indentation and asterisk depth (`**`, `****`, `******`, etc.).
+
 ## Linting
 
 ```bash
@@ -70,6 +72,7 @@ flake8 . --config=flake8rc --exit-zero --max-line-length=127
 - **Curry-friendly signatures**: Parameters that change least often go on the left. Use `def f(func, thing0, *things)` (not `def f(func, *things)`) when at least one `thing` is required, so `curry` knows when to trigger.
 - **Macros are the nuclear option**: Only make a macro when a regular function can't do the job. Prefer a pure-Python core with a thin macro layer for UX.
 - **Macro `**kw` passing**: Use `dyn` (dynamic variables) to pass `mcpyrate` `**kw` arguments through to syntax transformers, rather than threading them through parameter lists.
+- **Variable names**: Descriptive but compact. Prefer `theconstant` over `node` when the type matters, `thebody` over `b` when scope is more than a few lines. Avoid generic names like `tmp`, `data`, `x` unless scope is trivially small. In test code using the `the[]` macro, avoid `the`-prefixed names — `the[theconstant]` isn't English. Use e.g. `constant_node` instead.
 - **Line width** ~110 characters. Docstrings in reStructuredText.
 - **Module size target**: ~100–300 SLOC, rough max ~700 lines. Some modules are longer when appropriate (e.g. `syntax/tailtools.py` at ~1600 lines). Never split just because the line count was exceeded.
 - **Dependencies**: Avoid external dependencies. `mcpyrate` is the only allowed external dep and must remain strictly optional for the pure-Python layer.
