@@ -4,4 +4,3 @@
 
 - **D4**: `typecheck.py` — expand runtime type checker to support more `typing` features: NamedTuple, DefaultDict, Counter, ChainMap, OrderedDict, IO/TextIO/BinaryIO, Pattern/Match, Generic, Type, Awaitable, Coroutine, AsyncIterable, AsyncIterator, ContextManager, AsyncContextManager, Generator, AsyncGenerator, NoReturn, ClassVar, Final, Protocol, TypedDict, Literal, ForwardRef. Would improve `unpythonic.dispatch` (multiple dispatch). (Discovered during Phase 4 cleanup.)
 
-- **D5**: `runtests.py` — version-suffix skip should signal `TestWarning` (via `unpythonic.conditions.signal`) instead of printing and continuing. This would make skips visible in the testset warning count, consistent with how optional dependency failures show as errors. Currently the skip message bypasses the testset reporting mechanism. (Discovered during Phase 5.)

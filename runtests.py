@@ -11,11 +11,9 @@ import re
 import sys
 from importlib import import_module
 
-from unpythonic.test.fixtures import (session, testset, maybe_colorize,
-                                      tests_errored, tests_failed, TestConfig)
+from unpythonic.test.fixtures import (session, testset, emit_warning,
+                                      tests_errored, tests_failed)
 from unpythonic.collections import unbox
-
-from mcpyrate.colorizer import Style
 
 import mcpyrate.activate  # noqa: F401
 
@@ -64,8 +62,7 @@ def main():
                         if ver is not None and sys.version_info < ver:
                             msg = (f"Skipping '{m}' (requires Python {ver[0]}.{ver[1]}+, "
                                    f"running {sys.version_info.major}.{sys.version_info.minor})")
-                            TestConfig.printer(maybe_colorize(msg, Style.DIM,
-                                                              TestConfig.ColorScheme.HEADING))
+                            emit_warning(msg)
                             continue
                         # TODO: We're not inside a package, so we currently can't use a relative import.
                         # TODO: So we just hope this resolves to the local `unpythonic` source code,

@@ -129,13 +129,14 @@ import sys
 from mcpyrate.bunch import Bunch
 from mcpyrate.colorizer import Fore, Style, colorize
 
-from ..conditions import handlers, find_restart, invoke
+from ..conditions import cerror, handlers, find_restart, invoke
 from ..collections import box, unbox
 from ..symbol import sym
 
 __all__ = ["session", "testset",
            "terminate",
            "returns_normally", "catch_signals",
+           "emit_warning",
            "TestConfig",
            "tests_run", "tests_failed", "tests_errored", "tests_warned",
            "TestingException", "TestFailure", "TestError", "TestWarning",
@@ -182,6 +183,20 @@ def _reset(counter):
     """
     with _counter_update_lock:
         counter << 0
+
+def emit_warning(msg):
+    """Emit a test warning from infrastructure code (outside a ``test[]`` expression).
+
+    Use this in test runners and other infrastructure that needs to signal
+    a warning through the test framework without being inside a ``test[]``
+    or ``warn[]`` macro. The warning will be displayed and counted by the
+    nearest enclosing ``testset``.
+
+    Unlike the ``warn[]`` macro, this does not adjust ``tests_run``,
+    because no test has been counted for this warning to "replace".
+    """
+    _update(tests_warned, +1)
+    cerror(TestWarning(msg))
 
 completed = sym("completed")
 completed.__doc__ = """TestingException `mode`: the test ran to completion normally.
