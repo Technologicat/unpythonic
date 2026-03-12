@@ -21,7 +21,7 @@ from ast import (Lambda, FunctionDef, AsyncFunctionDef, ClassDef,
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym
-from mcpyrate.astcompat import getconstant, NameConstant, TryStar
+from mcpyrate.astcompat import TryStar
 from mcpyrate.quotes import capture_as_macro, is_captured_value
 from mcpyrate.utils import NestingLevelTracker
 from mcpyrate.walkers import ASTTransformer, ASTVisitor
@@ -1034,12 +1034,12 @@ def _continuations(block_body):  # here be dragons.
         if not isinstance(stmt.value, CallCcMarker):  # both Assign and Expr have a .value
             assert False  # we should get only valid call_cc[] invocations that pass the `iscallccstatement` test  # pragma: no cover
         theexpr = stmt.value.body  # discard the AST marker
-        if not (type(theexpr) in (Call, IfExp) or (type(theexpr) in (Constant, NameConstant) and getconstant(theexpr) is None)):
+        if not (type(theexpr) in (Call, IfExp) or (type(theexpr) is Constant and theexpr.value is None)):
             raise SyntaxError("the bracketed expression in call_cc[...] must be a function call, an if-expression, or None")  # pragma: no cover
         def extract_call(tree):
             if type(tree) is Call:
                 return tree
-            elif type(tree) in (Constant, NameConstant) and getconstant(tree) is None:
+            elif type(tree) is Constant and tree.value is None:
                 return None
             else:
                 raise SyntaxError("call_cc[...]: expected a function call or None")  # pragma: no cover

@@ -16,9 +16,8 @@ __all__ = ["isec", "detect_callec",
 
 from functools import partial
 
-from ast import Call, Lambda, FunctionDef, AsyncFunctionDef, If, stmt
+from ast import Call, Constant, Lambda, FunctionDef, AsyncFunctionDef, If, stmt
 
-from mcpyrate.astcompat import getconstant
 from mcpyrate.core import add_postprocessor
 from mcpyrate.markers import ASTMarker, delete_markers
 from mcpyrate.quotes import is_captured_value
@@ -353,16 +352,12 @@ def eliminate_ifones(body):
     include a ``call_cc`` (see the example in test_conts_gen.py)...
     """
     def isifone(tree):
-        if type(tree) is If:
-            try:
-                value = getconstant(tree.test)
-            except TypeError:
-                pass
-            else:
-                if value in (1, True):
-                    return "then"
-                elif value in (0, False, None):
-                    return "else"
+        if type(tree) is If and type(tree.test) is Constant:
+            value = tree.test.value
+            if value in (1, True):
+                return "then"
+            elif value in (0, False, None):
+                return "else"
         return False
 
     def optimize(tree):  # stmt -> list of stmts

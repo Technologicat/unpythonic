@@ -4,7 +4,6 @@
 from ...syntax import macros, test, test_raises, warn, the  # noqa: F401
 from ...test.fixtures import session, testset
 
-from mcpyrate.astcompat import getconstant, Num
 from mcpyrate.quotes import macros, q, n  # noqa: F401, F811
 from mcpyrate.metatools import macros, expandrq  # noqa: F811
 
@@ -245,13 +244,15 @@ def runtests():
 
         # read
         test[view.name == "x"]
-        test[type(the[view.value]) in (Constant, Num) and getconstant(view.value) == 42]  # Python 3.8: ast.Constant
+        constant_node = view.value
+        test[type(the[constant_node]) is Constant and constant_node.value == 42]
 
         # write
         view.name = "y"
         view.value = q[23]
         test[view.name == "y"]
-        test[type(the[view.value]) in (Constant, Num) and getconstant(view.value) == 23]  # Python 3.8: ast.Constant
+        constant_node = view.value
+        test[type(the[constant_node]) is Constant and constant_node.value == 23]
 
         # it's a live view
         test[unparse(testdata) == "(y := 23)"]  # syntax type `:=` vs. `<<` is preserved
@@ -269,13 +270,15 @@ def runtests():
 
         # read
         test[view.name == "x"]
-        test[type(the[view.value]) in (Constant, Num) and getconstant(view.value) == 42]  # Python 3.8: ast.Constant
+        constant_node = view.value
+        test[type(the[constant_node]) is Constant and constant_node.value == 42]
 
         # write
         view.name = "y"
         view.value = q[23]
         test[view.name == "y"]
-        test[type(the[view.value]) in (Constant, Num) and getconstant(view.value) == 23]  # Python 3.8: ast.Constant
+        constant_node = view.value
+        test[type(the[constant_node]) is Constant and constant_node.value == 23]
 
         # it's a live view
         test[unparse(testdata) == "(y << 23)"]  # syntax type `:=` vs. `<<` is preserved
@@ -520,7 +523,7 @@ def runtests():
                 test[the[unparse(bk)] == the[f"'{k}'"]]
                 test[type(the[lam]) is Lambda]
                 lambody = lam.body
-                test[type(the[lambody]) in (Constant, Num) and getconstant(lambody) == the[v]]  # Python 3.8: ast.Constant
+                test[type(the[lambody]) is Constant and lambody.value == the[v]]
 
         # read
         test[len(view.bindings.elts) == 2]

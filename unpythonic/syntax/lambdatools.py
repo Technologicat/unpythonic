@@ -14,7 +14,7 @@ from copy import deepcopy
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
 from mcpyrate import gensym
-from mcpyrate.astcompat import getconstant, Str, NamedExpr
+from mcpyrate.astcompat import NamedExpr
 from mcpyrate.expander import MacroExpander
 from mcpyrate.quotes import is_captured_value
 from mcpyrate.splicing import splice_expression
@@ -368,8 +368,8 @@ def _namedlambda(block_body):
                     if k is None:  # {..., **d, ...}
                         tree.values[j] = self.visit(v)
                     else:
-                        if type(k) in (Constant, Str):  # Python 3.8+: ast.Constant
-                            thename = getconstant(k)
+                        if type(k) is Constant:
+                            thename = k.value
                             tree.values[j], thelambda, match = nameit(thename, v)
                             if match:
                                 thelambda.body = self.visit(thelambda.body)

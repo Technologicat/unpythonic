@@ -4,7 +4,6 @@
 from ...syntax import macros, do, local, test, test_raises, fail, the  # noqa: F401
 from ...test.fixtures import session, testset
 
-from mcpyrate.astcompat import getconstant, Num, Str
 from mcpyrate.quotes import macros, q, n, h  # noqa: F401, F811
 from mcpyrate.metatools import macros, expandrq  # noqa: F401, F811
 
@@ -156,8 +155,8 @@ def runtests():
         test[len(decos) == 3]
         test[all(type(node) is Call and type(node.func) is Name for node in decos)]
         test[[node.func.id for node in decos] == ["memoize", "trampolined", "curry"]]
-        test[type(lam.body) in (Constant, Num)]  # Python 3.8+: ast.Constant
-        test[getconstant(lam.body) == 42]  # Python 3.8+: ast.Constant
+        test[type(lam.body) is Constant]
+        test[lam.body.value == 42]
 
         def test_sort_lambda_decorators(testdata):
             sort_lambda_decorators(testdata)
@@ -185,15 +184,18 @@ def runtests():
                     "finally"
         collected = []
         def collectstrings(tree):
-            if type(tree) is Expr and type(tree.value) in (Constant, Str):  # Python 3.8+: ast.Constant
-                collected.append(getconstant(tree.value))
+            if type(tree) is Expr and type(tree.value) is Constant:
+                constant_node = tree.value
+                collected.append(constant_node.value)
             return [tree]
         transform_statements(collectstrings, transform_statements_testdata)
         test[set(collected) == {"function body", "try", "if body", "if else", "finally", "except"}]
 
         def ishello(tree):
-            # Python 3.8+: ast.Constant
-            return type(tree) is Expr and type(tree.value) in (Constant, Str) and getconstant(tree.value) == "hello"
+            if type(tree) is Expr and type(tree.value) is Constant:
+                constant_node = tree.value
+                return constant_node.value == "hello"
+            return False
 
         # numeric
         with q as eliminate_ifones_testdata1:
