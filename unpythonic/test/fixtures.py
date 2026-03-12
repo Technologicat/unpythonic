@@ -187,14 +187,15 @@ def _reset(counter):
 def emit_warning(msg):
     """Emit a test warning from infrastructure code (outside a ``test[]`` expression).
 
-    Use this in test runners and other infrastructure that needs to signal
-    a warning through the test framework without being inside a ``test[]``
+    If you are writing tests, use the `warn[]` macro instead.
+
+    Use this function in test runners and other infrastructure that needs to
+    signal a warning through the test framework without being inside a ``test[]``
     or ``warn[]`` macro. The warning will be displayed and counted by the
     nearest enclosing ``testset``.
-
-    Unlike the ``warn[]`` macro, this does not adjust ``tests_run``,
-    because no test has been counted for this warning to "replace".
     """
+    # Unlike the ``warn[]`` macro, this does not adjust ``tests_run``,
+    # because no test has been counted for this warning to "replace".
     _update(tests_warned, +1)
     cerror(TestWarning(msg))
 
