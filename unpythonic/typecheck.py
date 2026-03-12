@@ -113,7 +113,7 @@ def isoftype(value, T):
             return isinstance(value, U)
 
     if T is typing.Reversible:  # can't non-destructively check element type
-        return hasattr(value, "__reversed__")
+        return isinstance(value, typing.Reversible)
 
     # "Protocols cannot be used with isinstance()", so:
     for U in (typing.SupportsInt,
