@@ -17,7 +17,7 @@
 - New `unpythonic.test.runner` module: reusable test runner with module discovery, version-suffix gating (e.g. `test_foo_3_11.py` skipped on Python < 3.11), and integration with the test framework's warning system. Other projects using `unpythonic.test.fixtures` can import it directly.
 - New `emit_warning()` function in `unpythonic.test.fixtures` for signaling test warnings from infrastructure code (outside `test[]`/`warn[]` macros). Used by the test runner for version-suffix skips, which show in the testset warning count.
 - Missing optional dependencies (sympy, mpmath) in tests emit `warn[]` instead of `error[]`, correctly reflecting that these are expected skips, not failures.
-- Runtime type checker (`unpythonic.typecheck`): new supported typing features — `NoReturn`, `Never` (3.11+), `Literal`, `Type`, `ClassVar`, `Final`, `DefaultDict`, `OrderedDict`, `Counter`, `ChainMap`.
+- Runtime type checker (`unpythonic.typecheck`): new supported typing features — `NoReturn`, `Never` (3.11+), `Literal`, `Type`, `ClassVar`, `Final`, `DefaultDict`, `OrderedDict`, `Counter`, `ChainMap`, `IO`/`TextIO`/`BinaryIO` (mapped to `io` module ABCs), `Pattern[T]`/`Match[T]` (string type checked when parametric), `ContextManager`, `AsyncContextManager`, `Awaitable`, `Coroutine`, `AsyncIterable`, `AsyncIterator`, `Generator`, `AsyncGenerator`.
 
 **Fixed**:
 
