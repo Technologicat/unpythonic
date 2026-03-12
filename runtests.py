@@ -11,8 +11,11 @@ import re
 import sys
 from importlib import import_module
 
-from unpythonic.test.fixtures import session, testset, tests_errored, tests_failed
+from unpythonic.test.fixtures import (session, testset, maybe_colorize,
+                                      tests_errored, tests_failed, TestConfig)
 from unpythonic.collections import unbox
+
+from mcpyrate.colorizer import Style
 
 import mcpyrate.activate  # noqa: F401
 
@@ -28,6 +31,17 @@ def modname(path, filename):  # some/dir/mod.py --> some.dir.mod
     modpath = re.sub(os.path.sep, r".", path)
     themod = re.sub(r"\.py$", r"", filename)
     return ".".join([modpath, themod])
+
+def _version_suffix(modulename):
+    """Parse version suffix from module name.
+
+    E.g. ``unpythonic.syntax.tests.test_scopeanalyzer_3_11`` → ``(3, 11)``, or ``None``.
+    """
+    # Match the final component of a dotted module name.
+    m = re.search(r"_(\d+)_(\d+)$", modulename)
+    if m:
+        return (int(m.group(1)), int(m.group(2)))
+    return None
 
 def main():
     with session():
@@ -46,6 +60,13 @@ def main():
                     # Wrap each module in its own testset to protect the umbrella testset
                     # against ImportError as well as any failures at macro expansion time.
                     with testset(m):
+                        ver = _version_suffix(m)
+                        if ver is not None and sys.version_info < ver:
+                            msg = (f"Skipping '{m}' (requires Python {ver[0]}.{ver[1]}+, "
+                                   f"running {sys.version_info.major}.{sys.version_info.minor})")
+                            TestConfig.printer(maybe_colorize(msg, Style.DIM,
+                                                              TestConfig.ColorScheme.HEADING))
+                            continue
                         # TODO: We're not inside a package, so we currently can't use a relative import.
                         # TODO: So we just hope this resolves to the local `unpythonic` source code,
                         # TODO: not to an installed copy of the library.

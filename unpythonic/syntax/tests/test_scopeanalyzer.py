@@ -14,9 +14,6 @@ from ...syntax.scopeanalyzer import (isnewscope,
                                      get_lexical_variables,
                                      scoped_transform)
 
-# TODO: Add tests for `match`/`case` once we bump minimum language version to Python 3.10.
-# TODO: Add tests for `try`/`except*` once we bump minimum language version to Python 3.11.
-
 def runtests():
     # test data
     with q as getnames_load:
@@ -271,6 +268,82 @@ def runtests():
                 del x
                 n["_apply_test_here_"]
         scoped_transform(scoped_localvar3, callback=make_checker(["f"]))  # x already deleted
+
+    # Python 3.10+: `match`/`case`
+    with testset("match/case: get_names_in_store_context"):
+        # Simple capture
+        with q as matchcase_simple:
+            match x:  # noqa: F821, it's only quoted.
+                case y:  # noqa: F841, it's only quoted.
+                    pass
+        test[get_names_in_store_context(matchcase_simple) == ["y"]]
+
+        # Wildcard `_` — does NOT capture
+        with q as matchcase_wildcard:
+            match x:  # noqa: F821, it's only quoted.
+                case _:
+                    pass
+        test[get_names_in_store_context(matchcase_wildcard) == []]
+
+        # Sequence pattern with star capture
+        with q as matchcase_sequence:
+            match x:  # noqa: F821, it's only quoted.
+                case [a, b, *rest]:  # noqa: F841, it's only quoted.
+                    pass
+        test[get_names_in_store_context(matchcase_sequence) == ["a", "b", "rest"]]
+
+        # Class pattern — captures `x` and `y`, but NOT the class reference `Point`
+        with q as matchcase_class:
+            match x:  # noqa: F821, it's only quoted.
+                case Point(x, y):  # noqa: F821, F841, it's only quoted.
+                    pass
+        names = get_names_in_store_context(matchcase_class)
+        test["x" in names]
+        test["y" in names]
+        test["Point" not in names]  # class reference, not a capture
+
+        # Class pattern with keyword captures
+        with q as matchcase_class_kw:
+            match x:  # noqa: F821, it's only quoted.
+                case Point(x=px, y=py):  # noqa: F821, F841, it's only quoted.
+                    pass
+        names = get_names_in_store_context(matchcase_class_kw)
+        test["px" in names]
+        test["py" in names]
+        test["Point" not in names]
+
+        # Mapping pattern with `**rest`
+        with q as matchcase_mapping:
+            match x:  # noqa: F821, it's only quoted.
+                case {"key": value, **rest}:  # noqa: F841, it's only quoted.
+                    pass
+        names = get_names_in_store_context(matchcase_mapping)
+        test["value" in names]
+        test["rest" in names]
+
+        # Nested: mapping containing a class pattern
+        with q as matchcase_nested:
+            match x:  # noqa: F821, it's only quoted.
+                case {"key": Point(px, py)}:  # noqa: F821, F841, it's only quoted.
+                    pass
+        names = get_names_in_store_context(matchcase_nested)
+        test["px" in names]
+        test["py" in names]
+        test["Point" not in names]  # class reference, not a capture
+
+        # OR pattern
+        with q as matchcase_or:
+            match x:  # noqa: F821, it's only quoted.
+                case 1 | 2 | 3:
+                    pass
+        test[get_names_in_store_context(matchcase_or) == []]
+
+        # `as` pattern with guard
+        with q as matchcase_as:
+            match x:  # noqa: F821, it's only quoted.
+                case (1 | 2) as num:  # noqa: F841, it's only quoted.
+                    pass
+        test[get_names_in_store_context(matchcase_as) == ["num"]]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

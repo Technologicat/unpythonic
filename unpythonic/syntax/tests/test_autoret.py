@@ -87,6 +87,44 @@ def runtests():
             test[isinstance(classdefiner(), type)]  # returned a class
             test[classdefiner().__name__ == "InnerClassDefinition"]
 
+    with testset("match/case"):  # Python 3.10+
+        with autoreturn:
+            def classify(x):
+                match x:
+                    case 1:
+                        "one"
+                    case 2:
+                        "two"
+                    case _:
+                        "other"
+            test[classify(1) == "one"]
+            test[classify(2) == "two"]
+            test[classify(42) == "other"]
+
+            def classify_nested(x):
+                match x:
+                    case (a, b):
+                        a + b
+                    case [a, b, *rest]:
+                        a + b + sum(rest)
+                    case _:
+                        0
+            test[classify_nested((3, 4)) == 7]
+            test[classify_nested([1, 2, 3, 4]) == 10]
+            test[classify_nested("nope") == 0]
+
+            def classify_with_guard(x):
+                match x:
+                    case n if n < 0:
+                        "negative"
+                    case 0:
+                        "zero"
+                    case n if n > 0:
+                        "positive"
+            test[classify_with_guard(-5) == "negative"]
+            test[classify_with_guard(0) == "zero"]
+            test[classify_with_guard(7) == "positive"]
+
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

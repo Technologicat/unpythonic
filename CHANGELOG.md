@@ -1,12 +1,36 @@
 # Changelog
 
-**1.0.1** (March 2026, in progress) — hotfix:
+**2.0.0** (March 2026, in progress) — *"Six impossible things before breakfast"* edition:
+
+**IMPORTANT**:
+
+- **Python version support**: 3.10–3.14 (dropped 3.8, 3.9; added 3.13, 3.14). PyPy 3.11.
+  - If you need `unpythonic` for Python 3.8 or 3.9, use version 1.0.0.
+- **Requires mcpyrate >= 4.0.0**.
+  - mcpyrate 4.0.0 dropped the `Str`, `Num`, `NameConstant` AST compatibility shims and the `getconstant` helper.
+
+**New**:
+
+- **Python 3.13 and 3.14 support**.
+- `autoreturn` macro now handles `match`/`case` statements. Each case branch has its own tail position.
+- New scope analyzer tests for `match`/`case` patterns and `try`/`except*`.
+- Test runner (`runtests.py`) now supports version-suffixed test modules (e.g. `test_foo_3_11.py` runs only on Python 3.11+).
 
 **Fixed**:
 
+- Runtime type checker (`unpythonic.typecheck`): fixed compatibility with Python 3.14, where `typing.Union` is no longer a `_GenericAlias`. Now uses `typing.get_origin` (available since 3.8) instead of a local copy.
+- Runtime type checker: fixed `TypeVar` detection to use `isinstance(T, typing.TypeVar)` instead of a fragile `repr`-based heuristic.
+- Runtime type checker: `typing.Reversible` check now uses `isinstance` instead of a `hasattr("__reversed__")` workaround from the Python 3.5 era.
+- Runtime type checker: removed redundant `safeissubclass` fallbacks for generic types — `typing.get_origin` handles both bare and parameterized generics on 3.10+.
+- Scope analyzer: fixed `MatchCapturesCollector` bug where class references (e.g. `Point` in `case Point(x, y):`) were incorrectly collected as captured variable names. Match captures are `MatchAs`/`MatchStar` nodes with bare strings, not `Name` nodes.
+- Macro layer: updated all `hasattr(tree, "ctx")` checks to use `getattr` with defaults, for correct behavior on Python 3.13+ where AST fields always exist with default values.
+- Macro layer: updated `arguments()` constructor calls to always include `posonlyargs=[]`, avoiding a `DeprecationWarning` on Python 3.13 (will become an error in 3.15).
 - MS Windows: `unpythonic.net.util` failed to load, due to missing `termios` module (which is *nix only) being loaded by `unpythonic.net.__init__` when it imports `unpythonic.net.ptyproxy`.
   - Fixed by catching `ModuleNotFoundError`, disabling `ptyproxy` on MS Windows systems.
-  - This means that the live REPL server is not available on MS Windows. This is usually harmless, as most applications using `unpythonic` do not need it.
+
+**Deprecated**:
+
+- Parenthesis syntax for macro arguments (e.g. `let((x, 1), (y, 2))`). Use bracket syntax instead: `let[[x, 1], [y, 2]]`. The parenthesis syntax is kept for backward compatibility but may be removed in a future version.
 
 
 ---

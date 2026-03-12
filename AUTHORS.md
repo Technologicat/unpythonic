@@ -2,7 +2,7 @@
 
 - Juha Jeronen (@Technologicat) - original author
 - @aisha-w - documentation improvements
-- @Technologicat with Claude (Anthropic) as AI pair programmer - CI modernization
+- @Technologicat with Claude (Anthropic) as AI pair programmer - CI modernization, Python 3.13–3.14 and mcpyrate 4.0.0 adaptation (2.0.0)
 
 **Design inspiration from the internet**:
 

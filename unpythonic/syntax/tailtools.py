@@ -14,7 +14,7 @@ from ast import (Lambda, FunctionDef, AsyncFunctionDef, ClassDef,
                  List, Tuple,
                  Call, Name, Starred, Constant,
                  BoolOp, And, Or,
-                 With, AsyncWith, If, IfExp, Try, Assign, Return, Expr,
+                 With, AsyncWith, If, IfExp, Try, Match, Assign, Return, Expr,
                  Await,
                  copy_location)
 
@@ -699,6 +699,10 @@ def _autoreturn(block_body):
                 # additionally, tail position is in each "except" handler
                 for handler in tree.handlers:
                     handler.body[-1] = self.visit(handler.body[-1])
+            elif type(tree) is Match:  # Python 3.10+: `match`/`case`
+                for case in tree.cases:
+                    if case.body:
+                        case.body[-1] = self.visit(case.body[-1])
             elif type(tree) in (FunctionDef, AsyncFunctionDef, ClassDef):  # v0.15.0+
                 # If the item in tail position is a named function definition
                 # or a class definition, it binds a name - that of the function/class.
