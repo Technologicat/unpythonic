@@ -264,6 +264,111 @@ def runtests():
         test[isoftype([1, 2, 3], typing.Container)]
         test[isoftype([1, 2, 3], typing.Collection)]  # Sized Iterable Container
 
+    with testset("parametric ABCs — uncheckable (type arg ignored)"):
+        # Iterator: consumed by iteration, can't check elements.
+        test[isoftype(iter([1, 2, 3]), typing.Iterator[int])]
+        test[isoftype(iter([1, 2, 3]), typing.Iterator[str])]  # type arg ignored
+        test[not isoftype(42, typing.Iterator[int])]
+
+        # Container: only has __contains__, can't enumerate elements.
+        test[isoftype([1, 2, 3], typing.Container[int])]
+        test[isoftype([1, 2, 3], typing.Container[str])]  # type arg ignored
+        test[not isoftype(42, typing.Container[int])]
+
+    with testset("parametric ABCs — best-effort element checking"):
+        # Iterable[T]: elements checked when value is Sized (concrete collection).
+        test[isoftype([1, 2, 3], typing.Iterable[int])]
+        test[not isoftype([1, 2, 3], typing.Iterable[str])]
+        test[not isoftype([], typing.Iterable[int])]  # empty rejects parametric
+        test[isoftype([], typing.Iterable)]  # bare form still accepts empty
+        test[not isoftype(42, typing.Iterable[int])]
+        # Opaque iterator (not Sized) — accepts on ABC alone, can't check elements.
+        test[isoftype(iter([1, 2, 3]), typing.Iterable[int])]
+        test[isoftype(iter([1, 2, 3]), typing.Iterable[str])]  # can't check, accepts
+
+        # Collection[T]: Sized + Iterable + Container.
+        test[isoftype([1, 2, 3], typing.Collection[int])]
+        test[not isoftype([1, 2, 3], typing.Collection[str])]
+        test[not isoftype([], typing.Collection[int])]  # empty rejects parametric
+        test[isoftype([], typing.Collection)]  # bare form accepts empty
+        test[not isoftype(42, typing.Collection[int])]
+
+        # Reversible[T]
+        test[isoftype([1, 2, 3], typing.Reversible[int])]
+        test[not isoftype([1, 2, 3], typing.Reversible[str])]
+        test[not isoftype([], typing.Reversible[int])]  # empty rejects parametric
+        test[isoftype([], typing.Reversible)]  # bare form accepts empty
+        test[not isoftype(42, typing.Reversible[int])]
+
+        # Compound type in element spec
+        test[isoftype([1, "two", 3], typing.Iterable[typing.Union[int, str]])]
+        test[not isoftype([1, "two", 3.0], typing.Iterable[typing.Union[int, str]])]
+
+    with testset("typing.TypedDict"):
+        class Point(typing.TypedDict):
+            x: float
+            y: float
+
+        test[isoftype({"x": 1.0, "y": 2.0}, Point)]
+        test[not isoftype({"x": 1.0}, Point)]  # missing required key
+        test[not isoftype({"x": 1.0, "y": 2.0, "z": 3.0}, Point)]  # extra key
+        test[not isoftype({"x": "hello", "y": 2.0}, Point)]  # wrong value type
+        test[not isoftype(42, Point)]  # not a dict
+        test[not isoftype([], Point)]  # not a dict
+
+        # total=False: all keys optional
+        class Config(typing.TypedDict, total=False):
+            debug: bool
+            verbose: bool
+
+        test[isoftype({}, Config)]  # all optional, empty is ok
+        test[isoftype({"debug": True}, Config)]
+        test[isoftype({"debug": True, "verbose": False}, Config)]
+        test[not isoftype({"debug": "yes"}, Config)]  # wrong type
+        test[not isoftype({"unknown": True}, Config)]  # extra key
+
+        # Inheritance
+        class Base(typing.TypedDict):
+            name: str
+
+        class Derived(Base):
+            age: int
+
+        test[isoftype({"name": "alice", "age": 30}, Derived)]
+        test[not isoftype({"name": "alice"}, Derived)]  # missing age
+        test[not isoftype({"age": 30}, Derived)]  # missing name
+
+        # Compound value types
+        class Nested(typing.TypedDict):
+            tags: typing.List[str]
+            count: typing.Optional[int]
+
+        test[isoftype({"tags": ["a", "b"], "count": 42}, Nested)]
+        test[isoftype({"tags": ["a"], "count": None}, Nested)]
+        test[not isoftype({"tags": [1, 2], "count": 42}, Nested)]  # wrong list element type
+
+    with testset("typing.Protocol"):
+        @typing.runtime_checkable
+        class Drawable(typing.Protocol):
+            def draw(self) -> None: ...
+
+        class Circle:
+            def draw(self):
+                pass
+
+        class Square:
+            pass
+
+        test[isoftype(Circle(), Drawable)]
+        test[not isoftype(Square(), Drawable)]
+        test[not isoftype(42, Drawable)]
+
+        # Non-runtime-checkable Protocol raises TypeError
+        class NonCheckable(typing.Protocol):
+            def frobnicate(self) -> int: ...
+
+        test_raises[TypeError, isoftype(Circle(), NonCheckable)]
+
     with testset("typing.KeysView, typing.ValuesView, typing.ItemsView"):
         d = {17: "cat", 23: "fox", 42: "python"}
         test[isoftype(d.keys(), typing.KeysView[int])]

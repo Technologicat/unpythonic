@@ -63,6 +63,12 @@ def isoftype(value, T):
                  - `Awaitable[T]`, `Coroutine[T1, T2, T3]`
                  - `AsyncIterable[T]`, `AsyncIterator[T]`
                  - `Generator[Y, S, R]`, `AsyncGenerator[Y, S]`
+                 - `Iterable[T]`, `Collection[T]`, `Reversible[T]` (best-effort element
+                   checking: elements checked when value is ``Sized``; ABC-only when not)
+                 - `Iterator[T]`, `Container[T]` (parametric form accepted; type arg ignored)
+                 - `Hashable`, `Sized` (non-generic; bare form only)
+                 - `TypedDict` (structural check: required/optional keys, value types)
+                 - ``@runtime_checkable`` ``Protocol`` subclasses
                  - `Text` (deprecated since Python 3.11; will be removed at floor Python 3.12)
 
                Any checks on the type arguments of the meta-utilities are performed
@@ -83,7 +89,7 @@ def isoftype(value, T):
     #
     # Unsupported typing features:
     #   NamedTuple (specific NamedTuple subclasses work via isinstance fallback),
-    #   Generic, Protocol, TypedDict, ForwardRef
+    #   Generic, ForwardRef
 
     if T is typing.Any:
         return True
@@ -144,18 +150,35 @@ def isoftype(value, T):
                 return True  # bare ClassVar or Final, no inner type constraint
             return isoftype(value, args[0])
 
-    # Some one-trick ponies.
-    for U in (typing.Iterator,    # can't non-destructively check element type
-              typing.Iterable,    # can't non-destructively check element type
-              typing.Container,   # can't check element type
-              typing.Collection,  # Sized Iterable Container; can't check element type
-              typing.Hashable,
-              typing.Sized):
-        if U is T:
-            return isinstance(value, U)
+    # Non-generic ABCs, and parametric ABCs where element type can't be checked.
+    # Iterator: consumed by iteration. Container: only has __contains__, can't enumerate.
+    # Hashable, Sized: not generic (can't be parameterized).
+    for abc in (collections.abc.Hashable,
+                collections.abc.Sized,
+                collections.abc.Iterator,
+                collections.abc.Container):
+        if typing.get_origin(T) is abc:
+            return isinstance(value, abc)
 
-    if T is typing.Reversible:  # can't non-destructively check element type
-        return isinstance(value, typing.Reversible)
+    # Parametric ABCs with best-effort element checking.
+    # If the value is Sized (a concrete collection), we can safely iterate
+    # and check elements. Otherwise (opaque iterator), accept on ABC alone.
+    for abc in (collections.abc.Iterable,
+                collections.abc.Collection,
+                collections.abc.Reversible):
+        if typing.get_origin(T) is abc:
+            if not isinstance(value, abc):
+                return False
+            args = getattr(T, "__args__", None)
+            if args is None:
+                return True  # bare form, no element type constraint
+            assert len(args) == 1
+            if not isinstance(value, collections.abc.Sized):
+                return True  # opaque iterator — can't check elements non-destructively
+            if not value:  # empty sized collection has no element type
+                return False
+            U = args[0]
+            return all(isoftype(elt, U) for elt in value)
 
     # "Protocols cannot be used with isinstance()", so:
     for U in (typing.SupportsInt,
@@ -167,6 +190,24 @@ def isoftype(value, T):
               typing.SupportsRound):
         if U is T:
             return safeissubclass(type(value), U)
+
+    # TypedDict — structural check on dict contents.
+    # isinstance doesn't work with TypedDict, so we check keys and value types.
+    if typing.is_typeddict(T):
+        if not isinstance(value, dict):
+            return False
+        hints = typing.get_type_hints(T)
+        required = T.__required_keys__
+        optional = T.__optional_keys__
+        allowed = required | optional
+        if not required.issubset(value.keys()):
+            return False
+        if not set(value.keys()).issubset(allowed):
+            return False
+        for k, v in value.items():
+            if not isoftype(v, hints[k]):
+                return False
+        return True
 
     # We don't have a match yet, so T might still be one of those meta-utilities
     # that hate `issubclass` with a passion.
@@ -368,6 +409,18 @@ def isoftype(value, T):
         # if not issubtype(rettype, sig["return"]):
         #     return False
         # return True
+
+    # Protocol — support @runtime_checkable Protocols; clear error for others.
+    # Specific Protocols (Supports* ABCs) are already handled above by identity check.
+    # We use _is_protocol (not issubclass) because issubclass(X, Protocol) returns
+    # True for some non-Protocol types (e.g. int) on Python 3.10.
+    if isinstance(T, type) and T is not typing.Protocol and getattr(T, '_is_protocol', False):
+        if getattr(T, '_is_runtime_protocol', False):
+            return isinstance(value, T)
+        raise TypeError(
+            f"isoftype: {T.__qualname__} is a Protocol but not @typing.runtime_checkable, "
+            f"so runtime structural checks are not possible. "
+            f"Add @typing.runtime_checkable to enable isinstance checks.")
 
     # Catch any `typing` meta-utilities we don't currently support.
     if hasattr(T, "__module__") and T.__module__ == "typing":  # pragma: no cover, only happens when something goes wrong.

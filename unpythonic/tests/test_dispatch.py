@@ -468,6 +468,29 @@ def runtests():
         test[classify(contextlib.nullcontext()) == "context manager"]
         test[classify(42) == "int"]
 
+    with testset("@generic with Iterable dispatch"):
+        # Best-effort element checking: concrete collections dispatch correctly.
+        @generic
+        def process_items(x: typing.Iterable[int]):
+            return "ints"
+        @generic
+        def process_items(x: typing.Iterable[str]):  # noqa: F811
+            return "strs"
+        test[process_items([1, 2, 3]) == "ints"]
+        test[process_items(["a", "b"]) == "strs"]
+        test[process_items((1, 2)) == "ints"]
+        test[process_items({"hello", "world"}) == "strs"]
+
+    with testset("@generic with Collection dispatch"):
+        @generic
+        def summarize(x: typing.Collection[int]):
+            return f"collection of {len(list(x))} ints"
+        @generic
+        def summarize(x: typing.Collection[str]):  # noqa: F811
+            return f"collection of {len(list(x))} strs"
+        test[summarize([1, 2, 3]) == "collection of 3 ints"]
+        test[summarize(["a", "b"]) == "collection of 2 strs"]
+
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

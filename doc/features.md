@@ -3731,7 +3731,7 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 ### `generic`, `typed`, `isoftype`: multiple dispatch
 
-**Changed in v2.0.0.** *`isoftype` now supports many more `typing` features: `NoReturn`, `Never`, `Literal`, `Type`, `ClassVar`, `Final`, `DefaultDict`, `OrderedDict`, `Counter`, `ChainMap`, `IO`/`TextIO`/`BinaryIO`, `Pattern`/`Match`, `ContextManager`/`AsyncContextManager`, `Awaitable`/`Coroutine`, `AsyncIterable`/`AsyncIterator`, `Generator`/`AsyncGenerator`. See the [`isoftype` section](#isoftype-the-big-sister-of-isinstance) for the full list.*
+**Changed in v2.0.0.** *`isoftype` now supports many more `typing` features: `NoReturn`, `Never`, `Literal`, `Type`, `ClassVar`, `Final`, `DefaultDict`, `OrderedDict`, `Counter`, `ChainMap`, `IO`/`TextIO`/`BinaryIO`, `Pattern`/`Match`, `ContextManager`/`AsyncContextManager`, `Awaitable`/`Coroutine`, `AsyncIterable`/`AsyncIterator`, `Generator`/`AsyncGenerator`, `TypedDict`, `@runtime_checkable` `Protocol`, and parametric forms of abstract ABCs (`Iterable[T]`, `Collection[T]`, `Reversible[T]` with best-effort element checking; `Iterator[T]`, `Container[T]`). See the [`isoftype` section](#isoftype-the-big-sister-of-isinstance) for the full list.*
 
 **Changed in v0.15.0**. *The `dispatch` and `typecheck` modules providing this functionality are now considered stable (no longer experimental). Starting with this release, they receive the same semantic-versioning guarantees as the rest of `unpythonic`.*
 
@@ -4071,9 +4071,13 @@ Any checks on the type arguments of the meta-utilities defined in the `typing` s
 | Async | `Awaitable`, `Coroutine`, `AsyncIterable`, `AsyncIterator` |
 | Context managers | `ContextManager`, `AsyncContextManager` |
 | Protocols | `SupportsInt`, `SupportsFloat`, `SupportsComplex`, `SupportsBytes`, `SupportsIndex`, `SupportsAbs`, `SupportsRound` |
-| ABCs | `Iterator`, `Iterable`, `Reversible`, `Container`, `Collection`, `Hashable`, `Sized` |
+| Protocol (user) | `@runtime_checkable` Protocol subclasses (structural subtyping via `isinstance`) |
+| TypedDict | Structural check: required/optional keys, value types recursively checked |
+| ABCs (best-effort) | `Iterable[T]`, `Collection[T]`, `Reversible[T]` (elements checked when value is `Sized`; ABC-only when not) |
+| ABCs (type arg ignored) | `Iterator[T]`, `Container[T]` (parametric form accepted, type arg silently ignored) |
+| ABCs (non-generic) | `Hashable`, `Sized` |
 
-**Not supported:** `Protocol` (structural subtyping), `TypedDict`, `Generic`, `ForwardRef`. Specific `NamedTuple` subclasses work via the `isinstance` fallback.
+**Not supported:** `Generic`, `ForwardRef`. Specific `NamedTuple` subclasses work via the `isinstance` fallback. Non-`@runtime_checkable` Protocols raise `TypeError` with an actionable message.
 
 Some examples:
 
@@ -4144,11 +4148,34 @@ assert isoftype(io.BytesIO(b"hi"), typing.BinaryIO)
 # one-trick ponies
 assert isoftype(3.14, typing.SupportsRound)
 assert isoftype([1, 2, 3], typing.Sized)
+
+# best-effort element checking for abstract iterables
+assert isoftype([1, 2, 3], typing.Iterable[int])       # concrete → elements checked
+assert not isoftype([1, 2, 3], typing.Iterable[str])    # wrong element type
+assert isoftype(iter([1, 2, 3]), typing.Iterable[int])  # opaque iterator → ABC only
+
+# TypedDict — structural checking of keys and value types
+class Point(typing.TypedDict):
+    x: float
+    y: float
+assert isoftype({"x": 1.0, "y": 2.0}, Point)
+assert not isoftype({"x": 1.0}, Point)  # missing required key
+
+# Protocol (must be @runtime_checkable)
+@typing.runtime_checkable
+class Drawable(typing.Protocol):
+    def draw(self) -> None: ...
+class Circle:
+    def draw(self):
+        pass
+assert isoftype(Circle(), Drawable)
 ```
 
 See [the unit tests](../unpythonic/tests/test_typecheck.py) for the full set of supported features.
 
-**CAUTION**: For types where the type parameters describe behavior rather than stored data — `Callable`, `Generator`, `AsyncGenerator`, `ContextManager`, `AsyncContextManager`, `Awaitable`, `Coroutine`, `AsyncIterable`, `AsyncIterator` — only the ABC is checked. The type parameters (argument types, yield/send/return types, etc.) are silently ignored, because checking them would require consuming or invoking the value.
+**CAUTION**: For types where the type parameters describe behavior rather than stored data — `Callable`, `Generator`, `AsyncGenerator`, `ContextManager`, `AsyncContextManager`, `Awaitable`, `Coroutine`, `AsyncIterable`, `AsyncIterator`, `Iterator`, `Container` — only the ABC is checked. The type parameters are silently ignored, because checking them would require consuming or invoking the value.
+
+For `Iterable[T]`, `Collection[T]`, and `Reversible[T]`, element types are checked **best-effort**: if the value is `Sized` (a concrete collection like `list`, `set`, etc.), elements are checked; if it's an opaque iterator, only the ABC is checked. Empty concrete collections reject parametric specs (consistent with `List[T]`, `Sequence[T]`, etc.).
 
 
 #### Notes
