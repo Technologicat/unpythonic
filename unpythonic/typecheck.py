@@ -131,7 +131,7 @@ def isoftype(value, T):
     if safeissubclass(T, typing.Text):  # https://docs.python.org/3/library/typing.html#typing.Text
         return isinstance(value, str)  # alias for str
 
-    if safeissubclass(T, typing.Tuple) or typing.get_origin(T) is tuple:
+    if typing.get_origin(T) is tuple:
         if not isinstance(value, tuple):
             return False
         # bare `typing.Tuple`, no restrictions on length or element type.
@@ -151,7 +151,7 @@ def isoftype(value, T):
         return all(isoftype(elt, U) for elt, U in zip(value, T.__args__))
 
     # Check mapping types that allow non-destructive iteration.
-    def ismapping(statictype, runtimetype):
+    def ismapping(runtimetype):
         if not isinstance(value, runtimetype):
             return False
         args = getattr(T, "__args__", None)
@@ -162,15 +162,13 @@ def isoftype(value, T):
             return False
         K, V = args
         return all(isoftype(k, K) and isoftype(v, V) for k, v in value.items())
-    for statictype, runtimetype in ((typing.Dict, dict),
-                                    (typing.MutableMapping, collections.abc.MutableMapping),
-                                    (typing.Mapping, collections.abc.Mapping)):
-        if safeissubclass(T, statictype) or typing.get_origin(T) is runtimetype:
-            return ismapping(statictype, runtimetype)
+    for runtimetype in (dict, collections.abc.MutableMapping, collections.abc.Mapping):
+        if typing.get_origin(T) is runtimetype:
+            return ismapping(runtimetype)
 
     # ItemsView is a special-case mapping in that we must not call
     # `.items()` on `value`.
-    if safeissubclass(T, typing.ItemsView) or typing.get_origin(T) is collections.abc.ItemsView:
+    if typing.get_origin(T) is collections.abc.ItemsView:
         if not isinstance(value, collections.abc.ItemsView):
             return False
         args = getattr(T, "__args__", None)
@@ -191,7 +189,7 @@ def isoftype(value, T):
         def iscollection(statictype, runtimetype):
             if not isinstance(value, runtimetype):
                 return False
-            if safeissubclass(statictype, typing.ByteString) or typing.get_origin(statictype) is collections.abc.ByteString:
+            if typing.get_origin(statictype) is collections.abc.ByteString:
                 # WTF? A ByteString is a Sequence[int], but only statically.
                 # At run time, the `__args__` are actually empty - it looks
                 # like a bare Sequence, which is invalid. HACK the special case.
@@ -222,10 +220,10 @@ def isoftype(value, T):
                                         (typing.MutableSequence, collections.abc.MutableSequence),
                                         (typing.MappingView, collections.abc.MappingView),
                                         (typing.Sequence, collections.abc.Sequence)):
-            if safeissubclass(T, statictype) or typing.get_origin(T) is runtimetype:
+            if typing.get_origin(T) is runtimetype:
                 return iscollection(statictype, runtimetype)
 
-    if safeissubclass(T, typing.Callable) or typing.get_origin(T) is collections.abc.Callable:
+    if typing.get_origin(T) is collections.abc.Callable:
         if not callable(value):
             return False
         return True
