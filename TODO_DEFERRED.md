@@ -4,3 +4,5 @@
 
 - **D4**: `typecheck.py` — expand runtime type checker to support more `typing` features: NamedTuple, DefaultDict, Counter, ChainMap, OrderedDict, IO/TextIO/BinaryIO, Pattern/Match, Generic, Type, Awaitable, Coroutine, AsyncIterable, AsyncIterator, ContextManager, AsyncContextManager, Generator, AsyncGenerator, NoReturn, ClassVar, Final, Protocol, TypedDict, Literal, ForwardRef. Would improve `unpythonic.dispatch` (multiple dispatch). (Discovered during Phase 4 cleanup.)
 
+- **D6**: Move the test runner (`runtests.py`) into an installable location (e.g. `unpythonic.test.runner` or similar) so other projects using `unpythonic.test.fixtures` can reuse the version-suffix gating, module discovery, and `emit_warning` integration. Currently it sits at the repo top level and is not installed as part of the package. (Discovered during D5 work.)
+
