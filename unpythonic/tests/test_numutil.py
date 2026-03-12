@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises, error, the  # noqa: F401
+from ..syntax import macros, test, test_raises, warn, the  # noqa: F401
 from ..test.fixtures import session, testset
 
 from itertools import count, takewhile
@@ -37,7 +37,7 @@ def runtests():
         try:
             from mpmath import mpf
         except ImportError:  # pragma: no cover
-            error["mpmath not installed in this Python, cannot test arbitrary precision input for mathseq."]
+            warn["mpmath not installed in this Python, skipping arbitrary precision input tests."]
         else:
             test[almosteq(mpf(1.0), mpf(1.0 + ulp(1.0)))]
             test[almosteq(1.0, mpf(1.0 + ulp(1.0)))]

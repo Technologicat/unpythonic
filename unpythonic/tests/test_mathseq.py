@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ..syntax import macros, test, test_raises, error, the  # noqa: F401
+from ..syntax import macros, test, test_raises, warn, the  # noqa: F401
 from ..test.fixtures import session, testset
 
 from operator import add, mul
@@ -27,7 +27,7 @@ def runtests():
         try:
             from sympy import symbols
         except ImportError:  # pragma: no cover
-            error["SymPy not installed in this Python, cannot test symbolic input for mathseq."]
+            warn["SymPy not installed in this Python, skipping symbolic input tests for mathseq."]
         else:
             x = symbols("x", positive=True)
             test[sign(x) == +1]
@@ -40,7 +40,7 @@ def runtests():
         try:
             from sympy import symbols, exp as symbolicExp, E as NeperE
         except ImportError:  # pragma: no cover
-            error["SymPy not installed in this Python, cannot test symbolic input for mathseq."]
+            warn["SymPy not installed in this Python, skipping symbolic input tests for mathseq."]
         else:
             test[log(NeperE**2) == 2]
             x = symbols("x", positive=True)
@@ -328,7 +328,7 @@ def runtests():
         try:
             from sympy import symbols
         except ImportError:  # pragma: no cover
-            error["SymPy not installed in this Python, cannot test symbolic input for mathseq."]
+            warn["SymPy not installed in this Python, skipping symbolic input tests for mathseq."]
         else:
             x0 = symbols("x0", real=True)
             k = symbols("k", positive=True)  # important for geometric series

@@ -74,17 +74,18 @@ an expr macro that can be used instead of `assert` when writing test cases.
             with testset("inner 2"):
                 test[2 + 2 == 4]
 
-        # Unconditional errors can be emitted with `error[]`.
+        # Warnings can be emitted with `warn[]`.
         # Useful e.g. if an optional dependency is missing:
         with testset("integration"):
             try:
                 import blargly
             except ImportError:
-                error["blargly not installed, cannot test integration with it."]
+                warn["blargly not installed, skipping integration tests."]
             else:
                 ... # blargly integration tests go here
 
-        # Similarly, unconditional errors can be emitted with `fail[]`.
+        # Unconditional errors can be emitted with `error[]`.
+        # Unconditional failures can be emitted with `fail[]`.
         # Useful for marking a testing TODO, or for marking a line
         # that should be unreachable in a code example.
         with testset("really fancy tests"):

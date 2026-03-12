@@ -1997,9 +1997,13 @@ with session("simple framework demo"):
         try:
             import blargly
         except ImportError:
-            error["blargly not installed, cannot test integration with it."]
+            warn["blargly not installed, skipping integration tests."]
         else:
             ... # blargly integration tests go here
+
+    # Unconditional errors and failures can be emitted with `error[]` and `fail[]`.
+    # with testset("not implemented"):
+    #     fail["not implemented yet!"]
 
     with testset(postproc=terminate):
         test[2 * 2 == 5]  # fails, terminating the nearest dynamically enclosing `with session`

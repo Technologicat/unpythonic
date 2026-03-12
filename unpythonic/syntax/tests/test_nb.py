@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from ...syntax import macros, test, error  # noqa: F401
+from ...syntax import macros, test, warn  # noqa: F401
 from ...test.fixtures import session, testset
 
 from ...syntax import macros, nb  # noqa: F401, F811
@@ -18,7 +18,7 @@ def runtests():
         try:
             from sympy import symbols, pprint
         except ImportError:  # pragma: no cover
-            error["SymPy not installed in this Python, cannot test symbolic math in nb."]
+            warn["SymPy not installed in this Python, skipping symbolic math tests in nb."]
         else:
             with nb[pprint]:  # you can specify a custom print function (first positional arg)
                 test[_ is None]  # noqa: F821
