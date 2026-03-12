@@ -3731,6 +3731,8 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 ### `generic`, `typed`, `isoftype`: multiple dispatch
 
+**Changed in v2.0.0.** *`isoftype` now supports many more `typing` features: `NoReturn`, `Never`, `Literal`, `Type`, `ClassVar`, `Final`, `DefaultDict`, `OrderedDict`, `Counter`, `ChainMap`, `IO`/`TextIO`/`BinaryIO`, `Pattern`/`Match`, `ContextManager`/`AsyncContextManager`, `Awaitable`/`Coroutine`, `AsyncIterable`/`AsyncIterator`, `Generator`/`AsyncGenerator`. See the [`isoftype` section](#isoftype-the-big-sister-of-isinstance) for the full list.*
+
 **Changed in v0.15.0**. *The `dispatch` and `typecheck` modules providing this functionality are now considered stable (no longer experimental). Starting with this release, they receive the same semantic-versioning guarantees as the rest of `unpythonic`.*
 
 *Added the `@augment` parametric decorator that can register a new multimethod on an existing generic function originally defined in another lexical scope.*
@@ -3749,7 +3751,7 @@ The core idea can be expressed in fewer than 100 lines of Python; ours is (as of
 
 **Added in v0.14.2**.
 
-The `generic` decorator allows creating [multiple-dispatch](https://en.wikipedia.org/wiki/Multiple_dispatch) generic functions with type annotation syntax. We also provide some friendly utilities: `augment` adds a new multimethod to an existing generic function, `typed` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type-checking code), and `isoftype` (which powers the first three) is the big sister of `isinstance`, with support for many (but unfortunately not all) features of the `typing` standard library module.
+The `generic` decorator allows creating [multiple-dispatch](https://en.wikipedia.org/wiki/Multiple_dispatch) generic functions with type annotation syntax. We also provide some friendly utilities: `augment` adds a new multimethod to an existing generic function, `typed` creates a single-method generic with the same syntax (i.e. provides a compact notation for writing dynamic type-checking code), and `isoftype` (which powers the first three) is the big sister of `isinstance`, with support for many (but not all) features of the `typing` standard library module.
 
 This is a purely run-time implementation, so it does **not** give performance benefits, but it can make code more readable, and makes it modular to add support for new input types (or different call signatures) to an existing function later.
 
@@ -3844,7 +3846,7 @@ assert kittify(x=1, y=2) == "int"
 assert kittify(x=1.0, y=2.0) == "float"
 ```
 
-See [the unit tests](../unpythonic/tests/test_dispatch.py) for more. For which features of the `typing` stdlib module are supported, see `isoftype` below.
+See [the unit tests](../unpythonic/tests/test_dispatch.py) for more. For which features of the `typing` stdlib module are supported, see [`isoftype`](#isoftype-the-big-sister-of-isinstance) below.
 
 
 ##### `@generic` and OOP
@@ -4037,14 +4039,41 @@ assert jack("foo") == "foo"
 jack(3.14)  # TypeError
 ```
 
-For which features of the `typing` stdlib module are supported, see `isoftype` below.
+For which features of the `typing` stdlib module are supported, see [`isoftype`](#isoftype-the-big-sister-of-isinstance) below.
 
 
 #### `isoftype`: the big sister of `isinstance`
 
-Type check object instances against type specifications at run time. This is the machinery that powers `generic` and `typed`. This goes beyond `isinstance` in that many (but unfortunately not all) features of the `typing` standard library module are supported.
+Type check object instances against type specifications at run time. This is the machinery that powers `generic` and `typed`. This goes beyond `isinstance` in that many (but not all) features of the `typing` standard library module are supported.
 
-Any checks on the type arguments of the meta-utilities defined in the `typing` stdlib module are performed recursively using `isoftype` itself, in order to allow compound abstract specifications.
+`isoftype` is a **non-destructive** runtime type checker. It never consumes iterators, calls functions, or enters context managers to inspect their types. This limits what it can check — for example, element types of iterators and argument/return types of callables cannot be verified — but it means `isoftype` is always safe to call, even in hot loops or dispatch logic.
+
+Any checks on the type arguments of the meta-utilities defined in the `typing` stdlib module are performed recursively using `isoftype` itself, in order to allow compound specifications.
+
+**Supported `typing` features:**
+
+| Category | Supported types |
+|----------|----------------|
+| Basics | `Any`, `TypeVar`, `NewType`, `Union`, `Optional` |
+| Bottom | `NoReturn`, `Never` (3.11+) |
+| Values | `Literal[v1, v2, ...]` |
+| Classes | `Type[X]` |
+| Wrappers | `ClassVar[T]`, `Final[T]` (stripped, inner type checked) |
+| Tuples | `Tuple`, `Tuple[T, ...]`, `Tuple[T1, T2, ..., TN]` |
+| Sequences | `List[T]`, `Sequence[T]`, `MutableSequence[T]`, `Deque[T]` |
+| Sets | `Set[T]`, `FrozenSet[T]`, `AbstractSet[T]`, `MutableSet[T]` |
+| Mappings | `Dict[K, V]`, `DefaultDict[K, V]`, `OrderedDict[K, V]`, `Counter[T]`, `ChainMap[K, V]`, `Mapping[K, V]`, `MutableMapping[K, V]` |
+| Views | `KeysView[K]`, `ValuesView[V]`, `ItemsView[K, V]` |
+| IO | `IO`, `IO[str]`, `IO[bytes]`, `TextIO`, `BinaryIO` |
+| Regex | `Pattern[T]`, `Match[T]` (string type checked) |
+| Callables | `Callable` (arg/return types **not** checked) |
+| Generators | `Generator`, `AsyncGenerator` (yield/send/return types **not** checked) |
+| Async | `Awaitable`, `Coroutine`, `AsyncIterable`, `AsyncIterator` |
+| Context managers | `ContextManager`, `AsyncContextManager` |
+| Protocols | `SupportsInt`, `SupportsFloat`, `SupportsComplex`, `SupportsBytes`, `SupportsIndex`, `SupportsAbs`, `SupportsRound` |
+| ABCs | `Iterator`, `Iterable`, `Reversible`, `Container`, `Collection`, `Hashable`, `Sized` |
+
+**Not supported:** `Protocol` (structural subtyping), `TypedDict`, `Generic`, `ForwardRef`. Specific `NamedTuple` subclasses work via the `isinstance` fallback.
 
 Some examples:
 
@@ -4052,11 +4081,11 @@ Some examples:
 import typing
 from unpythonic import isoftype
 
-# concrete types - uninteresting, we just delegate to `isinstance`
+# concrete types — just delegates to isinstance
 assert isoftype(17, int)
 assert isoftype(lambda: ..., typing.Callable)
 
-# typing.newType
+# typing.NewType
 UserId = typing.NewType("UserId", int)
 assert isoftype(UserId(42), UserId)
 # Note limitation: since NewType types discard their type information at
@@ -4100,16 +4129,26 @@ assert isoftype({1: "foo", 2: "bar"}, typing.MutableMapping[int, str])
 assert isoftype((1, 2, 3), typing.Sequence[int])
 assert isoftype({1, 2, 3}, typing.AbstractSet[int])
 
+# new in 2.0.0
+assert isoftype(200, typing.Literal[200, 404, 500])
+assert isoftype(int, typing.Type[int])
+assert isoftype(bool, typing.Type[int])  # bool is a subclass of int
+import collections
+assert isoftype(collections.Counter("hello"), typing.Counter[str])
+import re
+assert isoftype(re.compile(r"\d+"), typing.Pattern[str])
+import io
+assert isoftype(io.StringIO("hi"), typing.TextIO)
+assert isoftype(io.BytesIO(b"hi"), typing.BinaryIO)
+
 # one-trick ponies
 assert isoftype(3.14, typing.SupportsRound)
 assert isoftype([1, 2, 3], typing.Sized)
 ```
 
-See [the unit tests](../unpythonic/tests/test_typecheck.py) for more.
+See [the unit tests](../unpythonic/tests/test_typecheck.py) for the full set of supported features.
 
-**CAUTION**: Callables are just checked for being callable; no further analysis is done. Type-checking callables properly requires a much more complex type checker.
-
-**CAUTION**: The `isoftype` function is one big hack. In Python 3.6 through 3.9, there is no consistent way to handle a type specification at run time. We must access some private attributes of the `typing` meta-utilities, because that seems to be the only way to get what we need to do this.
+**CAUTION**: For types where the type parameters describe behavior rather than stored data — `Callable`, `Generator`, `AsyncGenerator`, `ContextManager`, `AsyncContextManager`, `Awaitable`, `Coroutine`, `AsyncIterable`, `AsyncIterator` — only the ABC is checked. The type parameters (argument types, yield/send/return types, etc.) are silently ignored, because checking them would require consuming or invoking the value.
 
 
 #### Notes

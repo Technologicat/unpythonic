@@ -20,5 +20,3 @@ Next unused item code: D8
   - Raise `TypeError` when registering indistinguishable multimethods (e.g. `Iterable[int]` then `Iterable[float]`).
   (Discovered during D4 Set 2 work.)
 
-- **D7**: `doc/features.md` — the `isoftype` section needs updating: add examples for new typing features (D4 Sets 1+2), remove stale Python 3.6–3.9 CAUTION, add a note that this is a non-destructive runtime typechecker (which limits what it can check — e.g. element types of iterators, arg/return types of callables). Also consider noting this in the `@generic` docstring. (Discovered during D4 work.)
-
