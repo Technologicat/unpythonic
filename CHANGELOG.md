@@ -15,6 +15,8 @@
 - `autoreturn` macro now handles `match`/`case` statements. Each case branch has its own tail position.
 - New scope analyzer tests for `match`/`case` patterns and `try`/`except*`.
 - Test runner (`runtests.py`) now supports version-suffixed test modules (e.g. `test_foo_3_11.py` runs only on Python 3.11+).
+- New `emit_warning()` function in `unpythonic.test.fixtures` for signaling test warnings from infrastructure code (outside `test[]`/`warn[]` macros). Version-suffix skips now show in the testset warning count.
+- Missing optional dependencies (sympy, mpmath) in tests now emit `warn[]` instead of `error[]`, correctly reflecting that these are expected skips, not failures.
 
 **Fixed**:
 
