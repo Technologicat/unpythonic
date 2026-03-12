@@ -424,9 +424,7 @@ def extract_args(tree):
     if type(tree) not in (Lambda, FunctionDef, AsyncFunctionDef):
         raise ValueError(f"Expected a function definition AST node, got {tree}")
     a = tree.args
-    allargs = a.args + a.kwonlyargs
-    if hasattr(a, "posonlyargs"):  # Python 3.8+: positional-only arguments
-        allargs += a.posonlyargs
+    allargs = a.posonlyargs + a.args + a.kwonlyargs
     argnames = [x.arg for x in allargs]
     if a.vararg:
         argnames.append(a.vararg.arg)

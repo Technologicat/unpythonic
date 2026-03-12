@@ -34,7 +34,6 @@ with phase[1]:
 
     import ast
     from functools import partial
-    import sys
 
     from mcpyrate.quotes import macros, q, n, a, h  # noqa: F811
     from unpythonic.misc import safeissubclass
@@ -191,9 +190,7 @@ with phase[1]:
         def is_myield_expr(node):
             return type(node) is ast.Subscript and is_myield_name(node.value)
         def getslice(subscript_node):
-            if sys.version_info >= (3, 9, 0):  # Python 3.9+: no ast.Index wrapper
-                return subscript_node.slice
-            return subscript_node.slice.value
+            return subscript_node.slice
         class MultishotYieldTransformer(ASTTransformer):
             def transform(self, tree):
                 if is_captured_value(tree):  # do not recurse into hygienic captures

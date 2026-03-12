@@ -81,7 +81,8 @@ Requires `mcpyrate`.
 
 # TODO: 0.16: AST pattern matching for `mcpyrate`? Would make destructuring easier. A writable representation (auto-viewify) is a pain to build, though...
 
-# TODO: Far future: Change decorator macro invocations to use [] instead of () to pass macro arguments. Requires Python 3.9, so the earliest time to do this is when 3.9 becomes the minimum Python version for `unpythonic`.
+# Parenthesis syntax for decorator macro arguments is deprecated; bracket syntax is preferred.
+# Parenthesis syntax is kept for backward compatibility.
 
 from .autocurry import *  # noqa: F401, F403
 from .autoref import *  # noqa: F401, F403

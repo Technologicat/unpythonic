@@ -9,7 +9,6 @@ __all__ = ["isx", "getname",
            "is_unexpanded_expr_macro", "is_unexpanded_block_macro"]
 
 from ast import Name, Attribute, Subscript, Call, With
-import sys
 
 from mcpyrate.core import Done
 from mcpyrate.quotes import is_captured_macro, is_captured_value, lookup_macro
@@ -124,11 +123,7 @@ def is_unexpanded_expr_macro(macrofunction, expander, tree):
     # extract the expr
     macro = expander.isbound(name_node.id)
     if macro is macrofunction:
-        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-            body = tree.slice
-        else:
-            body = tree.slice.value
-        return body
+        return tree.slice
     return False
 
 
@@ -154,7 +149,7 @@ def is_unexpanded_block_macro(macrofunction, expander, tree):
     # discard args if any
     if type(maybemacro) is Subscript:
         maybemacro = maybemacro.value
-    # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+    # Parenthesis syntax for macro arguments (deprecated; kept for backward compatibility)
     elif type(maybemacro) is Call:
         maybemacro = maybemacro.func
 

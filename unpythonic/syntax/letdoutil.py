@@ -8,7 +8,6 @@ __all__ = ["canonize_bindings",  # used by the macro interface layer
 
 from ast import (Call, Name, Subscript, Compare, In,
                  Tuple, List, Constant, BinOp, LShift, Lambda)
-import sys
 
 from mcpyrate import unparse
 from mcpyrate.astcompat import getconstant, Str, NamedExpr
@@ -22,14 +21,10 @@ currycall_name = "currycall"  # output of ``unpythonic.syntax.autocurry``
 
 def _get_subscript_slice(tree):
     assert type(tree) is Subscript
-    if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-        return tree.slice
-    return tree.slice.value
+    return tree.slice
 def _set_subscript_slice(tree, newslice):  # newslice: AST
     assert type(tree) is Subscript
-    if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-        tree.slice = newslice
-    tree.slice.value = newslice
+    tree.slice = newslice
 def _canonize_macroargs_node(macroargs):
     # We do this like `mcpyrate.expander.destructure_candidate` does,
     # except that we also destructure a list.
@@ -197,7 +192,7 @@ def islet(tree, expanded=True):
         s = tree.value.id
         if any(s == x for x in deconames):
             return ("decorator", s)
-    if type(tree) is Call and type(tree.func) is Name:  # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+    if type(tree) is Call and type(tree.func) is Name:  # Parenthesis syntax for macro arguments (deprecated; kept for backward compatibility)
         s = tree.func.id
         if any(s == x for x in deconames):
             return ("decorator", s)
@@ -214,7 +209,7 @@ def islet(tree, expanded=True):
         s = macro.value.id
         if any(s == x for x in exprnames):
             return ("lispy_expr", s)
-    elif type(macro) is Call and type(macro.func) is Name:  # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+    elif type(macro) is Call and type(macro.func) is Name:  # Parenthesis syntax for macro arguments (deprecated; kept for backward compatibility)
         s = macro.func.id
         if any(s == x for x in exprnames):
             return ("lispy_expr", s)
@@ -497,7 +492,7 @@ class UnexpandedLetView:
                 # ^^^^^^^^^^
                 thetree = self._tree.value
 
-            if type(thetree) is Call:  # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+            if type(thetree) is Call:  # Parenthesis syntax for macro arguments (deprecated; kept for backward compatibility)
                 return canonize_bindings(thetree.args)
             # Subscript
             theargs = _get_subscript_slice(thetree)
@@ -526,7 +521,7 @@ class UnexpandedLetView:
                 # ^^^^^^^^^^
                 thetree = self._tree.value
 
-            if type(thetree) is Call:  # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+            if type(thetree) is Call:  # Parenthesis syntax for macro arguments (deprecated; kept for backward compatibility)
                 thetree.args = newbindings
                 return
             _set_subscript_slice(thetree, Tuple(elts=newbindings))

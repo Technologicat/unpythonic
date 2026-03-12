@@ -451,10 +451,7 @@ def _envify(block_body):
     # second pass, inside-out
     def getargs(tree):  # tree: FunctionDef, AsyncFunctionDef, Lambda
         a = tree.args
-        if hasattr(a, "posonlyargs"):  # Python 3.8+: positional-only parameters
-            allargs = a.posonlyargs + a.args + a.kwonlyargs
-        else:
-            allargs = a.args + a.kwonlyargs
+        allargs = a.posonlyargs + a.args + a.kwonlyargs
         argnames = [x.arg for x in allargs]
         if a.vararg:
             argnames.append(a.vararg.arg)

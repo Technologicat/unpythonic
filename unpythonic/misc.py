@@ -15,9 +15,8 @@ from functools import partial
 from itertools import count
 import inspect
 from queue import Empty
-from sys import version_info
 from time import monotonic
-from types import CodeType, FunctionType, LambdaType
+from types import FunctionType, LambdaType
 
 from .regutil import register_decorator
 
@@ -98,27 +97,7 @@ def namelambda(name):
         f.__name__ = name
         idx = f.__qualname__.rfind('.')
         f.__qualname__ = f"{f.__qualname__[:idx]}.{name}" if idx != -1 else name
-        # __code__.co_name is read-only, but there's a types.CodeType constructor
-        # that we can use to re-create the code object with the new name.
-        # (This is no worse than what the stdlib's Lib/modulefinder.py already does.)
-        co = f.__code__
-        # https://github.com/ipython/ipython/blob/master/IPython/core/interactiveshell.py
-        # https://www.python.org/dev/peps/pep-0570/
-        # https://docs.python.org/3/library/types.html#types.CodeType
-        # https://docs.python.org/3/library/inspect.html#types-and-members
-        if version_info >= (3, 8, 0):  # Python 3.8+: positional-only parameters
-            # In Python 3.8+, `CodeType` has the convenient `replace()` method to functionally update it.
-            # In Python 3.10, we must actually use it to avoid losing the line number info,
-            # or `inspect.stack()` will crash in the unit tests for `callsite_filename()`.
-            f.__code__ = f.__code__.replace(co_name=name)
-        else:
-            f.__code__ = CodeType(co.co_argcount, co.co_kwonlyargcount,
-                                  co.co_nlocals, co.co_stacksize, co.co_flags,
-                                  co.co_code, co.co_consts, co.co_names,
-                                  co.co_varnames, co.co_filename,
-                                  name,
-                                  co.co_firstlineno, co.co_lnotab, co.co_freevars,
-                                  co.co_cellvars)
+        f.__code__ = f.__code__.replace(co_name=name)
         return f
     return rename
 

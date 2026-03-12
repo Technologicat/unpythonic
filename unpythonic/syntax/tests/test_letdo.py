@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """Let constructs; do (imperative code in expression position)."""
 
-# TODO: Update the @dlet, @dletseq, @dletrec, @blet, @bletseq, @bletrec examples
-# TODO: to pass macro arguments using brackets once we bump to minimum Python 3.9.
+# NOTE: Decorator macro arguments use parenthesis syntax in some examples below.
+# Bracket syntax is preferred for new code; parenthesis syntax is deprecated but kept for backward compatibility.
 
 from ...syntax import macros, test, test_raises  # noqa: F401
 from ...test.fixtures import session, testset
@@ -27,11 +27,7 @@ def runtests():
         #  - No need for ``lambda e: ...`` wrappers. Inserted automatically,
         #    so the lines are only evaluated as the underlying seq.do() runs.
         #
-        # Python 3.8 and Python 3.9 require the parens around the walrus when used inside a subscript.
-        # TODO: Remove the parens (in all walrus-inside-subscript instances in this file) when we bump minimum Python to 3.10.
-        # From https://docs.python.org/3/whatsnew/3.10.html:
-        #    Assignment expressions can now be used unparenthesized within set literals and set comprehensions, as well as in sequence indexes (but not slices).
-        d1 = do[local[(x := 17)],
+        d1 = do[local[x := 17],
                 print(x),
                 (x := 23),
                 x]
@@ -42,7 +38,7 @@ def runtests():
 
         # v0.14.0: do[] now supports deleting previously defined local names with delete[]
         a = 5
-        d = do[local[(a := 17)],  # noqa: F841, yes, d is unused.
+        d = do[local[a := 17],  # noqa: F841, yes, d is unused.
                test[a == 17],
                delete[a],
                test[a == 5],  # lexical scoping
@@ -51,7 +47,7 @@ def runtests():
         test_raises[KeyError, do[delete[a], ], "should have complained about deleting nonexistent local 'a'"]
 
         # do0[]: like do[], but return the value of the **first** expression
-        d2 = do0[local[(y := 5)],  # noqa: F821, `local` defines the name on the LHS of the `<<`.
+        d2 = do0[local[y := 5],  # noqa: F821, `local` defines the name on the LHS of the `<<`.
                  print("hi there, y =", y),  # noqa: F821
                  42]  # evaluated but not used
         test[d2 == 5]

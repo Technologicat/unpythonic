@@ -118,7 +118,7 @@ The `lazify` and `continuations` macros are the most complex (and perhaps fearso
 
 `unpythonic.syntax.scopeanalyzer` is a unfortunate artifact that is needed to implement macros that interact with Python's scoping rules, notably `let`. Fortunately, [the language reference explicitly documents](https://docs.python.org/3/reference/executionmodel.html#naming-and-binding) what is needed for a lexical scope analysis for Python. So we have just implemented that (better, as an AST analysis, rather than scanning the surface syntax text).
 
-As of the first half of 2021, the main target platforms are **CPython 3.8** and **PyPy3 3.7** (since as of April 2021, PyPy3 does not have 3.8 yet). The code should run on 3.6 or any later Python. We have [a GitHub workflow](https://github.com/Technologicat/unpythonic/actions?query=workflow%3A%22Python+package%22) that runs the test suite on CPython 3.6 through 3.9, and on PyPy3.
+As of v2.0.0, the main target platforms are **CPython 3.10** through **3.14**, and **PyPy3** (language version 3.11). We have [a GitHub workflow](https://github.com/Technologicat/unpythonic/actions?query=workflow%3A%22Python+package%22) that runs the test suite on these platforms.
 
 
 ## Style guide

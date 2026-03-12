@@ -15,7 +15,6 @@ see `typeguard`:
 """
 
 import collections
-import sys
 import typing
 
 _MyGenericAlias = typing._GenericAlias  # Python 3.7+
@@ -183,12 +182,7 @@ def isoftype(value, T):
         return False  # pragma: no cover, Python 3.7+ only.
 
     def isNewType(T):
-        # In Python 3.10, an instance of `typing.NewType` is now actually such and not just a function. Nice!
-        if sys.version_info >= (3, 10, 0):
-            return isinstance(T, typing.NewType)
-        # Python 3.6, Python 3.7, Python 3.8, Python 3.9
-        # TODO: in Python 3.7+, what is the mysterious callable that doesn't have a `__qualname__`?
-        return callable(T) and hasattr(T, "__qualname__") and T.__qualname__ == "NewType.<locals>.new_type"
+        return isinstance(T, typing.NewType)
     if isNewType(T):
         # This is the best we can do, because the static types created by `typing.NewType`
         # have a constructor that discards the type information at runtime:

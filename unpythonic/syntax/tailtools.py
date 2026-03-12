@@ -17,7 +17,6 @@ from ast import (Lambda, FunctionDef, AsyncFunctionDef, ClassDef,
                  With, AsyncWith, If, IfExp, Try, Assign, Return, Expr,
                  Await,
                  copy_location)
-import sys
 
 from mcpyrate.quotes import macros, q, u, n, a, h  # noqa: F401
 
@@ -1110,13 +1109,12 @@ def _continuations(block_body):  # here be dragons.
                               body=q[n["cc"]],
                               orelse=non)
         contarguments = arguments(args=[arg(arg=x) for x in targets],
+                                  posonlyargs=[],
                                   kwonlyargs=[arg(arg="cc"), arg(arg="_pcc")],
                                   vararg=(arg(arg=starget) if starget else None),
                                   kwarg=None,
                                   defaults=posargdefaults,
                                   kw_defaults=[q[h[identity]], maybe_capture])
-        if sys.version_info >= (3, 8, 0):  # Python 3.8+: positional-only arguments
-            contarguments.posonlyargs = []
         funcdef = FDef(name=contname,
                        args=contarguments,
                        body=contbody,

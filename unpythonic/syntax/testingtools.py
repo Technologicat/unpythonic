@@ -20,7 +20,6 @@ from mcpyrate.utils import extract_bindings
 from mcpyrate.walkers import ASTTransformer
 
 from ast import Tuple, Subscript, Name, Call, copy_location, Compare, arg, Return, parse, Expr, AST
-import sys
 
 from ..dynassign import dyn
 from ..env import env
@@ -880,10 +879,7 @@ def _transform_important_subexpr(tree, envname):
             if isunexpandedtestmacro(tree):
                 return tree
             elif _is_important_subexpr_mark(tree):
-                if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                    thing = tree.slice
-                else:
-                    thing = tree.slice.value
+                thing = tree.slice
                 self.collect(thing)  # or anything really; value not used, we just count them.
                 # Handle any nested the[] subexpressions
                 subtree = self.visit(thing)

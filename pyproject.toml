@@ -4,7 +4,7 @@ description = "Supercharge your Python with parts of Lisp and Haskell."
 authors = [
     { name = "Juha Jeronen", email = "juha.m.jeronen@gmail.com" },
 ]
-requires-python = ">=3.8,<3.13"
+requires-python = ">=3.10,<3.15"
 
 # the `read` function and long_description_content_type from setup.py are no longer needed,
 # modern build tools like pdm/hatch already know how to handle markdown if you point them at a .md file
@@ -19,25 +19,25 @@ license = { text = "BSD" }
 dynamic = ["version"]
 
 dependencies = [
-    "mcpyrate>=3.6.4",
+    "mcpyrate @ file:///home/jje/Documents/koodit/mcpyrate",
     "sympy>=1.13"
 ]
 keywords=["functional-programming", "language-extension", "syntactic-macros",
           "tail-call-optimization", "tco", "continuations", "currying", "lazy-evaluation",
           "dynamic-variable", "macros", "lisp", "scheme", "racket", "haskell"]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: BSD License",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Libraries",

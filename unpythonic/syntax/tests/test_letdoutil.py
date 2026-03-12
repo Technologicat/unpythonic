@@ -13,7 +13,6 @@ from ...syntax import (macros, let, letrec, dlet, dletrec,  # noqa: F811, F401
                        autocurry)
 
 from ast import Tuple, Name, Constant, Lambda, BinOp, Attribute, Call
-import sys
 
 from mcpyrate import unparse
 
@@ -38,10 +37,6 @@ def runtests():
                 if type(k) is not Name:
                     return False  # pragma: no cover, only reached if the test fails.
             return True
-        # Python 3.8 and Python 3.9 require the parens around the walrus when used inside a subscript.
-        # TODO: Remove the parens (in all walrus-inside-subscript instances in this file) when we bump minimum Python to 3.10.
-        # From https://docs.python.org/3/whatsnew/3.10.html:
-        #    Assignment expressions can now be used unparenthesized within set literals and set comprehensions, as well as in sequence indexes (but not slices).
         test[validate(the[canonize_bindings(q[k0, v0].elts)])]  # noqa: F821, it's quoted.
         test[validate(the[canonize_bindings(q[((k0, v0),)].elts)])]  # noqa: F821
         test[validate(the[canonize_bindings(q[(k0, v0), (k1, v1)].elts)])]  # noqa: F821
@@ -603,38 +598,29 @@ def runtests():
     # Destructuring - unexpanded do
 
     with testset("do destructuring (unexpanded) (new env-assign syntax v0.15.3+)"):
-        testdata = q[do[local[(x := 21)],  # noqa: F821
+        testdata = q[do[local[x := 21],  # noqa: F821
                         2 * x]]  # noqa: F821
         view = UnexpandedDoView(testdata)
         # read
         thebody = view.body
-        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-            thing = thebody[0].slice
-        else:
-            thing = thebody[0].slice.value
+        thing = thebody[0].slice
         test[isenvassign(the[thing])]
         # write
         # This mutates the original, but we have to assign `view.body` to trigger the setter.
-        thebody[0] = q[local[(x := 9001)]]  # noqa: F821
+        thebody[0] = q[local[x := 9001]]  # noqa: F821
         view.body = thebody
 
         # implicit do, a.k.a. extra bracket syntax
-        testdata = q[let[[local[(x := 21)],  # noqa: F821
+        testdata = q[let[[local[x := 21],  # noqa: F821
                           2 * x]]]  # noqa: F821
-        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-            theimplicitdo = testdata.slice
-        else:
-            theimplicitdo = testdata.slice.value
+        theimplicitdo = testdata.slice
         view = UnexpandedDoView(theimplicitdo)
         # read
         thebody = view.body
-        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-            thing = thebody[0].slice
-        else:
-            thing = thebody[0].slice.value
+        thing = thebody[0].slice
         test[isenvassign(the[thing])]
         # write
-        thebody[0] = q[local[(x := 9001)]]  # noqa: F821
+        thebody[0] = q[local[x := 9001]]  # noqa: F821
         view.body = thebody
 
         test_raises[TypeError,
@@ -647,10 +633,7 @@ def runtests():
         view = UnexpandedDoView(testdata)
         # read
         thebody = view.body
-        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-            thing = thebody[0].slice
-        else:
-            thing = thebody[0].slice.value
+        thing = thebody[0].slice
         test[isenvassign(the[thing])]
         # write
         # This mutates the original, but we have to assign `view.body` to trigger the setter.
@@ -660,17 +643,11 @@ def runtests():
         # implicit do, a.k.a. extra bracket syntax
         testdata = q[let[[local[x << 21],  # noqa: F821
                           2 * x]]]  # noqa: F821
-        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-            theimplicitdo = testdata.slice
-        else:
-            theimplicitdo = testdata.slice.value
+        theimplicitdo = testdata.slice
         view = UnexpandedDoView(theimplicitdo)
         # read
         thebody = view.body
-        if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-            thing = thebody[0].slice
-        else:
-            thing = thebody[0].slice.value
+        thing = thebody[0].slice
         test[isenvassign(the[thing])]
         # write
         thebody[0] = q[local[x << 9001]]  # noqa: F821

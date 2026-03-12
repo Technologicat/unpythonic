@@ -12,11 +12,11 @@ A Python library providing language extensions and utilities inspired by Lisp, H
 
 ## API stability
 
-Released as 1.0.0 in February 2026, signalling API stability. The public API (everything in `__all__`) should remain backward-compatible. If backward-incompatible changes become necessary (e.g. due to Python 3.13/3.14 compat), they warrant a 2.0.0 release. Prefer non-breaking solutions when possible.
+Released as 2.0.0 in March 2026 (floor bump + mcpyrate 4.0.0 dependency). The public API (everything in `__all__`) should remain backward-compatible. Prefer non-breaking solutions when possible.
 
 ## Build and development
 
-Uses PDM with `pdm-backend`. Python 3.8–3.12, also PyPy 3.8–3.10. Version 3.13/3.14 compatibility update pending (will be released as 1.1.0).
+Uses PDM with `pdm-backend`. Python 3.10–3.14, also PyPy 3.11.
 
 ```bash
 # Set up development environment

@@ -21,7 +21,6 @@ from mcpyrate.quotes import macros, q, a  # noqa: F401
 from ast import Name, Call, Subscript, Tuple, Starred, Expr, With
 from copy import deepcopy
 from functools import partial
-import sys
 
 from mcpyrate import parametricmacro
 from mcpyrate.quotes import is_captured_value
@@ -328,7 +327,7 @@ def _let_syntax_block(block_body, *, expand_inside):
             if type(ctxmanager) is Subscript and type(ctxmanager.value) is Name and ctxmanager.value.id == mode:
                 return mode, "template"
             # expr(...), block(...)
-            # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+            # Parenthesis syntax for macro arguments (deprecated; kept for backward compatibility)
             if type(ctxmanager) is Call and type(ctxmanager.func) is Name and ctxmanager.func.id == mode:
                 return mode, "template"
         return False
@@ -369,10 +368,7 @@ def _let_syntax_block(block_body, *, expand_inside):
 # -----------------------------------------------------------------------------
 
 def _get_subscript_args(tree):
-    if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-        theslice = tree.slice
-    else:
-        theslice = tree.slice.value
+    theslice = tree.slice
     if type(theslice) is Tuple:
         args = theslice.elts
     else:
@@ -389,7 +385,7 @@ def _analyze_lhs(tree):
     elif type(tree) is Subscript and type(tree.value) is Name:  # template f[x, ...]
         name = tree.value.id
         args = [a.id for a in _get_subscript_args(tree)]
-    # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+    # Parenthesis syntax for macro arguments (deprecated; kept for backward compatibility)
     elif type(tree) is Call and type(tree.func) is Name:  # template f(x, ...)
         name = tree.func.id
         if any(type(a) is Starred for a in tree.args):  # *args (Python 3.5+)
@@ -445,7 +441,7 @@ def _substitute_templates(templates, tree):
         def isthisfunc(tree):
             if type(tree) is Subscript and type(tree.value) is Name and tree.value.id == name:
                 return True
-            # parenthesis syntax for macro arguments  TODO: Python 3.9+: remove once we bump minimum Python to 3.9
+            # Parenthesis syntax for macro arguments (deprecated; kept for backward compatibility)
             if type(tree) is Call and type(tree.func) is Name and tree.func.id == name:
                 return True
             return False

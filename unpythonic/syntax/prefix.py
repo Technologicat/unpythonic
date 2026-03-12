@@ -7,7 +7,6 @@ Experimental, not for use in production code.
 __all__ = ["prefix", "q", "u", "kw"]
 
 from ast import Call, Starred, Tuple, Load, Subscript
-import sys
 
 from mcpyrate.quotes import macros, q, u, a, t  # noqa: F811, F401
 
@@ -194,11 +193,7 @@ def _prefix(block_body):
             #       Expr
             #         Subscript
             if type(tree) is Subscript:
-                if sys.version_info >= (3, 9, 0):  # Python 3.9+: the Index wrapper is gone.
-                    body = tree.slice
-                else:
-                    body = tree.slice.value
-
+                body = tree.slice
                 if type(body) is Tuple:
                     # Skip the transformation of the expr tuple itself, but transform its elements.
                     # This skips the transformation of the macro argument tuple, too, because

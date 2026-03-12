@@ -27,7 +27,6 @@ from ast import (Name,
                  AsyncFunctionDef,
                  arguments, arg,
                  Load)
-import sys
 
 from mcpyrate.quotes import macros, q, u, n, a, t, h  # noqa: F401
 
@@ -590,10 +589,8 @@ def _dletseq_impl(bindings, body, kind):
 
     userargs = body.args  # original arguments to the def
     fname = body.name
-    noargs = arguments(args=[], kwonlyargs=[], vararg=None, kwarg=None,
+    noargs = arguments(args=[], posonlyargs=[], kwonlyargs=[], vararg=None, kwarg=None,
                        defaults=[], kw_defaults=[])
-    if sys.version_info >= (3, 8, 0):  # Python 3.8+: positional-only arguments
-        noargs.posonlyargs = []
     iname = gensym(f"{fname}_inner")
     body.args = noargs
     body.name = iname
@@ -927,11 +924,7 @@ def _do0(tree):
     elts = tree.elts
     # Use `local[]` and `do[]` as hygienically captured macros.
     #
-    # Python 3.8 and Python 3.9 require the parens around the walrus when used inside a subscript.
-    # TODO: Remove the parens when we bump minimum Python to 3.10.
-    # From https://docs.python.org/3/whatsnew/3.10.html:
-    #    Assignment expressions can now be used unparenthesized within set literals and set comprehensions, as well as in sequence indexes (but not slices).
-    newelts = [q[a[_our_local][(_do0_result := a[elts[0]])]],  # noqa: F821, local[] defines it inside the do[].
+    newelts = [q[a[_our_local][_do0_result := a[elts[0]]]],  # noqa: F821, local[] defines it inside the do[].
                *elts[1:],
                q[_do0_result]]  # noqa: F821
     return q[a[_our_do][t[newelts]]]  # do0[] is also just a do[]
