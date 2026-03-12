@@ -60,68 +60,26 @@ def isoftype(value, T):
 
     Returns `True` if `value` matches the type specification; `False` if not.
     """
-    # TODO: This function is one big hack.
+    # Many `typing` meta-utilities explicitly raise TypeError from isinstance/issubclass,
+    # so we identify them via typing.get_origin, isinstance checks, or identity comparisons.
+    # We also access some internal fields (__args__, __constraints__, __supertype__) where
+    # Python provides no official public API for run-time type introspection.
     #
-    # As of Python 3.6, there seems to be no consistent way to identify a type
-    # specification at run time. So what we have is a mess.
-    #
-    # - Many `typing` meta-utilities explicitly `raise TypeError` when one
-    #   attempts The One Obvious Way To Do It (`isinstance`, `issubclass`).
-    #
-    # - Their `type` can be something like `typing.TypeVar`, `typing.Union`,
-    #   `<class typing.TupleMeta>`, `<class typing.CallableMeta>`... the
-    #   format is case-dependent. A check like `type(T) is typing.TypeVar`
-    #   doesn't work.
-    #
-    # So, we inspect `repr(T.__class__)` to match on the names of the prickly types,
-    # and call `issubclass` on those that don't hate us for doing so (catching
-    # `TypeError`, just in case `T` is an unsupported yet prickly type).
-    #
-    # Obviously, this won't work if someone subclasses one of the prickly types.
-    # `issubclass` would be The Right Thing, but since it's explicitly blocked,
-    # there's not much we can do.
-
-    # TODO: Right now we're accessing internal fields to get what we need.
-    # TODO: Would be nice to rewrite this if Python, at some point, adds an
-    # TODO: official API to access the static type information at run time.
+    # Unsupported typing features:
+    #   NamedTuple, DefaultDict, Counter, ChainMap, OrderedDict,
+    #   IO, TextIO, BinaryIO, Pattern, Match, Generic, Type,
+    #   Awaitable, Coroutine, AsyncIterable, AsyncIterator,
+    #   ContextManager, AsyncContextManager, Generator, AsyncGenerator,
+    #   NoReturn, ClassVar, Final, Protocol, TypedDict, Literal, ForwardRef
 
     if T is typing.Any:
         return True
 
     # AnyStr normalizes to TypeVar("AnyStr", str, bytes)
-    # Python 3.6 has "typing.TypeVar" as the repr, but Python 3.7+ adds the "<class '...'>" around it.
-    if repr(T.__class__) == "typing.TypeVar" or repr(T.__class__) == "<class 'typing.TypeVar'>":
+    if isinstance(T, typing.TypeVar):
         if not T.__constraints__:  # just an abstract type name
             return True
         return any(isoftype(value, U) for U in T.__constraints__)
-
-    # TODO: Here is THE FULL LIST of `typing` features we **don't** currently support,
-    # TODO: as of Python 3.8 (March 2020). https://docs.python.org/3/library/typing.html
-    # TODO: If you add a feature to the type checker, please update this list.
-    #
-    # TODO: Update this list for Python 3.9
-    # TODO: Update this list for Python 3.10
-    # TODO: Update this list for Python 3.11
-    # TODO: Update this list for Python 3.12
-    #
-    # Python 3.6+:
-    #   NamedTuple, DefaultDict, Counter, ChainMap,
-    #   IO, TextIO, BinaryIO,
-    #   Pattern, Match, (regular expressions)
-    #   Generic, Type,
-    #   Awaitable, Coroutine, AsyncIterable, AsyncIterator,
-    #   ContextManager, AsyncContextManager,
-    #   Generator, AsyncGenerator,
-    #   NoReturn (callable return value only),
-    #   ClassVar, Final
-    #
-    # Python 3.7+: OrderedDict
-    # Python 3.8+: Protocol, TypedDict, Literal
-    #
-    # TODO: Do we need to support `typing.ForwardRef`?
-    # No, if `get_type_hints` already resolves that. Consider our main use case,
-    # in `unpythonic.dispatch`. And see:
-    # https://docs.python.org/3/library/typing.html#typing.get_type_hints
 
     # typing.Union[X, Y] and the builtin X | Y syntax (types.UnionType, Python 3.10+).
     # Optional[X] normalizes to Union[X, NoneType].
@@ -155,9 +113,6 @@ def isoftype(value, T):
             return isinstance(value, U)
 
     if T is typing.Reversible:  # can't non-destructively check element type
-        # We don't isinstance(), because in Python 3.5, typing.Reversible used to be just a protocol,
-        # and "<class 'TypeError'>: Protocols cannot be used with isinstance()."
-        # https://docs.python.org/3/library/collections.abc.html#module-collections.abc
         return hasattr(value, "__reversed__")
 
     # "Protocols cannot be used with isinstance()", so:
@@ -176,13 +131,11 @@ def isoftype(value, T):
     if safeissubclass(T, typing.Text):  # https://docs.python.org/3/library/typing.html#typing.Text
         return isinstance(value, str)  # alias for str
 
-    # Subclass test for Python 3.6 only. Python 3.7+ have typing._GenericAlias for the generics.
     if safeissubclass(T, typing.Tuple) or typing.get_origin(T) is tuple:
         if not isinstance(value, tuple):
             return False
         # bare `typing.Tuple`, no restrictions on length or element type.
-        # Python 3.9: if a generic has no args, it has no `__args__` attribute.
-        if not hasattr(T, "__args__") or not T.__args__:
+        if not getattr(T, "__args__", None):
             return True
         # homogeneous element type, arbitrary length
         if len(T.__args__) == 2 and T.__args__[1] is Ellipsis:
@@ -201,11 +154,9 @@ def isoftype(value, T):
     def ismapping(statictype, runtimetype):
         if not isinstance(value, runtimetype):
             return False
-        # Python 3.9: if a generic has no args, it has no `__args__` attribute.
-        if not hasattr(T, "__args__") or T.__args__ is None:  # Python 3.6: consistent behavior with 3.7+, which use unconstrained TypeVar KT, VT.
+        args = getattr(T, "__args__", None)
+        if args is None:
             args = (typing.TypeVar("KT"), typing.TypeVar("VT"))
-        else:
-            args = T.__args__
         assert len(args) == 2
         if not value:  # An empty dict has no key and value types.
             return False
@@ -222,11 +173,9 @@ def isoftype(value, T):
     if safeissubclass(T, typing.ItemsView) or typing.get_origin(T) is collections.abc.ItemsView:
         if not isinstance(value, collections.abc.ItemsView):
             return False
-        # Python 3.9: if a generic has no args, it has no `__args__` attribute.
-        if not hasattr(T, "__args__") or T.__args__ is None:  # Python 3.6: consistent behavior with 3.7+, which use unconstrained TypeVar KT, VT.
+        args = getattr(T, "__args__", None)
+        if args is None:
             args = (typing.TypeVar("KT"), typing.TypeVar("VT"))
-        else:
-            args = T.__args__
         assert len(args) == 2
         if not value:  # An empty dict has no key and value types.
             return False
@@ -247,12 +196,8 @@ def isoftype(value, T):
                 # At run time, the `__args__` are actually empty - it looks
                 # like a bare Sequence, which is invalid. HACK the special case.
                 typeargs = (int,)
-            # Python 3.9: if a generic has no args, it has no `__args__` attribute.
-            elif hasattr(T, "__args__"):
-                typeargs = T.__args__
             else:
-                typeargs = None
-            # Python 3.6: consistent behavior with 3.7+, which use an unconstrained TypeVar T.
+                typeargs = getattr(T, "__args__", None)
             if typeargs is None:
                 typeargs = (typing.TypeVar("T"),)
             # Judging by the docs, List takes one type argument. The rest are similar.
