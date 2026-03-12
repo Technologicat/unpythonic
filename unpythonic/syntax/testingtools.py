@@ -799,7 +799,7 @@ def _warn_expr(tree):
 
 def _test_expr(tree):
     # Note we want the line number *before macro expansion*, so we capture it now.
-    ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
+    ln = q[u[getattr(tree, "lineno", None)]]  # may be absent on 3.10–3.12; None on 3.13+
     filename = q[h[callsite_filename]()]
     asserter = q[h[unpythonic_assert]]
 
@@ -897,7 +897,7 @@ def _test_expr_raises(tree):
     return _test_expr_signals_or_raises(tree, "test_raises", q[h[unpythonic_assert_raises]])
 
 def _test_expr_signals_or_raises(tree, syntaxname, asserter):
-    ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
+    ln = q[u[getattr(tree, "lineno", None)]]  # may be absent on 3.10–3.12; None on 3.13+
     filename = q[h[callsite_filename]()]
 
     # test_signals[exctype, expr, message]
@@ -934,7 +934,7 @@ def _test_block(block_body, args):
     first_stmt = block_body[0]
 
     # Note we want the line number *before macro expansion*, so we capture it now.
-    ln = q[u[first_stmt.lineno]] if hasattr(first_stmt, "lineno") else q[None]
+    ln = q[u[getattr(first_stmt, "lineno", None)]]  # may be absent on 3.10–3.12; None on 3.13+
     filename = q[h[callsite_filename]()]
     asserter = q[h[unpythonic_assert]]
 
@@ -1006,7 +1006,7 @@ def _test_block_signals_or_raises(block_body, args, syntaxname, asserter):
     first_stmt = block_body[0]
 
     # Note we want the line number *before macro expansion*, so we capture it now.
-    ln = q[u[first_stmt.lineno]] if hasattr(first_stmt, "lineno") else q[None]
+    ln = q[u[getattr(first_stmt, "lineno", None)]]  # may be absent on 3.10–3.12; None on 3.13+
     filename = q[h[callsite_filename]()]
 
     # with test_raises[exctype, message]:

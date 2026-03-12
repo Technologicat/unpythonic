@@ -64,7 +64,7 @@ with phase[1]:
         # syntax error, because that `myield` is not inside a `@multishot` generator.
         #
         # We hack around it, by allowing `myield` anywhere as long as the context is not a `Load`.
-        if hasattr(tree, "ctx") and type(tree.ctx) is not ast.Load:
+        if type(getattr(tree, "ctx", None)) in (ast.Store, ast.Del):
             return tree
 
         # `myield` is not really a macro, but a pattern that `multishot` looks for and compiles away.

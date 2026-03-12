@@ -26,7 +26,7 @@ from ast import (Name,
                  FunctionDef, Return,
                  AsyncFunctionDef,
                  arguments, arg,
-                 Load)
+                 Store, Del)
 
 from mcpyrate.quotes import macros, q, u, n, a, t, h  # noqa: F401
 
@@ -474,12 +474,10 @@ def _transform_name(tree, rhsnames, envname):
         #   in those parts of code where it is used, so an outer let will
         #   leave it alone.
         if type(tree) is Name and tree.id in rhsnames and tree.id not in names_in_scope:
-            hasctx = hasattr(tree, "ctx")  # Macro-created nodes might not have a ctx.
-            if hasctx and type(tree.ctx) is not Load:  # Ignore assignments and deletes.
+            if type(getattr(tree, "ctx", None)) in (Store, Del):  # Skip assignments and deletes.
                 return tree
             attr_node = q[n[f"{envname}.{tree.id}"]]
-            if hasctx:
-                attr_node.ctx = tree.ctx
+            attr_node.ctx = getattr(tree, "ctx", None)
             return attr_node
         return tree
     return scoped_transform(tree, callback=transform)

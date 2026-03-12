@@ -386,7 +386,7 @@ def get_names_in_store_context(tree):
             #         if item.optional_vars is not None:
             #             self._collect_name_or_list(item.optional_vars)
             # macro-created nodes might not have a ctx, but our macros don't create lexical assignments.
-            if type(tree) is Name and hasattr(tree, "ctx") and type(tree.ctx) is Store:
+            if type(tree) is Name and type(getattr(tree, "ctx", None)) is Store:
                 self.collect(tree.id)
             if not isnewscope(tree):
                 self.generic_visit(tree)
@@ -408,7 +408,7 @@ def get_names_in_del_context(tree):
             # We don't currently care about "del myobj.x" or "del mydict['x']" (these old examples in Python 3.6):
             #     Delete(targets=[Attribute(value=Name(id='myobj', ctx=Load()), attr='x', ctx=Del()),])
             #     Delete(targets=[Subscript(value=Name(id='mydict', ctx=Load()), slice=Index(value=Str(s='x')), ctx=Del()),])
-            if type(tree) is Name and hasattr(tree, "ctx") and type(tree.ctx) is Del:
+            if type(tree) is Name and type(getattr(tree, "ctx", None)) is Del:
                 self.collect(tree.id)
             if not isnewscope(tree):
                 self.generic_visit(tree)

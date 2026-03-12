@@ -15,10 +15,8 @@ see `typeguard`:
 """
 
 import collections
+import types
 import typing
-
-_MyGenericAlias = typing._GenericAlias  # Python 3.7+
-_MySupportsIndex = typing.SupportsIndex  # Python 3.8+
 
 from .misc import safeissubclass
 
@@ -125,61 +123,16 @@ def isoftype(value, T):
     # in `unpythonic.dispatch`. And see:
     # https://docs.python.org/3/library/typing.html#typing.get_type_hints
 
-    # TODO: Python 3.8 adds `typing.get_origin` and `typing.get_args`:
-    # https://docs.python.org/3/library/typing.html#typing.get_origin
-    # TODO: We replicate them here so that we can use them in 3.7.
-    # TODO: Delete the local copies once we start requiring Python 3.8.
-    #
-    # Used under the PSF license. Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-    # 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020 Python Software Foundation; All Rights Reserved
-    # https://github.com/python/cpython/blob/3.8/LICENSE
-    def get_origin(tp):
-        """Get the unsubscripted version of a type.
-        This supports generic types, Callable, Tuple, Union, Literal, Final and ClassVar.
-        Return None for unsupported types. Examples::
-            get_origin(Literal[42]) is Literal
-            get_origin(int) is None
-            get_origin(ClassVar[int]) is ClassVar
-            get_origin(Generic) is Generic
-            get_origin(Generic[T]) is Generic
-            get_origin(Union[T, int]) is Union
-            get_origin(List[Tuple[T, T]][int]) == list
-        """
-        if isinstance(tp, _MyGenericAlias):
-            return tp.__origin__
-        if tp is typing.Generic:
-            return typing.Generic
-        return None
-    # def get_args(tp):
-    #     """Get type arguments with all substitutions performed.
-    #     For unions, basic simplifications used by Union constructor are performed.
-    #     Examples::
-    #         get_args(Dict[str, int]) == (str, int)
-    #         get_args(int) == ()
-    #         get_args(Union[int, Union[T, int], str][int]) == (int, str)
-    #         get_args(Union[int, Tuple[T, int]][str]) == (int, Tuple[str, int])
-    #         get_args(Callable[[], T][int]) == ([], int)
-    #     """
-    #     if isinstance(tp, _MyGenericAlias) and not tp._special:
-    #         res = tp.__args__
-    #         if get_origin(tp) is collections.abc.Callable and res[0] is not Ellipsis:
-    #             res = (list(res[:-1]), res[-1])
-    #         return res
-    #     return ()
-    # <--- end of local copies of get_origin and get_args. The rest is our code.
-
-    # Optional normalizes to Union[argtype, NoneType].
-    # Python 3.6 has the repr, 3.7+ use typing._GenericAlias.
-    if repr(T.__class__) == "typing.Union" or get_origin(T) is typing.Union:
-        if T.__args__ is None:  # Python 3.6 bare `typing.Union`; empty, has no types in it, so no value can match.
-            return False
+    # typing.Union[X, Y] and the builtin X | Y syntax (types.UnionType, Python 3.10+).
+    # Optional[X] normalizes to Union[X, NoneType].
+    if typing.get_origin(T) is typing.Union or isinstance(T, types.UnionType):
         if not any(isoftype(value, U) for U in T.__args__):
             return False
         return True
 
-    # Python 3.7+ bare typing.Union; empty, has no types in it, so no value can match.
-    if T is typing.Union:  # isinstance(T, typing._SpecialForm) and T._name == "Union":
-        return False  # pragma: no cover, Python 3.7+ only.
+    # Bare typing.Union; empty, has no types in it, so no value can match.
+    if T is typing.Union:
+        return False  # pragma: no cover
 
     def isNewType(T):
         return isinstance(T, typing.NewType)
@@ -212,7 +165,7 @@ def isoftype(value, T):
               typing.SupportsFloat,
               typing.SupportsComplex,
               typing.SupportsBytes,
-              _MySupportsIndex,
+              typing.SupportsIndex,
               typing.SupportsAbs,
               typing.SupportsRound):
         if U is T:
@@ -224,7 +177,7 @@ def isoftype(value, T):
         return isinstance(value, str)  # alias for str
 
     # Subclass test for Python 3.6 only. Python 3.7+ have typing._GenericAlias for the generics.
-    if safeissubclass(T, typing.Tuple) or get_origin(T) is tuple:
+    if safeissubclass(T, typing.Tuple) or typing.get_origin(T) is tuple:
         if not isinstance(value, tuple):
             return False
         # bare `typing.Tuple`, no restrictions on length or element type.
@@ -261,12 +214,12 @@ def isoftype(value, T):
     for statictype, runtimetype in ((typing.Dict, dict),
                                     (typing.MutableMapping, collections.abc.MutableMapping),
                                     (typing.Mapping, collections.abc.Mapping)):
-        if safeissubclass(T, statictype) or get_origin(T) is runtimetype:
+        if safeissubclass(T, statictype) or typing.get_origin(T) is runtimetype:
             return ismapping(statictype, runtimetype)
 
     # ItemsView is a special-case mapping in that we must not call
     # `.items()` on `value`.
-    if safeissubclass(T, typing.ItemsView) or get_origin(T) is collections.abc.ItemsView:
+    if safeissubclass(T, typing.ItemsView) or typing.get_origin(T) is collections.abc.ItemsView:
         if not isinstance(value, collections.abc.ItemsView):
             return False
         # Python 3.9: if a generic has no args, it has no `__args__` attribute.
@@ -289,7 +242,7 @@ def isoftype(value, T):
         def iscollection(statictype, runtimetype):
             if not isinstance(value, runtimetype):
                 return False
-            if safeissubclass(statictype, typing.ByteString) or get_origin(statictype) is collections.abc.ByteString:
+            if safeissubclass(statictype, typing.ByteString) or typing.get_origin(statictype) is collections.abc.ByteString:
                 # WTF? A ByteString is a Sequence[int], but only statically.
                 # At run time, the `__args__` are actually empty - it looks
                 # like a bare Sequence, which is invalid. HACK the special case.
@@ -324,10 +277,10 @@ def isoftype(value, T):
                                         (typing.MutableSequence, collections.abc.MutableSequence),
                                         (typing.MappingView, collections.abc.MappingView),
                                         (typing.Sequence, collections.abc.Sequence)):
-            if safeissubclass(T, statictype) or get_origin(T) is runtimetype:
+            if safeissubclass(T, statictype) or typing.get_origin(T) is runtimetype:
                 return iscollection(statictype, runtimetype)
 
-    if safeissubclass(T, typing.Callable) or get_origin(T) is collections.abc.Callable:
+    if safeissubclass(T, typing.Callable) or typing.get_origin(T) is collections.abc.Callable:
         if not callable(value):
             return False
         return True

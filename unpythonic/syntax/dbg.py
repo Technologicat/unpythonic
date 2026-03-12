@@ -226,7 +226,7 @@ def _dbg_block(body, args):
                 values = q[t[tree.args]]
                 tree.args = [names, values]
                 # can't use inspect.stack in the printer itself because we want the line number *before macro expansion*.
-                lineno = tree.lineno if hasattr(tree, "lineno") else None
+                lineno = getattr(tree, "lineno", None)  # may be absent on 3.10–3.12; None on 3.13+
                 tree.keywords += [keyword(arg="filename", value=q[h[callsite_filename]()]),
                                   keyword(arg="lineno", value=q[u[lineno]])]
                 tree.func = pfunc
@@ -237,7 +237,7 @@ def _dbg_expr(tree):
     # TODO: Do we really need to expand inside-out here?
     tree = dyn._macro_expander.visit_recursively(tree)
 
-    ln = q[u[tree.lineno]] if hasattr(tree, "lineno") else q[None]
+    ln = q[u[getattr(tree, "lineno", None)]]
     filename = q[h[callsite_filename]()]
     # Careful here! We must `h[]` the `dyn`, but not `dbgprint_expr` itself,
     # because we want to look up that attribute dynamically.

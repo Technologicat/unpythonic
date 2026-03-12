@@ -755,7 +755,7 @@ class ExpandedLetView:
                 # Macro-generated nodes may be missing source location information,
                 # in which case we let `mcpyrate` fix it later.
                 # This is mainly an issue for the unit tests of this module, which macro-generate the "old" data.
-                if hasattr(oldb, "lineno") and hasattr(oldb, "col_offset"):
+                if getattr(oldb, "lineno", None) is not None and getattr(oldb, "col_offset", None) is not None:
                     newelts.append(Tuple(elts=[newk, thev], lineno=oldb.lineno, col_offset=oldb.col_offset))
                 else:
                     newelts.append(Tuple(elts=[newk, thev]))

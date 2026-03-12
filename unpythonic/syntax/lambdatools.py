@@ -531,9 +531,8 @@ def _envify(block_body):
                 # because the gensymmed environment name won't be in our bindings, and the "x"
                 # has become the `attr` in an `Attribute` node.
                 elif type(tree) is Name and tree.id in bindings.keys():
-                    # We must be careful to preserve the Load/Store/Del context of the name.
-                    # The default lets `mcpyrate` fix it later.
-                    ctx = tree.ctx if hasattr(tree, "ctx") else None
+                    # Preserve the Load/Store/Del context of the name.
+                    ctx = getattr(tree, "ctx", None)
                     out = deepcopy(bindings[tree.id])
                     out.ctx = ctx
                     return out
