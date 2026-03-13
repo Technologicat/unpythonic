@@ -25,6 +25,16 @@ pdm use --venv in-project
 source .venv/bin/activate
 ```
 
+The project venv is managed by PDM (`pdm venv create`, `pdm use --venv in-project`). To switch Python versions, remove the old venv and create a new one:
+
+```bash
+pdm venv remove in-project
+pdm config venv.in_project true
+pdm venv create 3.14   # or whichever version
+pdm use --venv in-project
+pdm install
+```
+
 **Critical**: Never compile `.py` files in this project using `py_compile`, `python -m compileall`, `--compile`, or any other mechanism that bypasses the macro expander. Stale `.pyc` files compiled without macro support will break macro imports (symptom: `ImportError: cannot import name 'macros' from 'mcpyrate.quotes'`). If this happens, clean the caches with `macropython -c unpythonic` and re-run.
 
 ## Running tests
