@@ -7,7 +7,7 @@
 - **Python version support**: 3.10–3.14 (dropped 3.8, 3.9; added 3.13, 3.14). PyPy 3.11.
   - If you need `unpythonic` for Python 3.8 or 3.9, use version 1.0.0.
 - **Requires mcpyrate >= 4.0.0**.
-  - mcpyrate 4.0.0 dropped the `Str`, `Num`, `NameConstant` AST compatibility shims and the `getconstant` helper.
+  - mcpyrate 4.0.0 dropped the `Str`, `Num`, `NameConstant` AST compatibility shims and the `getconstant` helper. Use `ast.Constant` directly, and `.value` to get the constant's value.
 
 **New**:
 
