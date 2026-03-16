@@ -20,7 +20,7 @@
 - Runtime type checker (`unpythonic.typecheck`): new supported typing features — `NoReturn`, `Never` (3.11+), `Literal`, `Type`, `ClassVar`, `Final`, `DefaultDict`, `OrderedDict`, `Counter`, `ChainMap`, `IO`/`TextIO`/`BinaryIO` (mapped to `io` module ABCs), `Pattern[T]`/`Match[T]` (string type checked when parametric), `ContextManager`, `AsyncContextManager`, `Awaitable`, `Coroutine`, `AsyncIterable`, `AsyncIterator`, `Generator`, `AsyncGenerator`.
 - Runtime type checker: `TypedDict` support — structural checking of required/optional keys and value types.
 - Runtime type checker: `Protocol` support — `@runtime_checkable` Protocols work via `isinstance`; non-runtime-checkable Protocols raise `TypeError` with an actionable message.
-- Runtime type checker: parametric forms of abstract ABCs — `Iterable[T]`, `Collection[T]`, `Reversible[T]` perform best-effort element checking (elements checked when value is `Sized`; ABC-only for opaque iterators). `Iterator[T]` and `Container[T]` accept parametric form with type arg silently ignored.
+- Runtime type checker: parametric forms of abstract ABCs — `Iterable[T]`, `Collection[T]`, `Reversible[T]` perform best-effort element checking (elements checked when value is `Sized`; ABC-only for opaque iterators). `Iterator[T]` and `Container[T]` accept parametric form with type arg silently ignored (iterating an `Iterator` would consume it; `Container` only has `__contains__`, so elements can't be enumerated).
 
 **Fixed**:
 
