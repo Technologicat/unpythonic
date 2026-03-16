@@ -24,7 +24,7 @@
 
 **Fixed**:
 
-- Runtime type checker (`unpythonic.typecheck`): fixed compatibility with Python 3.14, where `typing.Union` is no longer a `_GenericAlias`. Now uses `typing.get_origin` (available since 3.8) instead of a local copy.
+- Runtime type checker (`unpythonic.typecheck`): fixed compatibility with Python 3.14, where `typing.Union` is no longer a `_GenericAlias`. Now uses `typing.get_origin` (available since 3.8).
 - Runtime type checker: fixed `TypeVar` detection to use `isinstance(T, typing.TypeVar)` instead of a fragile `repr`-based heuristic.
 - Runtime type checker: `typing.Reversible` check now uses `isinstance` instead of a `hasattr("__reversed__")` workaround from the Python 3.5 era.
 - Runtime type checker: removed redundant `safeissubclass` fallbacks for generic types — `typing.get_origin` handles both bare and parameterized generics on 3.10+.
