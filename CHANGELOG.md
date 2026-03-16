@@ -1,5 +1,12 @@
 # Changelog
 
+**2.0.1** (in progress):
+
+*No user-visible changes yet.*
+
+
+---
+
 **2.0.0** (16 March 2026) — *"Six impossible things before breakfast"* edition:
 
 **IMPORTANT**:
