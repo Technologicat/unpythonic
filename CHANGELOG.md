@@ -28,15 +28,16 @@
 - Runtime type checker: fixed `TypeVar` detection to use `isinstance(T, typing.TypeVar)` instead of a fragile `repr`-based heuristic.
 - Runtime type checker: `typing.Reversible` check now uses `isinstance` instead of a `hasattr("__reversed__")` workaround from the Python 3.5 era.
 - Runtime type checker: removed redundant `safeissubclass` fallbacks for generic types — `typing.get_origin` handles both bare and parameterized generics on 3.10+.
-- Scope analyzer: fixed `MatchCapturesCollector` bug where class references (e.g. `Point` in `case Point(x, y):`) were incorrectly collected as captured variable names. Match captures are `MatchAs`/`MatchStar` nodes with bare strings, not `Name` nodes.
+- Scope analyzer: fixed `MatchCapturesCollector` bug where class references (e.g. `Point` in `case Point(x, y):`) were incorrectly collected as captured variable names.
 - Macro layer: updated all `hasattr(tree, "ctx")` checks to use `getattr` with defaults, for correct behavior on Python 3.13+ where AST fields always exist with default values.
+  - **Important**: Since Python 3.13, the default of `ctx` is `Load()`, hence no AST node has its `ctx` in a "not set yet" state anymore. Hence, any macro-created `Name` nodes that appear in a `Store` or `Del` position **MUST** have their `ctx` set appropriately by the macro author. Failing to do so **will** cause mysterious errors during macro expansion.
 - Macro layer: updated `arguments()` constructor calls to always include `posonlyargs=[]`, avoiding a `DeprecationWarning` on Python 3.13 (will become an error in 3.15).
 - MS Windows: `unpythonic.net.util` failed to load, due to missing `termios` module (which is *nix only) being loaded by `unpythonic.net.__init__` when it imports `unpythonic.net.ptyproxy`.
-  - Fixed by catching `ModuleNotFoundError`, disabling `ptyproxy` on MS Windows systems.
+  - Fixed by catching `ModuleNotFoundError`, disabling `ptyproxy` on MS Windows systems. Thus the remote REPL functionality `unpythonic.net.client/server` is not available on MS Windows, but the rest of `unpythonic` works fine.
 
 **Deprecated**:
 
-- Parenthesis syntax for macro arguments (e.g. `let((x, 1), (y, 2))`). Use bracket syntax instead: `let[[x, 1], [y, 2]]`. The parenthesis syntax is kept for backward compatibility but may be removed in a future version.
+- Parenthesis syntax for macro arguments (e.g. `let((x, 1), (y, 2))`). Use bracket syntax instead: `let[[x, 1], [y, 2]]`. The parenthesis syntax is kept for backward compatibility for now.
 - Runtime type checker: `typing.Text` (deprecated since Python 3.11) and `typing.ByteString` (deprecated since Python 3.12) support is now marked for removal when the floor bumps to Python 3.12.
 
 
