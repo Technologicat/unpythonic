@@ -47,6 +47,15 @@ classifiers = [
 [project.urls]
 Repository = "https://github.com/Technologicat/unpythonic"
 
+[dependency-groups]
+dev = [
+    "flake8",
+    "autopep8",
+    "importmagic",
+    "epc",
+    "jedi>=0.19.2",
+]
+
 [build-system]
 requires = ["pdm-backend"]
 build-backend = "pdm.backend"
