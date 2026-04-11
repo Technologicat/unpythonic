@@ -110,9 +110,7 @@ def isoftype(value, T):
     # typing.Union[X, Y] and the builtin X | Y syntax (types.UnionType, Python 3.10+).
     # Optional[X] normalizes to Union[X, NoneType].
     if typing.get_origin(T) is typing.Union or isinstance(T, types.UnionType):
-        if not any(isoftype(value, U) for U in T.__args__):
-            return False
-        return True
+        return any(isoftype(value, U) for U in T.__args__)
 
     # Bare typing.Union; empty, has no types in it, so no value can match.
     if T is typing.Union:
@@ -204,10 +202,7 @@ def isoftype(value, T):
             return False
         if not set(value.keys()).issubset(allowed):
             return False
-        for k, v in value.items():
-            if not isoftype(v, hints[k]):
-                return False
-        return True
+        return all(isoftype(v, hints[k]) for k, v in value.items())
 
     # We don't have a match yet, so T might still be one of those meta-utilities
     # that hate `issubclass` with a passion.
@@ -381,9 +376,7 @@ def isoftype(value, T):
                 return iscollection(statictype, runtimetype)
 
     if typing.get_origin(T) is collections.abc.Callable:
-        if not callable(value):
-            return False
-        return True
+        return callable(value)
         # # TODO: analyze Callable[[a0, a1, ...], ret], Callable[..., ret].
         # if T.__args__ is None:  # bare `typing.Callable`, no restrictions on arg/return types.
         #     return True

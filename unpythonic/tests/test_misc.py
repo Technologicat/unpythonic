@@ -59,13 +59,13 @@ def runtests():
                 self.x = x
 
         w = Wrapper(Wrapper(42))
-        test[type(getattr(w, "x")) == Wrapper]
-        test[type(getattrrec(w, "x")) == int]
+        test[type(getattr(w, "x")) is Wrapper]
+        test[type(getattrrec(w, "x")) is int]
         test[getattrrec(w, "x") == 42]
 
         setattrrec(w, "x", 23)
-        test[type(getattr(w, "x")) == Wrapper]
-        test[type(getattrrec(w, "x")) == int]
+        test[type(getattr(w, "x")) is Wrapper]
+        test[type(getattrrec(w, "x")) is int]
         test[getattrrec(w, "x") == 23]
 
     # pop-while iterator

@@ -933,7 +933,4 @@ def allsame(iterable):
         x0 = next(it)
     except StopIteration:
         return True  # like all(()) is True
-    for x in it:
-        if x != x0:
-            return False
-    return True
+    return all(x == x0 for x in it)

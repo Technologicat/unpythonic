@@ -571,10 +571,7 @@ class _StrReprEqMixin:
             return True
         if len(self) != len(other):
             return False
-        for v1, v2 in zip(self, other):
-            if v1 != v2:
-                return False
-        return True
+        return all(v1 == v2 for v1, v2 in zip(self, other))
 
 class roview(SequenceView, _StrReprEqMixin):
     """Read-only live view into a sequence.

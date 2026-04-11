@@ -122,7 +122,7 @@ class env:
     def values(self):
         return self._env.values()
     def get(self, k, default=None):
-        return self[k] if k in self else default
+        return self[k] if k in self else default  # noqa: SIM401 -- this IS the .get() implementation
     def __eq__(self, other):
         return other == self._env
 

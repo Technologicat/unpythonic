@@ -3,9 +3,7 @@
 from ..syntax import macros, test, test_raises, the  # noqa: F401
 from ..test.fixtures import session, testset
 
-import sys
-
-from ..arity import (arities, arity_includes,
+from ..arity import (arities, arity_includes,  # noqa: F401 -- documents API surface
                      required_kwargs, optional_kwargs, kwargs,
                      resolve_bindings, tuplify_bindings,
                      getfunc, UnknownArity)

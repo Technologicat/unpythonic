@@ -15,7 +15,7 @@ from mcpyrate.splicing import splice_dialect
 
 class Listhell(Dialect):
     def transform_ast(self, tree):  # tree is an ast.Module
-        with q as template:
+        with q as template:  # noqa: F823 -- `q` is a macro-injected name
             __lang__ = "Listhell"  # noqa: F841, just provide it to user code.
             from unpythonic.syntax import macros, prefix, q, u, kw, autocurry  # noqa: F401, F811
             # Auxiliary syntax elements for the macros

@@ -69,7 +69,7 @@ def runtests():
 
             def h2(a, b):
                 x, y = call_cc[f(a, b)]
-                return True or f(3, 4)
+                return True or f(3, 4)  # noqa: SIM222 -- testing short-circuit with continuations
             test[h2(3, 4) is True]
 
             # "or" with 3 or more items (testing; handled differently internally)
@@ -80,12 +80,12 @@ def runtests():
 
             def h4(a, b):
                 x, y = call_cc[f(a, b)]
-                return None or True or f(3, 4)
+                return None or True or f(3, 4)  # noqa: SIM222 -- testing short-circuit with continuations
             test[h4(3, 4) is True]
 
             def h5(a, b):
                 x, y = call_cc[f(a, b)]
-                return 42 or None or f(3, 4)
+                return 42 or None or f(3, 4)  # noqa: SIM222 -- testing short-circuit with continuations
             test[h5(3, 4) == 42]
 
             # "and"
@@ -96,7 +96,7 @@ def runtests():
 
             def i2(a, b):
                 x, y = call_cc[f(a, b)]
-                return False and f(3, 4)
+                return False and f(3, 4)  # noqa: SIM223 -- testing short-circuit with continuations
             test[i2(3, 4) is False]
 
             # "and" with 3 or more items
@@ -107,12 +107,12 @@ def runtests():
 
             def i4(a, b):
                 x, y = call_cc[f(a, b)]
-                return True and False and f(3, 4)
+                return True and False and f(3, 4)  # noqa: SIM223 -- testing short-circuit with continuations
             test[i4(3, 4) is False]
 
             def i5(a, b):
                 x, y = call_cc[f(a, b)]
-                return None and False and f(3, 4)
+                return None and False and f(3, 4)  # noqa: SIM223 -- testing short-circuit with continuations
             test[i5(3, 4) is False]
 
             # combination of "and" and "or"

@@ -245,7 +245,7 @@ class _Dyn(Singleton):
     def values(self):
         return self.asdict().values()
     def get(self, k, default=None):
-        return self[k] if k in self else default
+        return self[k] if k in self else default  # noqa: SIM401 -- this IS the .get() implementation
     def __eq__(self, other):  # dyn is a singleton, but its contents can be compared to another mapping.
         return other == self.asdict()
 

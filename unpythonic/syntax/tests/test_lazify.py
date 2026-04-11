@@ -83,7 +83,7 @@ def runtests():
         # force1() forces a promise
         promise = lazy[2 + 3]
         test[type(promise) is Lazy]
-        test[type(force1(promise)) == int]
+        test[type(force1(promise)) is int]
         test[force1("not a promise") == "not a promise"]  # anything else is passed through
 
         # force() recurses into containers, forcing any promises found therein

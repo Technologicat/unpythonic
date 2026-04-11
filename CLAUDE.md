@@ -66,12 +66,10 @@ Each test module exports a `runtests()` function. Tests are grouped with `testse
 ## Linting
 
 ```bash
-# As in CI — hard errors (syntax errors, undefined names)
-flake8 . --config=flake8rc --select=E9,F63,F7,F82 --show-source
-
-# Soft warnings
-flake8 . --config=flake8rc --exit-zero --max-line-length=127
+ruff check <changed .py files>   # primary linter (config in pyproject.toml)
 ```
+
+Legacy `flake8rc` also present (used by Emacs flycheck, not by CI or CC).
 
 ## Code structure and conventions
 

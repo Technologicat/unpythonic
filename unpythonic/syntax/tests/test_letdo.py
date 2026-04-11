@@ -370,7 +370,7 @@ def runtests():
         @dlet(x << "the env x")
         def test2():
             return x  # local var assignment not in effect yet  # noqa: F823, `dlet` defines `x` here.
-            x = "the unused local x"  # noqa: F841, this `x` being unused is the point of this test.  # pragma: no cover
+            x = "the unused local x"  # noqa: F841 -- unused `x` is the point of this test  # pragma: no cover
         test[test2() == "the env x"]
 
         @dlet(x << "the env x")
@@ -450,7 +450,7 @@ def runtests():
         def test10():
             x = x + " (copied to local)"  # noqa: F823
             del x     # comes into effect for the next statement
-            return x  # so this is env's original x
+            return x  # noqa: F821 -- env's original x, after del of local
         test[test10() == "the env x"]
 
         @dlet(x << "the env x")
@@ -472,8 +472,8 @@ def runtests():
         def test13():
             x = "the local x"
             del x
-            return x  # noqa: F823, this `x` refers to the `x` in the `dlet` env.
-            x = "the unused local x"  # noqa: F841, this `x` being unused is the point of this test.  # pragma: no cover
+            return x  # noqa: F821, F823 -- `x` refers to the `dlet` env binding
+            x = "the unused local x"  # noqa: F841 -- unused `x` is the point of this test  # pragma: no cover
         test[test13() == "the env x"]
 
         with test_raises[NameError, "should have tried to access the deleted nonlocal x"]:
@@ -482,7 +482,7 @@ def runtests():
             def test14():
                 nonlocal x
                 del x       # ignored by unpythonic's scope analysis, too dynamic
-                return x    # trying to refer to the nonlocal x, which was deleted
+                return x    # noqa: F821 -- trying to refer to the nonlocal x, which was deleted
             test14()
         x = "the nonlocal x"  # restore the test environment
 

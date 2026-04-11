@@ -255,10 +255,7 @@ class cons:
             try:  # duck test linked lists
                 ia, ib = (LinkedListIterator(x) for x in (self, other))
                 fill = object()  # gensym("fill"), but object() is much faster, and we don't need a label, or pickle support.
-                for a, b in zip_longest(ia, ib, fillvalue=fill):
-                    if a != b:
-                        return False
-                return True
+                return all(a == b for a, b in zip_longest(ia, ib, fillvalue=fill))
             except TypeError:
                 return self.car == other.car and self.cdr == other.cdr
         return False
@@ -374,7 +371,7 @@ def lappend(*ls):
         return foldr(cons, l2, l1)
     return foldr(lappend_two, nil, ls)
 
-def member(x, l):
+def member(x, l):  # noqa: E741 -- standard Lisp name for a linked list
     """Walk linked list l and check if item x is in it.
 
     Returns:

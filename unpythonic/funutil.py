@@ -360,7 +360,7 @@ class Values:
         return self.kwrets.values()
     def get(self, k, default=None):
         """Dict-like `get` for the named part."""
-        return self[k] if k in self else default
+        return self[k] if k in self else default  # noqa: SIM401 -- this IS the .get() implementation
 
     # comparison
     def __eq__(self, other):

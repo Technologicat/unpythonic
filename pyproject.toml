@@ -49,6 +49,7 @@ Repository = "https://github.com/Technologicat/unpythonic"
 
 [dependency-groups]
 dev = [
+    "ruff>=0.14.0",
     "flake8",
     "autopep8",
     "importmagic",
@@ -81,5 +82,45 @@ excludes = ["**/tests", "**/__pycache__"]
 
 # most python tools at this point, including mypy, have support for sourcing configuration from pyproject.toml
 # making the setup.cfg file unnecessary
+[tool.ruff]
+line-length = 130
+target-version = "py310"
+exclude = [
+    ".git",
+    "__pycache__",
+    "build",
+    "dist",
+    ".venv",
+    "unpythonic/syntax/tests/test_scopeanalyzer_3_11.py",  # except* syntax requires 3.11+
+]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "SIM"]
+ignore = [
+    # pycodestyle
+    "E203",   # whitespace before ':' — needed for slice alignment
+    "E265",   # block comment should start with '# ' — commented-out code, markers
+    "E301",   # expected 1 blank line — blank lines are semantic paragraph breaks
+    "E302",   # expected 2 blank lines before def — same
+    "E305",   # expected 2 blank lines after end — same
+    "E306",   # expected blank line before nested def — same
+    "E402",   # module level import not at top — conditional/deferred imports
+    "E501",   # line too long — advisory, not enforced
+    "E731",   # lambda assignment — closures are idiomatic in this codebase
+    # flake8-simplify
+    "SIM102",  # collapsible if — nested ifs often represent distinct semantic guards
+    "SIM105",  # contextlib.suppress — try/except/pass is more flexible and explicit
+    "SIM108",  # ternary instead of if/else — often less readable, no real gain
+    "SIM114",  # combine if branches — match-casing style; autofix would damage semantics
+    "SIM117",  # combine with statements — nesting shows parent/child; also mcpyrate AST differences
+    "SIM118",  # in-dict-keys — explicit .keys() marks the variable as a dictlike
+    "SIM300",  # yoda conditions — natural reading order preferred
+    "SIM910",  # dict.get with None default — explicit None documents programmer intent
+    "SIM103",  # return condition directly — multi-guard patterns; autofix breaks visual consistency
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401", "F403"]  # re-exports via star-import
+
 [tool.mypy]
 show_error_codes = true

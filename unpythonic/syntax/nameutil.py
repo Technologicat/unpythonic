@@ -107,7 +107,7 @@ def is_unexpanded_expr_macro(macrofunction, expander, tree):
     **CAUTION**: This function doesn't currently support detecting macros that
     take macro arguments.
     """
-    if not type(tree) is Subscript:
+    if type(tree) is not Subscript:
         return False
     maybemacro = tree.value
 
@@ -139,7 +139,7 @@ def is_unexpanded_block_macro(macrofunction, expander, tree):
 
     **CAUTION**: This function doesn't currently support several macros in the same `with`.
     """
-    if not type(tree) is With:
+    if type(tree) is not With:
         return False
     ctxmanager = tree.items[0].context_expr
     # optvars = tree.items[0].optional_vars  # as-part

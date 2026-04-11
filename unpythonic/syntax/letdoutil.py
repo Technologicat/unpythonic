@@ -197,7 +197,7 @@ def islet(tree, expanded=True):
         if any(s == x for x in deconames):
             return ("decorator", s)
     # otherwise we should have an expr macro invocation
-    if not type(tree) is Subscript:
+    if type(tree) is not Subscript:
         return False
     # Note we don't care about the bindings format here.
     # let[k0 := v0, ...][body]
@@ -304,7 +304,7 @@ def isdo(tree, expanded=True):
         return False
 
     # TODO: detect also do[] with a single expression inside? (now requires a comma)
-    if not type(_get_subscript_slice(tree)) is Tuple:
+    if type(_get_subscript_slice(tree)) is not Tuple:
         return False
 
     return tree.value.id

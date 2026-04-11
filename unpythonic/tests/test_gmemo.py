@@ -252,7 +252,7 @@ def runtests():
 
             while True:
                 nextp = next(theprimes)
-                lastdigits = [n for n in lastdigits if not n % p == 0]
+                lastdigits = [n for n in lastdigits if n % p != 0]
                 ns = [k * b + m for k in range(1, nextp)
                                 for m in lastdigits]
                 # in ns, we have already eliminated the first np primes as possible factors, so skip checking them
@@ -278,7 +278,7 @@ def runtests():
 
                 while True:
                     nextp = memo[np]
-                    lastdigits = [n for n in lastdigits if not n % p == 0]
+                    lastdigits = [n for n in lastdigits if n % p != 0]
                     ns = [k * b + m for k in range(1, nextp)
                                     for m in lastdigits]
                     for n in ns:
@@ -305,7 +305,7 @@ def runtests():
 
                 while True:
                     nextp = memo[np]
-                    lastdigits = [n for n in lastdigits if not n % p == 0]
+                    lastdigits = [n for n in lastdigits if n % p != 0]
                     ns = [k * b + m for k in range(1, nextp)
                                     for m in lastdigits]
                     for n in ns:
