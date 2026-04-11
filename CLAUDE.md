@@ -22,8 +22,9 @@ Uses PDM with `pdm-backend`. Python 3.10–3.14, also PyPy 3.11.
 # Set up development environment
 pdm install              # creates .venv/ and installs deps
 pdm use --venv in-project
-source .venv/bin/activate
 ```
+
+Prefix commands with `pdm run` if the venv is not active.
 
 The project venv is managed by PDM (`pdm venv create`, `pdm use --venv in-project`). To switch Python versions, remove the old venv and create a new one:
 
@@ -42,7 +43,7 @@ pdm install
 Custom test framework (`unpythonic.test.fixtures`, not pytest). Tests use macros (`test[]`, `test_raises[]`) and conditions/restarts for reporting. The test runner does not need the `macropython` wrapper—it activates macros via `import mcpyrate.activate`. Note: test *framework* is at `unpythonic/test/` (singular); actual *tests* are in `tests/` (plural) subdirectories.
 
 ```bash
-# Run all tests (from repo root, with venv activated)
+# Run all tests (from repo root)
 python runtests.py
 
 # Run a single test module directly
