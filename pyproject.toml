@@ -84,14 +84,13 @@ excludes = ["**/tests", "**/__pycache__"]
 # making the setup.cfg file unnecessary
 [tool.ruff]
 line-length = 130
-target-version = "py310"
+target-version = "py314"
 exclude = [
     ".git",
     "__pycache__",
     "build",
     "dist",
     ".venv",
-    "unpythonic/syntax/tests/test_scopeanalyzer_3_11.py",  # except* syntax requires 3.11+
 ]
 
 [tool.ruff.lint]
