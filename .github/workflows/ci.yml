@@ -27,8 +27,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install ruff
     - name: Lint with ruff
-      run: |
-        ruff check .
+      run: ruff check . --ignore SIM103
+    - name: Lint advisories (non-blocking)
+      run: ruff check . --select SIM103 || true
 
   test:
     needs: lint

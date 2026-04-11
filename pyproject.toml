@@ -115,7 +115,8 @@ ignore = [
     "SIM118",  # in-dict-keys — explicit .keys() marks the variable as a dictlike
     "SIM300",  # yoda conditions — natural reading order preferred
     "SIM910",  # dict.get with None default — explicit None documents programmer intent
-    "SIM103",  # return condition directly — multi-guard patterns; autofix breaks visual consistency
+    # Note: SIM103 (return condition directly) is intentionally NOT ignored here.
+    # It is enabled as an advisory — CI runs it in a non-failing second pass.
 ]
 
 [tool.ruff.lint.per-file-ignores]
