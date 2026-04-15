@@ -7,8 +7,8 @@ from io import BytesIO, SEEK_SET
 
 from .fixtures import nettest
 
-from ..msg import encodemsg, MessageDecoder
-from ..util import bytessource, streamsource, socketsource
+from ..msg import encodemsg, decodemsg, MessageDecoder
+from ..util import ReceiveBuffer, bytessource, streamsource, socketsource
 
 def runtests():
     with testset("sans-IO"):
@@ -78,6 +78,42 @@ def runtests():
             test[decoder.decode() == b"hello world"]
             test[decoder.decode() == b"hello again"]
             test[decoder.decode() is None]
+
+    with testset("decodemsg (free function form)"):
+        # `MessageDecoder` wraps `decodemsg` and manages the `ReceiveBuffer`
+        # internally; the tests above exercise both via the class-based path.
+        # `decodemsg` itself is also in `msg.__all__` as a public free-function
+        # entry point, so it deserves a direct test that doesn't route through
+        # the class.
+        with testset("basic roundtrip"):
+            buf = ReceiveBuffer()
+            source = bytessource(encodemsg(b"hello world"))
+            test[decodemsg(buf, source) == b"hello world"]
+            # Subsequent call: source is exhausted, returns None.
+            test[decodemsg(buf, source) is None]
+
+        with testset("multiple messages with stream synchronization"):
+            # Junk between the two messages must be discarded; both messages
+            # must decode in order. Exercises the same invariants as the
+            # `MessageDecoder` tests above, via the free-function API.
+            bio = BytesIO()
+            bio.write(encodemsg(b"first"))
+            bio.write(b"junk junk junk")
+            bio.write(encodemsg(b"second"))
+            bio.seek(0, SEEK_SET)
+            buf = ReceiveBuffer()
+            source = streamsource(bio)
+            test[decodemsg(buf, source) == b"first"]
+            test[decodemsg(buf, source) == b"second"]
+            test[decodemsg(buf, source) is None]
+
+        with testset("binary-safe payload"):
+            # Messages may contain arbitrary bytes, including the sync-byte
+            # value (0xFF) inside the payload.
+            payload = bytes(range(256))
+            buf = ReceiveBuffer()
+            source = bytessource(encodemsg(payload))
+            test[decodemsg(buf, source) == payload]
 
     with testset("with TCP sockets"):
         def server1(sock):

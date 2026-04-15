@@ -1,11 +1,13 @@
 # -*- coding: utf-8; -*-
 
+import socketserver
+
 from ...syntax import macros, test, test_raises, warn  # noqa: F401
 from ...test.fixtures import session, testset
 
 from .fixtures import nettest
 
-from ..util import ReceiveBuffer, recvall, netstringify
+from ..util import ReceiveBuffer, ReuseAddrThreadingTCPServer, recvall, netstringify
 
 def runtests():
     with testset("netstringify"):
@@ -15,6 +17,47 @@ def runtests():
         server = lambda sock: recvall(1024, sock)
         client = lambda sock: [sock.sendall(b"x" * 512), sock.sendall(b"x" * 512)]
         test[len(nettest(server, client)) == 1024]
+
+    with testset("ReuseAddrThreadingTCPServer"):
+        # Direct regression guard for a latent bug that hit us once already:
+        # the class used to override `server_bind()` to set `SO_REUSEADDR`,
+        # but the override silently dropped the
+        # `self.server_address = self.socket.getsockname()` refresh from
+        # stdlib `TCPServer.server_bind`. That line is what updates
+        # `server_address` to reflect the kernel-assigned port when you
+        # bind to port 0. Without it, `server.server_address[1]` reports
+        # 0 even though the socket is listening on a real port.
+        #
+        # The fix (commit `4243ded`) was to delete the custom override
+        # and just set `allow_reuse_address = True` as a class attribute,
+        # letting stdlib's `server_bind` do both the sockopt AND the
+        # `server_address` refresh. This testset guards the fix.
+
+        class _NullHandler(socketserver.BaseRequestHandler):
+            def handle(self):
+                pass
+
+        with testset("bind to port 0 returns the actually-bound port"):
+            server = ReuseAddrThreadingTCPServer(("127.0.0.1", 0), _NullHandler)
+            try:
+                actual_port = server.server_address[1]
+                # The bug manifested as `actual_port == 0`; with the fix,
+                # we see a real kernel-assigned port (1024..65535 range,
+                # but we only check non-zero since the exact port is
+                # non-deterministic).
+                test[actual_port != 0]
+                test[actual_port > 0]
+            finally:
+                server.server_close()
+
+        with testset("allow_reuse_address is enabled"):
+            # The class attribute form: stdlib `TCPServer.server_bind`
+            # checks this and calls `setsockopt(SO_REUSEADDR, 1)` when
+            # truthy. We verify the class attribute is in place — the
+            # actual sockopt is exercised transitively by the fact that
+            # the integration tests run repeatedly without "Address
+            # already in use" errors.
+            test[ReuseAddrThreadingTCPServer.allow_reuse_address is True]
 
     with testset("ReceiveBuffer"):
         # `ReceiveBuffer` is a thin `BytesIO` wrapper with message-protocol
