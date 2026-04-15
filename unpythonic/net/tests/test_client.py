@@ -53,9 +53,18 @@ server (POSIX-only smoke)`) force-runs the Windows backend on a POSIX
 dev machine as extra insurance that the Windows code path is covered
 without waiting for Windows CI.
 
-Tier 2 (subprocess + pexpect for real terminal semantics and signal
-handling) would be a natural future addition; we might never need it
-unless something in tier 1 turns out to miss a regression.
+**Tier 1 is zero coverage of readline itself.** The `_input` seam in
+`client._connect(..., _input=...)` replaces the entire `input()`
+pathway before `readline` is ever entered, so the client-side
+line editor, history, tab-completer binding (as rendered to the user
+via key events), and interrupt-during-input are not "partially
+covered" — they are not covered at all.  Tier 1 is a protocol and
+plumbing test, not a terminal-UX test.  A regression in a
+`readline.parse_and_bind` call, in the custom remote completer
+wiring, or in the SIGINT-during-readline path would pass tier 1
+silently.  Validation of those behaviours currently requires a human
+at a real terminal; a subprocess + `pexpect` tier 2 would be the
+principled fix if a real-world regression ever made the case for it.
 """
 
 import contextlib
