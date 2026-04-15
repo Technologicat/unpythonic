@@ -67,6 +67,7 @@ from ...syntax import macros, test, the, warn  # noqa: F401
 from ...test.fixtures import session, testset
 
 from ..msg import MessageDecoder
+from ..ptyproxy import PTYSocketProxy
 from ..util import socketsource
 from ..common import ApplevelProtocolMixin
 
@@ -218,6 +219,82 @@ def runtests():
         return
 
     from .. import client
+
+    with testset("tier 1: ptyproxy cleanup contract"):
+        # These tests exercise `PTYSocketProxy` directly, not through the
+        # server. They document the cleanup contract that every backend
+        # must satisfy: idempotent `stop()`, correct `__exit__` behavior
+        # on the exception path, and name readability after teardown.
+        #
+        # Written against the abstract `PTYSocketProxy`, which dispatches
+        # to the platform-specific subclass via `__new__`. Currently runs
+        # only on POSIX (see the early-return above); once the Windows
+        # backend lands, the same testset exercises it too — the whole
+        # point of making these contract tests rather than
+        # `PosixPTYSocketProxy`-specific ones.
+        #
+        # Resource-close verification uses the attribute contract
+        # (`master`/`slave` become `None` after teardown). We don't poke
+        # at the raw fd with `os.fstat` because the fd type differs
+        # between backends (POSIX: int, Windows: socket).
+
+        with testset("stop-before-start releases resources"):
+            sock = socket.socket()
+            try:
+                proxy = PTYSocketProxy(sock)
+                test[proxy.master is not None]
+                test[proxy.slave is not None]
+                proxy.stop()
+                # Latent bug before fix: `stop()` was gated on
+                # `if self._thread:` and did nothing if `start()` had
+                # never been called, leaking both fds.
+                test[proxy.master is None]
+                test[proxy.slave is None]
+            finally:
+                sock.close()
+
+        with testset("double stop is idempotent"):
+            sock = socket.socket()
+            try:
+                proxy = PTYSocketProxy(sock)
+                proxy.stop()
+                proxy.stop()  # must not raise
+                test[proxy.master is None]
+                test[proxy.slave is None]
+            finally:
+                sock.close()
+
+        with testset("exception in `with` body triggers cleanup"):
+            sock = socket.socket()
+            proxy_captured = None
+            caught = False
+            try:
+                with PTYSocketProxy(sock) as proxy:
+                    proxy_captured = proxy
+                    raise RuntimeError("simulated crash in with body")
+            except RuntimeError:
+                caught = True
+            # The exception must have propagated out of the `with` — the
+            # context manager returns False from __exit__, i.e. does not
+            # suppress.
+            test[caught]
+            # …and `stop()` must have run via __exit__, releasing the fds.
+            test[proxy_captured.master is None]
+            test[proxy_captured.slave is None]
+            sock.close()
+
+        with testset("name readable after stop()"):
+            sock = socket.socket()
+            try:
+                proxy = PTYSocketProxy(sock)
+                cached_name = proxy.name  # whatever the backend chose
+                proxy.stop()
+                # `name` is cached at construction time so log messages
+                # in a teardown `finally:` block can still reference it
+                # after the underlying slave transport is gone.
+                test[proxy.name == cached_name]
+            finally:
+                sock.close()
 
     with testset("tier 1: full-client ↔ server roundtrip"):
         with testset("basic arithmetic roundtrip"):

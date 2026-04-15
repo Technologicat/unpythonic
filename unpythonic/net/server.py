@@ -119,7 +119,6 @@ __all__ = ["start", "stop"]  # Exports for code that wants to embed the server.
 import rlcompleter  # yes, just rlcompleter without readline; backend for remote tab completion.
 import threading
 import sys
-import os
 import time
 import socketserver
 import atexit
@@ -445,22 +444,26 @@ class ConsoleSession(socketserver.BaseRequestHandler):
             # https://docs.python.org/3/library/socketserver.html#socketserver.StreamRequestHandler
 
             def on_socket_disconnect(adaptor):
-                server_print(f"PTY on {os.ttyname(adaptor.slave)} for client {client_address_str} disconnected by client.")
-                os.write(adaptor.master, "quit()\n".encode("utf-8"))  # as if this text arrived from the socket
+                server_print(f"PTY on {adaptor.name} for client {client_address_str} disconnected by client.")
+                adaptor.write_to_master(b"quit()\n")  # as if this text arrived from the socket
             def on_slave_disconnect(adaptor):
-                server_print(f"PTY on {os.ttyname(adaptor.slave)} for client {client_address_str} disconnected by PTY slave.")
-            adaptor = PTYSocketProxy(self.request, on_socket_disconnect, on_slave_disconnect)
-            adaptor.start()
-            server_print(f"PTY on {os.ttyname(adaptor.slave)} for client {client_address_str} opened.")
+                server_print(f"PTY on {adaptor.name} for client {client_address_str} disconnected by PTY slave.")
+            # `with PTYSocketProxy(...)` guarantees `stop()` runs on exit —
+            # whether the body completes normally, raises, or is interrupted.
+            # Crucially, this covers the paths where `adaptor.start()` or
+            # `open_slave_streams()` itself raises, which a bare try/finally
+            # around `adaptor.stop()` inside the body would miss.
+            with PTYSocketProxy(self.request, on_socket_disconnect, on_slave_disconnect) as adaptor:
+                adaptor.start()
+                server_print(f"PTY on {adaptor.name} for client {client_address_str} opened.")
 
-            # fdopen the slave side of the PTY to get file objects to work with.
-            # Be sure not to close the fd when exiting, it is managed by PTYSocketProxy.
-            #
-            # Note we can open the slave side in text mode, so these streams can behave
-            # exactly like standard input and output. The proxying between the master side
-            # and the network socket runs in binary mode inside PTYSocketProxy.
-            with open(adaptor.slave, "wt", encoding="utf-8", closefd=False) as wfile:
-                with open(adaptor.slave, "rt", encoding="utf-8", closefd=False) as rfile:
+                # Open the slave side as a pair of text streams, so these behave
+                # exactly like standard input and output. The proxying between the
+                # master side and the network socket runs in binary mode inside
+                # PTYSocketProxy. Stream teardown is managed by this inner context
+                # manager; the underlying slave transport itself is managed by
+                # PTYSocketProxy and closed by the outer `with`.
+                with adaptor.open_slave_streams() as (rfile, wfile):
                     # Set up the input and output streams for the thread we are running in.
                     # We use ThreadingTCPServer, so each connection gets its own thread.
                     # Here we just send the relevant object into each thread-local box.
@@ -490,10 +493,8 @@ class ConsoleSession(socketserver.BaseRequestHandler):
                         self.console.interact(banner=None, exitmsg="Bye.")
                     except SystemExit:  # Close the connection upon server process exit.
                         pass
-                    finally:
-                        server_print(f"Closing PTY on {os.ttyname(adaptor.slave)} for {client_address_str}.")
-                        adaptor.stop()
-                        server_print(f"Closing REPL session {self.session_id} for {client_address_str}.")
+                server_print(f"Closing PTY on {adaptor.name} for {client_address_str}.")
+            server_print(f"Closing REPL session {self.session_id} for {client_address_str}.")
         except BaseException as err:  # yes, SystemExit and KeyboardInterrupt, too.
             server_print(err)
         finally:
