@@ -606,7 +606,13 @@ def start(locals, bind="127.0.0.1", repl_port=1337, control_port=8128, banner=No
 
     _server_instance = (server, server_thread, cserver, cserver_thread)
     atexit.register(stop)
-    return bind, repl_port, control_port
+    # Return the **actual** bound ports, not the values the caller passed in.
+    # Matters when the caller asks for port 0 (let the kernel pick a free port);
+    # `server.server_address[1]` is the only way to retrieve the kernel's choice.
+    # On a regular fixed-port start, these just echo the input values.
+    actual_repl_port = server.server_address[1]
+    actual_control_port = cserver.server_address[1]
+    return bind, actual_repl_port, actual_control_port
 
 
 def stop():

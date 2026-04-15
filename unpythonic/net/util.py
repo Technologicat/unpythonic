@@ -16,11 +16,16 @@ from io import BytesIO, IOBase
 # https://docs.python.org/3/library/socketserver.html#socketserver.ThreadingMixIn
 # https://docs.python.org/3/library/socketserver.html#socketserver.TCPServer
 class ReuseAddrThreadingTCPServer(socketserver.ThreadingTCPServer):
-    def server_bind(self):
-        """Custom server_bind ensuring the socket is available for rebind immediately."""
-        # from https://stackoverflow.com/a/18858817
-        self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self.socket.bind(self.server_address)
+    """`ThreadingTCPServer` with `SO_REUSEADDR` enabled.
+
+    Setting `allow_reuse_address = True` is the stdlib-blessed way to get
+    `SO_REUSEADDR` on the listening socket — `TCPServer.server_bind` already
+    sets the sockopt *and* refreshes `self.server_address` from
+    `socket.getsockname()` after binding, which is important when binding
+    to port 0 (kernel-assigned port): the caller can then read the actual
+    bound port from `server.server_address[1]`.
+    """
+    allow_reuse_address = True
 
 
 # We could achieve the same result using a `unpythonic.collections.box` to
