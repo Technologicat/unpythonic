@@ -17,11 +17,33 @@ hijack the server's input path too, and the test would hang.  The
 `_input` seam lets us replace the client-side `input()` without
 touching the server-side one.
 
-The `scripted_repl` helper is cribbed from
-`mcpyrate/test/test_126_repl.py` (committed there as `0fee81b`); kept in
-sync with that canonical version on purpose — every project that writes
-macro-enabled tests needs a local copy, and it's the kind of plumbing
-that shouldn't fork quietly.
+The `scripted_repl` helper is the two-REPL-in-one-process sibling of
+`mcpyrate/test/test_126_repl.py` (committed there as `0fee81b`), which
+is the simpler "one REPL in the process" version.  The shape diverges
+intentionally for load-bearing architectural reasons:
+
+  * mcpyrate's version monkey-patches `builtins.input` and replaces
+    `sys.stdout` / `sys.stderr` with `StringIO` — simple, correct for
+    a single in-process `MacroConsole`.
+
+  * This version cannot do either.  `unpythonic.net.server` also runs
+    an `InteractiveConsole` in the same process (on a session thread),
+    which *also* calls `builtins.input`, so a global patch would
+    hijack the server.  And the server installs a
+    `Shim(_threadlocal_stdout)` as `sys.stdout` to route per-thread to
+    each session's PTY slave — replacing `sys.stdout` globally would
+    kill that routing and the client would hang forever waiting for a
+    prompt that never arrives.
+
+  * So this version (a) exposes `fake_input` as a seam the caller
+    threads through `_connect(_input=...)`, and (b) mutates the
+    **main-thread slot** of `server._threadlocal_stdout/stderr` via
+    `ThreadLocalBox.__lshift__`, which leaves session-thread routing
+    untouched.
+
+Grep for "scripted_repl" across the fleet if you need to cross-check
+the pattern in a third project; keep both versions in mind, pick the
+simpler one unless you hit the two-REPL constraint.
 
 POSIX-only: `unpythonic.net.server` uses `os.openpty`, `termios`, etc.
 On MS Windows the whole subsystem is currently unavailable (tracked as
