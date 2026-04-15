@@ -33,12 +33,29 @@ for a remote tab completer, and a separate client-side `input()` loop.)
 """
 
 import platform
-import readline  # noqa: F401, input() uses the readline module if it has been loaded.
 import socket
 import select
 import sys
 import re
 import time
+
+# NOTE: `readline` is imported lazily inside `connect()`, not at module top.
+# Two reasons:
+#
+#   1. POSIX stdlib ships `readline`; Windows does not (the stdlib module is
+#      GNU-readline-only).  A module-level `import readline` therefore makes
+#      this whole module unimportable on Windows — even though `connect()`
+#      is the only thing that needs it.  Keeping the import inside the
+#      function lets callers on non-POSIX platforms at least import the
+#      module (useful for test collection, docs, and for the eventual
+#      Windows port tracked as TODO_DEFERRED D9).
+#
+#   2. A three-tier fallback is applied at the import site: stdlib
+#      `readline` first, then third-party `pyreadline3` (a Windows drop-in
+#      with a compatible API surface), and finally `None` (degrade
+#      gracefully — the REPL loop still works, the user just loses history
+#      and tab completion).  The same pattern is used in
+#      `mcpyrate.repl.macropython` and `raven.librarian.minichat`.
 
 from .msg import MessageDecoder
 from .util import socketsource, ReceiveBuffer
@@ -154,6 +171,16 @@ def connect(host, repl_port, control_port):
     connection immediately. (The server should be smart enough to notice
     the client is gone, and clean up any relevant resources.)
     """
+    # Three-tier readline loading.  See module-level comment for rationale.
+    try:
+        import readline  # noqa: F401, side effect: enable GNU readline in input()
+    except ImportError:
+        try:
+            import pyreadline3 as readline  # type: ignore  # noqa: F401
+        except ImportError:
+            readline = None
+    _has_readline = readline is not None
+
     class SessionExit(Exception):
         pass
     try:
@@ -171,15 +198,22 @@ def connect(host, repl_port, control_port):
 
             # Set up remote tab completion, using a custom completer for readline.
             # https://stackoverflow.com/questions/35115208/is-there-any-way-to-combine-readline-rlcompleter-and-interactiveconsole-in-pytho
-            readline.set_completer(controller.complete)
-            # macOS ships `readline` backed by `libedit`, which speaks a
-            # different `parse_and_bind` dialect than GNU readline.  Detect
-            # by platform to keep tab completion working on Macs.  See
-            # https://stackoverflow.com/questions/7116038/python-repl-tab-completion-on-macos
-            if platform.system() == "Darwin":  # macOS
-                readline.parse_and_bind("bind ^I rl_complete")
-            else:  # Linux, Windows (pyreadline3)
-                readline.parse_and_bind("tab: complete")  # PyPy ignores this, but not needed there.
+            if _has_readline:
+                readline.set_completer(controller.complete)
+                # macOS ships `readline` backed by `libedit`, which speaks a
+                # different `parse_and_bind` dialect than GNU readline.  Detect
+                # by platform to keep tab completion working on Macs.  See
+                # https://stackoverflow.com/questions/7116038/python-repl-tab-completion-on-macos
+                if platform.system() == "Darwin":  # macOS
+                    readline.parse_and_bind("bind ^I rl_complete")
+                else:  # Linux, Windows (pyreadline3)
+                    readline.parse_and_bind("tab: complete")  # PyPy ignores this, but not needed there.
+            else:
+                # No readline at all: the REPL loop still works through plain
+                # `input()`, but the user loses history and tab completion.
+                print("unpythonic.net.client: `readline` unavailable — command history and tab completion are disabled.\n"
+                      "                       On Windows, `pip install pyreadline3` restores both.",
+                      file=sys.stderr)
 
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:  # remote REPL session
                 sock.connect((host, repl_port))  # TODO: IPv6 support
