@@ -21,8 +21,12 @@ documented wart of the Windows port — see the 2.0.x CHANGELOG entry.
 primitive, and spawning a subprocess per REPL session would defeat the
 whole point of `unpythonic.net.server`, which is to let a remote client
 inspect and hot-patch state in the *host* Python process — that requires
-the REPL to run in the same process as the server. Rationale recorded in
-the D9 design discussion (2026-04-16).
+the REPL to run in the same process as the server.
+
+The right question isn't "how do we get ConPTY", it's "what do we
+actually need". The answer: two connected bidirectional byte streams.
+`socket.socketpair()` provides exactly that, stdlib-only, with lines
+of code that mirror the POSIX backend almost 1:1.
 
 **Why the Windows backend also works on POSIX**: `socket.socketpair()` is
 available on every platform Python supports. The Windows-specific
@@ -104,8 +108,24 @@ class WindowsPTYSocketProxy(PTYSocketProxy):
         # also explicitly calls `sys.stdout.flush()` before reading, so
         # bare prompts (no trailing newline) also reach the client
         # promptly.
+        #
+        # `newline=""` on the writer disables `\n` → `os.linesep`
+        # translation — a CRITICAL Windows fix, because `os.linesep` is
+        # `\r\n` there, and the default `newline=None` would translate
+        # every `\n` the application writes into `\r\n` on the wire.
+        # That would pollute the client's display with stray `\r`s and
+        # potentially break the prompt-detection / session-ID-parsing
+        # regex on `net.client`. On POSIX the setting is a no-op (since
+        # `os.linesep == "\n"`), so it's also safe to run on Linux —
+        # and crucially it means the Linux test suite validates exactly
+        # the same code path that Windows will execute.
+        #
+        # The reader uses default `newline=None` (universal newlines),
+        # which returns `\n`-terminated lines regardless of the actual
+        # on-wire ending — exactly what `code.InteractiveConsole`
+        # expects from `sys.stdin.readline()`.
         with contextlib.ExitStack() as stack:
-            wfile = stack.enter_context(self.slave.makefile("w", buffering=1, encoding=encoding))
+            wfile = stack.enter_context(self.slave.makefile("w", buffering=1, encoding=encoding, newline=""))
             rfile = stack.enter_context(self.slave.makefile("r", encoding=encoding))
             yield rfile, wfile
 

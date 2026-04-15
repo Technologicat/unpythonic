@@ -47,8 +47,7 @@ import time
 #      this whole module unimportable on Windows — even though `connect()`
 #      is the only thing that needs it.  Keeping the import inside the
 #      function lets callers on non-POSIX platforms at least import the
-#      module (useful for test collection, docs, and for the eventual
-#      Windows port tracked as TODO_DEFERRED D9).
+#      module (useful for test collection, docs, and for Windows support).
 #
 #   2. A three-tier fallback is applied at the import site: stdlib
 #      `readline` first, then third-party `pyreadline3` (a Windows drop-in

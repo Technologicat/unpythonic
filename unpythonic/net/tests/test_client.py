@@ -45,13 +45,17 @@ Grep for "scripted_repl" across the fleet if you need to cross-check
 the pattern in a third project; keep both versions in mind, pick the
 simpler one unless you hit the two-REPL constraint.
 
-POSIX-only: `unpythonic.net.server` uses `os.openpty`, `termios`, etc.
-On MS Windows the whole subsystem is currently unavailable (tracked as
-TODO_DEFERRED D9).  This test module detects the platform and emits a
-`warn[]` + returns early if it finds itself running on Windows.
+Cross-platform: `unpythonic.net` runs on MS Windows too, via the
+`socket.socketpair`-based `WindowsPTYSocketProxy` backend. The test
+suite runs the full integration tests on every platform in the CI
+matrix.  A platform-conditional testset (`tier 1: Windows backend via
+server (POSIX-only smoke)`) force-runs the Windows backend on a POSIX
+dev machine as extra insurance that the Windows code path is covered
+without waiting for Windows CI.
 
 Tier 2 (subprocess + pexpect for real terminal semantics and signal
-handling) is deferred as TODO_DEFERRED D10.  We might never need it.
+handling) would be a natural future addition; we might never need it
+unless something in tier 1 turns out to miss a regression.
 """
 
 import contextlib
@@ -321,43 +325,36 @@ def runtests():
             finally:
                 sock.close()
 
-    # Integration tests — currently POSIX-only. Once D9 commit 3 wires
-    # up Windows CI, the early-return is dropped.
-    if platform.system() == "Windows":
-        warn["unpythonic.net REPL integration tests are POSIX-only until D9 lands; skipping on Windows"]
-        return
-
     from .. import client
 
-    with testset("tier 1: Windows backend via server (POSIX-only smoke)"):
-        # Cross-platform validation trick: on POSIX, force the server to
-        # use `WindowsPTYSocketProxy` instead of the native POSIX backend,
-        # then run a minimal full-REPL roundtrip through it. This exercises
-        # the Windows backend's `forward_traffic` thread (select.select
-        # + socketpair), `open_slave_streams` (sock.makefile text I/O with
-        # line buffering), and `write_to_master` (sock.sendall) under
-        # real REPL load — all on a Linux dev machine, with no Windows
-        # CI dependency.
-        #
-        # If this test passes on POSIX, the Windows backend is very
-        # likely to work on Windows too. The only things it doesn't
-        # cover are Windows-specific socket semantics (AF_INET loopback
-        # there vs AF_UNIX here) and the readline/pyreadline3 story on
-        # the client side — both of which get their real test in
-        # Windows CI in D9 commit 3.
-        from .. import server as _server_module
-        from ..ptyproxy_windows import WindowsPTYSocketProxy
-        _original_backend = _server_module.PTYSocketProxy
-        _server_module.PTYSocketProxy = WindowsPTYSocketProxy
-        try:
-            with test_repl_server() as (rport, cport):
-                _wait_for_port("127.0.0.1", rport)
-                _wait_for_port("127.0.0.1", cport)
-                with scripted_repl(["7 * 8"]) as captured:
-                    client._connect("127.0.0.1", rport, cport, _input=captured.fake_input)
-                test["56" in the[captured.stdout]]
-        finally:
-            _server_module.PTYSocketProxy = _original_backend
+    if platform.system() != "Windows":
+        with testset("tier 1: Windows backend via server (POSIX-only smoke)"):
+            # Cross-platform validation trick: on POSIX, force the server
+            # to use `WindowsPTYSocketProxy` instead of the native POSIX
+            # backend, then run a minimal full-REPL roundtrip through it.
+            # This exercises the Windows backend's `forward_traffic`
+            # thread (select.select + socketpair), `open_slave_streams`
+            # (sock.makefile text I/O with line buffering), and
+            # `write_to_master` (sock.sendall) under real REPL load —
+            # all on a Linux dev machine.
+            #
+            # On Windows itself the native backend *is* Windows, so this
+            # force-smoke is redundant: the full integration testset
+            # below already exercises `WindowsPTYSocketProxy` through
+            # the same code path. Hence the guard.
+            from .. import server as _server_module
+            from ..ptyproxy_windows import WindowsPTYSocketProxy
+            _original_backend = _server_module.PTYSocketProxy
+            _server_module.PTYSocketProxy = WindowsPTYSocketProxy
+            try:
+                with test_repl_server() as (rport, cport):
+                    _wait_for_port("127.0.0.1", rport)
+                    _wait_for_port("127.0.0.1", cport)
+                    with scripted_repl(["7 * 8"]) as captured:
+                        client._connect("127.0.0.1", rport, cport, _input=captured.fake_input)
+                    test["56" in the[captured.stdout]]
+            finally:
+                _server_module.PTYSocketProxy = _original_backend
 
     with testset("tier 1: full-client ↔ server roundtrip"):
         with testset("basic arithmetic roundtrip"):

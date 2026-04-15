@@ -2,16 +2,22 @@
 
 **2.0.1** (in progress):
 
+**Changed**:
+
+- `unpythonic.net` (REPL server and client) now runs on MS Windows. Previously the whole subsystem was POSIX-only because `unpythonic.net.ptyproxy` required `termios`, `tty`, and `os.openpty`. A new `socket.socketpair()`-based backend stands in for the pty master/slave endpoints on Windows, plugged in via a platform dispatch in `PTYSocketProxy`. Known wart: `os.isatty(sys.stdin.fileno())` inside a REPL session returns `False` on Windows (no real pseudo-terminal is involved), whereas it returns `True` on POSIX — user code *inside* the REPL that checks `sys.stdin.isatty()` will see the Windows result; the framework itself doesn't care.
+
 **Fixed**:
 
 - `unpythonic.net.server`: `start()` now returns the actually-bound ports, not the values the caller passed in. Matters when passing `repl_port=0` / `control_port=0` to let the kernel pick a free port — previously the caller got `(bind, 0, 0)` back. Also fixes a latent bug in `unpythonic.net.util.ReuseAddrThreadingTCPServer`: its custom `server_bind()` override dropped the `self.server_address = self.socket.getsockname()` refresh from stdlib's `TCPServer.server_bind`.
+- `unpythonic.net.ptyproxy`: `stop()` is now idempotent and safe to call on a proxy that was never started. Latent bug: previously `stop()` gated the entire teardown (including `os.close(master)` / `os.close(slave)`) behind `if self._thread:`, so constructing a proxy and then exiting without calling `start()` leaked both fds.
 - `unpythonic.net.client`: tab completion now works on macOS. macOS ships `readline` backed by `libedit`, which speaks a different `parse_and_bind` dialect than GNU readline — the client now detects `platform.system() == "Darwin"` and issues the libedit form there.
 - `unpythonic.misc.timer` and `unpythonic.timeutil.ETAEstimator`: switched from `time.monotonic()` to `time.perf_counter()`. Latent Windows-only bug: `monotonic` is backed by a ~16 ms tick counter on Windows, so microsecond-scale `with timer() as t: ...` blocks recorded `t.dt = 0.0` and downstream divisions raised `ZeroDivisionError`. `perf_counter` has the highest available resolution on every platform. POSIX unaffected.
 - `unpythonic.test.runner`: module discovery no longer crashes on MS Windows with `re.error: bad escape`. The runner used `re.sub(os.path.sep, ...)` — `os.path.sep` is a lone backslash on Windows, an invalid regex pattern. Fixed by using `str.replace`. Affects any project reusing `unpythonic.test.runner`.
 
 **Internal**:
 
-- `unpythonic.net` now has an automated test suite for the REPL client and server. `unpythonic/net/tests/test_client.py` exercises the full client ↔ server roundtrip in-process (eval, multi-line, syntax-error recovery, clean disconnect), netcat-mode raw-socket access, control-channel RPC, and stretch cases (sequential reconnect, two concurrent clients). Tier 1 only — no subprocess / pty driver. POSIX-only; Windows port deferred.
+- `unpythonic.net` now has an automated test suite for the REPL client and server. `unpythonic/net/tests/test_client.py` exercises the full client ↔ server roundtrip in-process (eval, multi-line, syntax-error recovery, clean disconnect), netcat-mode raw-socket access, control-channel RPC, and stretch cases (sequential reconnect, two concurrent clients). Tier 1 only — no subprocess / pty driver. Runs on every CI platform (Linux, macOS, Windows).
+- `unpythonic.net.ptyproxy`: refactored into an abstract base class with platform-specific backends (`PosixPTYSocketProxy` via `os.openpty`, `WindowsPTYSocketProxy` via `socket.socketpair`). Dispatch happens inside `PTYSocketProxy.__new__`, so callers instantiate the base class and get the right backend for free. `PTYSocketProxy` is now a context manager (`with PTYSocketProxy(...) as proxy:`) for guaranteed cleanup. Public interface otherwise unchanged.
 - `unpythonic.net.client`: `connect()` is now a thin public shim over a private `_connect(..., _input=None)`. The `_input` seam lets tests drive the REPL loop without monkey-patching `builtins.input` globally. Public API unchanged.
 - `unpythonic.net.client`: `import readline` moved from module top into `connect()`, with a three-tier fallback (`readline` → `pyreadline3` → graceful degradation). POSIX behaviour unchanged; the module is now importable on Windows.
 - `unpythonic.net.tests.fixtures.nettest`: binds on port 0 (kernel-assigned), removed a `sleep(0.05)` race-condition bandage, and re-raises worker-thread exceptions instead of swallowing them.
