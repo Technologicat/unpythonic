@@ -41,6 +41,3 @@ Next unused item code: D13
   **When to actually do it**: only if tier 1 coverage turns out to miss something important (a regression hits prod that tier 1 would not have caught). The in-thread server + scripted client approach already exercises most of the protocol surface; tier 2 is primarily a safety net for terminal-semantics and signal-path bugs. Until one of those bites, tier 1 is the main win. (Added 2026-04-15, alongside the tier 1 bring-up.)
 
 
-- **D12: Unit tests for `unpythonic.net.util.ReceiveBuffer`**: The `ReceiveBuffer` class in `unpythonic/net/util.py` is used internally by `unpythonic.net.msg.MessageDecoder` (exercised transitively by the REPL test suite), but it also has a real external consumer in production — `raven.common.netutil.multipart_x_mixed_replace_payload_extractor`, which reuses it as a general-purpose append/set/getvalue buffer for message-boundary-aware reads. As part of the public `unpythonic.net.util` API (`__all__`), it deserves its own targeted unit tests rather than only being covered through `MessageDecoder`'s indirect use. Cheap to add — a new test module in `unpythonic/net/tests/` exercising `append`, `set`, `getvalue`, and the type-check error paths. (Noticed 2026-04-16 during the D9 Windows port.)
-
-
