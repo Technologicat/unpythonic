@@ -32,6 +32,7 @@ had a dumb connection; the client must supply its own. Which implies the need
 for a remote tab completer, and a separate client-side `input()` loop.)
 """
 
+import platform
 import readline  # noqa: F401, input() uses the readline module if it has been loaded.
 import socket
 import select
@@ -171,7 +172,14 @@ def connect(host, repl_port, control_port):
             # Set up remote tab completion, using a custom completer for readline.
             # https://stackoverflow.com/questions/35115208/is-there-any-way-to-combine-readline-rlcompleter-and-interactiveconsole-in-pytho
             readline.set_completer(controller.complete)
-            readline.parse_and_bind("tab: complete")  # TODO: do we need to call this, PyPy doesn't support it?
+            # macOS ships `readline` backed by `libedit`, which speaks a
+            # different `parse_and_bind` dialect than GNU readline.  Detect
+            # by platform to keep tab completion working on Macs.  See
+            # https://stackoverflow.com/questions/7116038/python-repl-tab-completion-on-macos
+            if platform.system() == "Darwin":  # macOS
+                readline.parse_and_bind("bind ^I rl_complete")
+            else:  # Linux, Windows (pyreadline3)
+                readline.parse_and_bind("tab: complete")  # PyPy ignores this, but not needed there.
 
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:  # remote REPL session
                 sock.connect((host, repl_port))  # TODO: IPv6 support
