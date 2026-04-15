@@ -15,7 +15,7 @@ from functools import partial
 from itertools import count
 import inspect
 from queue import Empty
-from time import monotonic
+from time import perf_counter
 from types import FunctionType, LambdaType
 
 from .regutil import register_decorator
@@ -124,10 +124,19 @@ class timer:
         """
         self.p = p
     def __enter__(self):
-        self.t0 = monotonic()
+        # `perf_counter`, not `monotonic`: the former is documented as "a
+        # clock with the highest available resolution to measure a short
+        # duration" and is backed by `QueryPerformanceCounter` (~100 ns) on
+        # Windows, whereas `monotonic` is backed there by the ~16 ms
+        # tick-counter and would record `dt = 0` for microsecond-scale
+        # blocks (e.g. a PyPy-JIT'd tight loop).  Both are monotonic; we
+        # only give up the "comparable across processes" guarantee of
+        # `monotonic`, which `timer` does not need since it only measures
+        # a dynamic extent in wall-clock time within a single process.
+        self.t0 = perf_counter()
         return self
     def __exit__(self, exctype, excvalue, traceback):
-        self.dt = monotonic() - self.t0
+        self.dt = perf_counter() - self.t0
         if self.p:
             print(self.dt)
 

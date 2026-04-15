@@ -70,7 +70,7 @@ class ETAEstimator:
     is available in `self.completed`.
     """
     def __init__(self, total: int, keep_last: typing.Optional[int] = None):
-        self.t1 = time.monotonic()  # time since last tick
+        self.t1 = time.perf_counter()  # time since last tick
         self.t0 = self.t1  # time since beginning
         self.total = total  # total number of work items
         self.completed = 0  # number of completed work items
@@ -79,7 +79,7 @@ class ETAEstimator:
     def tick(self) -> None:
         """Mark one more task as completed, automatically updating the internal timings cache."""
         self.completed += 1
-        t = time.monotonic()
+        t = time.perf_counter()
         dt = t - self.t1
         self.t1 = t
         self.que.append(dt)
@@ -109,7 +109,7 @@ class ETAEstimator:
     estimate = property(fget=_estimate, doc="Estimate of time remaining, in seconds. Computed when read; read-only. If no tasks have been marked completed yet, the estimate is `None`.")
 
     def _elapsed(self) -> float:
-        return time.monotonic() - self.t0
+        return time.perf_counter() - self.t0
     elapsed = property(fget=_elapsed, doc="Total elapsed time, in seconds. Computed when read; read-only.")
 
     def _formatted_eta(self) -> str:
