@@ -306,7 +306,11 @@ def runtests():
                 # DescribeServer: must return status=ok and a prompts dict.
                 probe._send({"command": "DescribeServer"})
                 reply = probe._recv()
-                test[reply["status"] == "ok"]
+                # `the[reply]` (not `the[reply["status"]]`) so a failure
+                # shows the whole reply dict, including any "reason"
+                # field the server may have set — more actionable than
+                # just seeing `reply["status"] == "failed"`.
+                test[the[reply]["status"] == "ok"]
                 test["ps1" in the[reply["prompts"]]]
                 test["ps2" in the[reply["prompts"]]]
 
@@ -315,8 +319,8 @@ def runtests():
                 # still find builtins like `print`.
                 probe._send({"command": "TabComplete", "text": "pri", "state": 0})
                 reply = probe._recv()
-                test[reply["status"] == "ok"]
-                test[reply["result"] is not None]
+                test[the[reply]["status"] == "ok"]
+                test[the[reply]["result"] is not None]
                 test["print" in the[reply["result"]]]
 
     with testset("tier 1 stretch: sequential reconnect"):
