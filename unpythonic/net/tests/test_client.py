@@ -213,88 +213,151 @@ def _wait_for_port(host, port, timeout=2.0):
     raise RuntimeError(f"Server at {host}:{port} did not become ready within {timeout}s: {last_err}")
 
 
+def _run_cleanup_contract_suite(proxy_cls):
+    """Run the four cleanup-contract sub-tests against a specific backend class.
+
+    Called once per backend (POSIX and Windows) from the top-level
+    `tier 1: ptyproxy cleanup contract` testset. Factoring into a helper
+    keeps the tests DRY while still exercising both backends — the
+    Windows backend works on POSIX too (via `socket.socketpair`),
+    so we can test it on a Linux dev box without waiting for Windows CI.
+
+    Resource-close verification uses the attribute contract
+    (`master`/`slave` become `None` after teardown). We don't poke at the
+    raw fd with `os.fstat` because the fd type differs between backends
+    (POSIX: int, Windows: socket).
+    """
+    with testset("stop-before-start releases resources"):
+        sock = socket.socket()
+        try:
+            proxy = proxy_cls(sock)
+            test[proxy.master is not None]
+            test[proxy.slave is not None]
+            proxy.stop()
+            # Latent bug before fix: `stop()` was gated on
+            # `if self._thread:` and did nothing if `start()` had
+            # never been called, leaking both fds.
+            test[proxy.master is None]
+            test[proxy.slave is None]
+        finally:
+            sock.close()
+
+    with testset("double stop is idempotent"):
+        sock = socket.socket()
+        try:
+            proxy = proxy_cls(sock)
+            proxy.stop()
+            proxy.stop()  # must not raise
+            test[proxy.master is None]
+            test[proxy.slave is None]
+        finally:
+            sock.close()
+
+    with testset("exception in `with` body triggers cleanup"):
+        sock = socket.socket()
+        proxy_captured = None
+        caught = False
+        try:
+            with proxy_cls(sock) as proxy:
+                proxy_captured = proxy
+                raise RuntimeError("simulated crash in with body")
+        except RuntimeError:
+            caught = True
+        # The exception must have propagated out of the `with` — the
+        # context manager returns False from __exit__, i.e. does not
+        # suppress.
+        test[caught]
+        # …and `stop()` must have run via __exit__, releasing the fds.
+        test[proxy_captured.master is None]
+        test[proxy_captured.slave is None]
+        sock.close()
+
+    with testset("name readable after stop()"):
+        sock = socket.socket()
+        try:
+            proxy = proxy_cls(sock)
+            cached_name = proxy.name  # whatever the backend chose
+            proxy.stop()
+            # `name` is cached at construction time so log messages
+            # in a teardown `finally:` block can still reference it
+            # after the underlying slave transport is gone.
+            test[proxy.name == cached_name]
+        finally:
+            sock.close()
+
+
 def runtests():
+    # Cleanup contract tests — cross-platform, run before the Windows
+    # early-return below. These exercise `PTYSocketProxy` construction,
+    # teardown, and context-manager semantics without touching the
+    # server/client roundtrip.
+    with testset("tier 1: ptyproxy cleanup contract"):
+        # Windows backend: works on any platform (`socket.socketpair` is
+        # cross-platform), so we always run it. On a POSIX dev box this
+        # gives us real coverage of the Windows backend code without
+        # waiting for Windows CI to light up.
+        with testset("Windows backend (socketpair)"):
+            from ..ptyproxy_windows import WindowsPTYSocketProxy
+            _run_cleanup_contract_suite(WindowsPTYSocketProxy)
+
+        # POSIX backend: uses `os.openpty`, `termios`, `tty` — imports
+        # blow up on Windows. Gated.
+        if platform.system() != "Windows":
+            with testset("POSIX backend (openpty)"):
+                from ..ptyproxy_posix import PosixPTYSocketProxy
+                _run_cleanup_contract_suite(PosixPTYSocketProxy)
+
+        with testset("dispatch picks the right backend"):
+            sock = socket.socket()
+            try:
+                proxy = PTYSocketProxy(sock)
+                if platform.system() == "Windows":
+                    from ..ptyproxy_windows import WindowsPTYSocketProxy
+                    test[type(proxy) is WindowsPTYSocketProxy]
+                else:
+                    from ..ptyproxy_posix import PosixPTYSocketProxy
+                    test[type(proxy) is PosixPTYSocketProxy]
+                proxy.stop()
+            finally:
+                sock.close()
+
+    # Integration tests — currently POSIX-only. Once D9 commit 3 wires
+    # up Windows CI, the early-return is dropped.
     if platform.system() == "Windows":
-        warn["unpythonic.net REPL server is POSIX-only (see TODO_DEFERRED D9); skipping tier-1 tests on Windows"]
+        warn["unpythonic.net REPL integration tests are POSIX-only until D9 lands; skipping on Windows"]
         return
 
     from .. import client
 
-    with testset("tier 1: ptyproxy cleanup contract"):
-        # These tests exercise `PTYSocketProxy` directly, not through the
-        # server. They document the cleanup contract that every backend
-        # must satisfy: idempotent `stop()`, correct `__exit__` behavior
-        # on the exception path, and name readability after teardown.
+    with testset("tier 1: Windows backend via server (POSIX-only smoke)"):
+        # Cross-platform validation trick: on POSIX, force the server to
+        # use `WindowsPTYSocketProxy` instead of the native POSIX backend,
+        # then run a minimal full-REPL roundtrip through it. This exercises
+        # the Windows backend's `forward_traffic` thread (select.select
+        # + socketpair), `open_slave_streams` (sock.makefile text I/O with
+        # line buffering), and `write_to_master` (sock.sendall) under
+        # real REPL load — all on a Linux dev machine, with no Windows
+        # CI dependency.
         #
-        # Written against the abstract `PTYSocketProxy`, which dispatches
-        # to the platform-specific subclass via `__new__`. Currently runs
-        # only on POSIX (see the early-return above); once the Windows
-        # backend lands, the same testset exercises it too — the whole
-        # point of making these contract tests rather than
-        # `PosixPTYSocketProxy`-specific ones.
-        #
-        # Resource-close verification uses the attribute contract
-        # (`master`/`slave` become `None` after teardown). We don't poke
-        # at the raw fd with `os.fstat` because the fd type differs
-        # between backends (POSIX: int, Windows: socket).
-
-        with testset("stop-before-start releases resources"):
-            sock = socket.socket()
-            try:
-                proxy = PTYSocketProxy(sock)
-                test[proxy.master is not None]
-                test[proxy.slave is not None]
-                proxy.stop()
-                # Latent bug before fix: `stop()` was gated on
-                # `if self._thread:` and did nothing if `start()` had
-                # never been called, leaking both fds.
-                test[proxy.master is None]
-                test[proxy.slave is None]
-            finally:
-                sock.close()
-
-        with testset("double stop is idempotent"):
-            sock = socket.socket()
-            try:
-                proxy = PTYSocketProxy(sock)
-                proxy.stop()
-                proxy.stop()  # must not raise
-                test[proxy.master is None]
-                test[proxy.slave is None]
-            finally:
-                sock.close()
-
-        with testset("exception in `with` body triggers cleanup"):
-            sock = socket.socket()
-            proxy_captured = None
-            caught = False
-            try:
-                with PTYSocketProxy(sock) as proxy:
-                    proxy_captured = proxy
-                    raise RuntimeError("simulated crash in with body")
-            except RuntimeError:
-                caught = True
-            # The exception must have propagated out of the `with` — the
-            # context manager returns False from __exit__, i.e. does not
-            # suppress.
-            test[caught]
-            # …and `stop()` must have run via __exit__, releasing the fds.
-            test[proxy_captured.master is None]
-            test[proxy_captured.slave is None]
-            sock.close()
-
-        with testset("name readable after stop()"):
-            sock = socket.socket()
-            try:
-                proxy = PTYSocketProxy(sock)
-                cached_name = proxy.name  # whatever the backend chose
-                proxy.stop()
-                # `name` is cached at construction time so log messages
-                # in a teardown `finally:` block can still reference it
-                # after the underlying slave transport is gone.
-                test[proxy.name == cached_name]
-            finally:
-                sock.close()
+        # If this test passes on POSIX, the Windows backend is very
+        # likely to work on Windows too. The only things it doesn't
+        # cover are Windows-specific socket semantics (AF_INET loopback
+        # there vs AF_UNIX here) and the readline/pyreadline3 story on
+        # the client side — both of which get their real test in
+        # Windows CI in D9 commit 3.
+        from .. import server as _server_module
+        from ..ptyproxy_windows import WindowsPTYSocketProxy
+        _original_backend = _server_module.PTYSocketProxy
+        _server_module.PTYSocketProxy = WindowsPTYSocketProxy
+        try:
+            with test_repl_server() as (rport, cport):
+                _wait_for_port("127.0.0.1", rport)
+                _wait_for_port("127.0.0.1", cport)
+                with scripted_repl(["7 * 8"]) as captured:
+                    client._connect("127.0.0.1", rport, cport, _input=captured.fake_input)
+                test["56" in the[captured.stdout]]
+        finally:
+            _server_module.PTYSocketProxy = _original_backend
 
     with testset("tier 1: full-client ↔ server roundtrip"):
         with testset("basic arithmetic roundtrip"):
