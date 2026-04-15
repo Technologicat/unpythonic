@@ -33,10 +33,31 @@ jobs:
 
   test:
     needs: lint
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash  # so the `tr` in "Determine Python version string for PDM" works on Windows (uses Git Bash)
     strategy:
+      fail-fast: false
       matrix:
+        # Full Python/PyPy matrix on Linux; newest CPython plus PyPy on
+        # macOS and Windows.  Rationale: unpythonic is pure Python but
+        # exercises unusual control-flow machinery (continuations, dynvars,
+        # TCO, generator tricks), where OS-specific regressions can surface
+        # independently of Python minor version.  PyPy is included on every
+        # OS because it's a separate interpreter family — the control-flow
+        # code paths differ from CPython and can have their own quirks.
+        os: [ubuntu-latest]
         python-version: ["3.10", "3.11", "3.12", "3.13", "3.14", "pypy-3.11"]
+        include:
+          - os: macos-latest
+            python-version: "3.14"
+          - os: macos-latest
+            python-version: "pypy-3.11"
+          - os: windows-latest
+            python-version: "3.14"
+          - os: windows-latest
+            python-version: "pypy-3.11"
 
     steps:
     - uses: actions/checkout@v6
@@ -62,10 +83,7 @@ jobs:
         #     https://pdm-project.org/en/latest/usage/venv/
         pdm install
     - name: Test with unpythonic.test.fixtures
-      run: |
-        pdm use --venv in-project
-        source .venv/bin/activate
-        python runtests.py
+      run: pdm run python runtests.py
 
   build-dist:
     needs: test
