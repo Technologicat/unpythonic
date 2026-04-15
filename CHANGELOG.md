@@ -2,7 +2,9 @@
 
 **2.0.1** (in progress):
 
-*No user-visible changes yet.*
+**Fixed**:
+
+- `unpythonic.test.runner`: module discovery crashed on MS Windows with `re.error: bad escape (end of pattern) at position 0`. The runner used `re.sub(os.path.sep, ...)` to convert a relative path into a dotted module name, which worked by accident on POSIX (where `os.path.sep` is `/`, not a regex metacharacter), but on Windows `os.path.sep` is a lone backslash — an incomplete escape as a regex pattern. Fixed by using `str.replace` instead, which treats both arguments as literal strings. Affects any project that reuses `unpythonic.test.runner` for its own macro-enabled tests on Windows.
 
 
 ---
