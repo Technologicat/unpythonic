@@ -171,6 +171,23 @@ def connect(host, repl_port, control_port):
     connection immediately. (The server should be smart enough to notice
     the client is gone, and clean up any relevant resources.)
     """
+    _connect(host, repl_port, control_port)
+
+
+# The real implementation.  `connect` is a thin shim; this one takes an
+# extra `_input` hook so the tier 1 test suite can drive the REPL loop
+# through a scripted fake `input()` without monkey-patching `builtins.input`
+# globally — which would also hijack the in-process server's
+# `InteractiveConsole.raw_input` path and break the test.
+#
+# The pattern (public shim + private `_name` impl with extra kwargs) is
+# used elsewhere in the unpythonic fleet when a public signature should
+# stay clean but tests need a seam.
+def _connect(host, repl_port, control_port, _input=None):
+    if _input is None:
+        import builtins
+        _input = builtins.input
+
     # Three-tier readline loading.  See module-level comment for rationale.
     try:
         import readline  # noqa: F401, side effect: enable GNU readline in input()
@@ -292,7 +309,7 @@ def connect(host, repl_port, control_port):
 
                             # "R", "E" (but evaluate remotely)
                             try:
-                                inp = input(prompt)
+                                inp = _input(prompt)
                                 sock.sendall((inp + "\n").encode("utf-8"))
                             except EOFError:
                                 print("unpythonic.net.client: Ctrl+D pressed, asking server to disconnect.")
