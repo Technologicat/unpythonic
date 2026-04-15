@@ -560,6 +560,7 @@ with session("simple framework demo"):
         test[g(2, 3) == 6]
         # Use `the[]` (or several) in a `test[]` to declare what you want to inspect if the test fails.
         # Implicit `the[]`: in comparison, the LHS; otherwise the whole expression. Used if no explicit `the[]`.
+        # For compound LHS like `reply["status"] == "ok"`, wrap the container (`the[reply]`) to capture the whole dict on failure instead of just the leaf.
         test[the[counter()] < the[counter()]]
 
     with testset("outer"):

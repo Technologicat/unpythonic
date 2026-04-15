@@ -84,6 +84,10 @@ Part of unpythonic's **public API** (`unpythonic.test.fixtures`, `unpythonic.tes
 - `test[f(the[a]) == g(the[b])]` → reports both `a` and `b`, in evaluation order. A `test[]` can contain any number of `the[]`, including nested (`the[outer(the[inner])]`).
 - **Default**: if the top-level expression of `test[]` is a comparison and no explicit `the[]` is present, the leftmost term is **implicitly** wrapped — so `test[x == 42]` already reports `x` without you having to write `the[x]`. This is the common case.
 - Use explicit `the[]` when you want to capture something *other* than the LHS of the top-level comparison — e.g. a subexpression inside a function call, a term in a non-comparison assertion, or multiple values at once.
+- **Compound LHS — choose the capture granularity**:
+  - Auto-capture wraps the LHS *as-written*. For `test[reply["status"] == "ok"]` that captures `reply["status"]`, and a failure shows `"failed"` — the leaf value — not the full dict.
+  - Any explicit `the[]` anywhere in the expression **disables** auto-capture. `test[the[reply]["status"] == "ok"]` captures `reply` instead — the whole dict, useful for seeing a `"reason"` field the server attached alongside `"status": "failed"`.
+  - Both are valid. Decide by "*what value on failure would I actually want to see?*", not "*is `the[]` redundant?*". Leaf is enough when it's self-explanatory (`timer.dt == 0.0`). Wrap the container when the leaf is lossy (`reply["status"] == "ok"` — "failed" doesn't tell you *why*).
 - The helper is smart enough to skip trivial captures (literal values), so `test[4 in the[(1, 2, 3)]]` won't clutter the output with `(1, 2, 3) = (1, 2, 3)`.
 - **Not supported** inside `test_raises`, `test_signals`, `fail`, `error`, or `warn` — only in `test[...]` and `with test:` blocks.
 
