@@ -2262,6 +2262,8 @@ Because test macros expand outside-in, the source code is captured before any ne
 
 By default (if no explicit `the[]` is present), `test[]` implicitly inserts a `the[]` for the leftmost term if the top-level expression is a comparison (common use case), and otherwise does not capture anything.
 
+If you want to instead capture *the RHS*, use an explicit `the[]`. For example, `test["green tea" == the[vert]]` captures the value of `vert` upon failure.
+
 When nothing is captured, if the test fails, the value of the whole expression is shown. Of course, you will then already know the value is falsey, but there is still the possibly useful distinction of whether it is, say, `False`, `None`, `0` or `[]`.
 
 A `test[]` or `with test` can have any number of subexpressions marked as `the[]`. It is possible to even nest a `the[]` inside another `the[]`, if you need the value of some subexpression as well as one of *its* subexpressions. The captured values are gathered, in the order they were evaluated (by Python's standard evaluation rules), into a list that is shown upon test failure.

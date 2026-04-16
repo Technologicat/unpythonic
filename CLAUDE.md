@@ -82,7 +82,8 @@ Part of unpythonic's **public API** (`unpythonic.test.fixtures`, `unpythonic.tes
 
 **Capturing values with `the[]`**: when a `test[]` fails, you want to see *what the interesting subexpression actually evaluated to*, not just "the assertion was falsy." The `the[...]` helper macro marks a subexpression for capture; at run time, when the test fires, the framework formats a failure message with the source text and captured value of each `the[]`. The name is chosen to mostly preserve English reading order at the use site (`test[the[x] == 42]` reads roughly as "test that the `x` equals 42"), and is also a nod to Common Lisp's `THE` special form — though CL's `THE` is a *type-declaration* construct, so it's a name pun, not a semantic port. Heads-up for grepping: `the` is a word-boundary nightmare; anchor searches with `\bthe\[`. Usage:
 
-- `test[the[x] == 42]` → on failure, reports `x` and the value it had.
+- `test[x == 42]` → on failure, auto-captures and reports `x` (leftmost term of a comparison).
+- `test["green tea" == the[vert]]` → on failure, reports `vert` and its value.
 - `test[f(the[a]) == g(the[b])]` → reports both `a` and `b`, in evaluation order. A `test[]` can contain any number of `the[]`, including nested (`the[outer(the[inner])]`).
 - **Default**: if the top-level expression of `test[]` is a comparison and no explicit `the[]` is present, the leftmost term is **implicitly** wrapped — so `test[x == 42]` already reports `x` without you having to write `the[x]`. This is the common case.
 - Use explicit `the[]` when you want to capture something *other* than the LHS of the top-level comparison — e.g. a subexpression inside a function call, a term in a non-comparison assertion, or multiple values at once.

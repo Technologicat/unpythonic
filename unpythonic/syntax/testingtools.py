@@ -56,6 +56,7 @@ def the(tree, **kw):
         test[lower_limit < the[computeitem(...)]]
         test[lower_limit < the[computeitem(...)] < upper_limit]
         test[myconstant in the[computeset(...)]]
+        test["green tea" == the[vert]]
 
     especially if you need to capture several subexpressions::
 
