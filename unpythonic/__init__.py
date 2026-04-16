@@ -17,6 +17,7 @@ from .conditions import *  # noqa: F401, F403
 from .dispatch import *  # noqa: F401, F403
 from .dynassign import *  # noqa: F401, F403
 from .ec import *  # noqa: F401, F403
+from .environ import override as environ_override  # noqa: F401
 from .excutil import *  # noqa: F401, F403
 from .fix import *  # noqa: F401, F403
 from .fold import *  # noqa: F401, F403

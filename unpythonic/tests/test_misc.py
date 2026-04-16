@@ -4,7 +4,11 @@ from ..syntax import macros, test, test_raises, the  # noqa: F401
 from ..test.fixtures import session, testset
 
 from collections import deque
+import logging
+import os
 from queue import Queue
+import sys
+import tempfile
 
 from ..misc import (pack,
                     namelambda,
@@ -13,7 +17,10 @@ from ..misc import (pack,
                     Popper, CountingIterator,
                     slurp,
                     callsite_filename,
-                    safeissubclass)
+                    safeissubclass,
+                    maybe_open,
+                    UnionFilter,
+                    si_prefix)
 from ..fun import withself
 
 def runtests():
@@ -130,6 +137,84 @@ def runtests():
         test[not safeissubclass(Safe, PlasticBox)]
         test[safeissubclass(Safe, (PlasticBox, MetalBox))]
         test[not safeissubclass("definitely not a class", MetalBox)]
+
+    # --------------------------------------------------------------------------
+    # maybe_open
+
+    with testset("maybe_open"):
+        # With an actual file
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".txt", delete=False) as tmp:
+            tmp.write("hello")
+            tmpname = tmp.name
+        try:
+            with maybe_open(tmpname, "r", sys.stdin) as f:
+                test[the[f.read()] == "hello"]
+        finally:
+            os.unlink(tmpname)
+
+        # With None filename, yields the fallback stream
+        import io
+        fallback = io.StringIO("fallback content")
+        with maybe_open(None, "r", fallback) as f:
+            test[f is fallback]
+            test[the[f.read()] == "fallback content"]
+
+    # --------------------------------------------------------------------------
+    # UnionFilter
+
+    with testset("UnionFilter"):
+        f1 = logging.Filter("myapp.core")
+        f2 = logging.Filter("myapp.io")
+        uf = UnionFilter(f1, f2)
+
+        rec_core = logging.LogRecord("myapp.core.engine", logging.INFO,
+                                     "", 0, "msg", (), None)
+        rec_io = logging.LogRecord("myapp.io.disk", logging.INFO,
+                                   "", 0, "msg", (), None)
+        rec_other = logging.LogRecord("otherapp.main", logging.INFO,
+                                      "", 0, "msg", (), None)
+
+        test[uf.filter(rec_core)]
+        test[uf.filter(rec_io)]
+        test[not uf.filter(rec_other)]
+
+        # Empty UnionFilter matches nothing
+        empty = UnionFilter()
+        test[not empty.filter(rec_core)]
+
+    # --------------------------------------------------------------------------
+    # si_prefix
+
+    with testset("si_prefix"):
+        # No prefix (magnitude in [1, 1000))
+        test[the[si_prefix(0)] == "0.00"]
+        test[the[si_prefix(42)] == "42.00"]
+        test[the[si_prefix(999)] == "999.00"]
+
+        # Large prefixes
+        test[the[si_prefix(1000)] == "1.00 k"]
+        test[the[si_prefix(1500)] == "1.50 k"]
+        test[the[si_prefix(2_500_000)] == "2.50 M"]
+        test[the[si_prefix(1e9)] == "1.00 G"]
+        test[the[si_prefix(1e12)] == "1.00 T"]
+
+        # Small prefixes
+        test[the[si_prefix(0.001)] == "1.00 m"]
+        test[the[si_prefix(0.0015)] == "1.50 m"]
+        test[the[si_prefix(0.000001)] == "1.00 \N{MICRO SIGN}"]
+        test[the[si_prefix(0.0000025)] == "2.50 \N{MICRO SIGN}"]
+        test[the[si_prefix(1e-9)] == "1.00 n"]
+        test[the[si_prefix(1e-12)] == "1.00 p"]
+
+        # Negative numbers
+        test[the[si_prefix(-1500)] == "-1.50 k"]
+        test[the[si_prefix(-42)] == "-42.00"]
+        test[the[si_prefix(-0.001)] == "-1.00 m"]
+
+        # Custom precision
+        test[the[si_prefix(1500, precision=0)] == "2 k"]
+        test[the[si_prefix(1500, precision=4)] == "1.5000 k"]
+        test[the[si_prefix(42, precision=1)] == "42.0"]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

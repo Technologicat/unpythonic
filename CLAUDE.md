@@ -10,6 +10,8 @@ A Python library providing language extensions and utilities inspired by Lisp, H
 2. **Macro layer** (`unpythonic/syntax/`): Syntactic macros via `mcpyrate` providing cleaner syntax for let-bindings, autocurry, lazify, TCO, continuations, etc.
 3. **Dialect layer** (`unpythonic/dialects/`): Full language variants (Lispython, Listhell, Pytkell) built on the macro layer.
 
+Beyond the language-extension core, unpythonic also fills gaps in the Python standard library — cases where the stdlib almost gets it right, then punts at the last moment. `memoize` adds exception-replay machinery that `functools.lru_cache` lacks; the scan/fold suite brings Racket-level completeness to what `itertools` sketches; `env` supports several ABC protocols that `types.SimpleNamespace` doesn't. Smaller general-purpose utilities (e.g. `timer`, `si_prefix`, `environ_override`) also land here when they prove themselves as recurring needs across projects.
+
 ## API stability
 
 Released as 2.0.0 in March 2026 (floor bump + mcpyrate 4.0.0 dependency). The public API (everything in `__all__`) should remain backward-compatible. Prefer non-breaking solutions when possible.
@@ -114,6 +116,8 @@ Legacy `flake8rc` also present (used by Emacs flycheck, not by CI or CC).
 - **Variable names**: Descriptive but compact. Prefer `theconstant` over `node` when the type matters, `thebody` over `b` when scope is more than a few lines. Avoid generic names like `tmp`, `data`, `x` unless scope is trivially small. In test code using the `the[]` macro, avoid `the`-prefixed names — `the[theconstant]` isn't English. Use e.g. `constant_node` instead.
 - **Line width** ~110 characters. Docstrings in reStructuredText.
 - **Module size target**: ~100–300 SLOC, rough max ~700 lines. Some modules are longer when appropriate (e.g. `syntax/tailtools.py` at ~1600 lines). Never split just because the line count was exceeded.
+- **Type annotations**: New code should include type annotations. Existing unannotated code will be gradually updated. Some deeply Lispy parts (curry, TCO, conditions/restarts) may resist typing.
+- **Top-level re-exports**: Most modules re-export via `from .module import *` in `__init__.py`. A small number of names use explicit aliased imports when the module-level name reads naturally at its own level but needs qualification at the top level (e.g. `environ.override` → `environ_override`, `lispylet.let` → `ordered_let`).
 - **Dependencies**: Avoid external dependencies. `mcpyrate` is the only allowed external dep and must remain strictly optional for the pure-Python layer.
 
 ## Key cross-cutting concerns

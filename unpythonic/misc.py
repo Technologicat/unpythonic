@@ -8,14 +8,22 @@ __all__ = ["pack",
            "Popper", "CountingIterator",
            "slurp",
            "callsite_filename",
-           "safeissubclass"]
+           "safeissubclass",
+           "maybe_open",
+           "UnionFilter",
+           "si_prefix"]
 
+from collections.abc import Iterator
+import contextlib
 from copy import copy
 from functools import partial
 from itertools import count
 import inspect
+import logging
+import pathlib
 from queue import Empty
 from time import perf_counter
+from typing import IO
 from types import FunctionType, LambdaType
 
 from .regutil import register_decorator
@@ -298,3 +306,104 @@ def safeissubclass(cls, cls_or_tuple):
     except TypeError:  # "issubclass() arg 1 must be a class"
         pass
     return False
+
+# --------------------------------------------------------------------------------
+# I/O utilities
+
+@contextlib.contextmanager
+def maybe_open(filename: str | pathlib.Path | None,
+               mode: str,
+               fallback: IO,
+               **kwargs) -> Iterator[IO]:
+    """Context manager: open a file, or use a fallback stream.
+
+    Adapter that lets you always syntactically write
+    ``with maybe_open(...) as f:`` even when the target is a
+    standard stream like ``sys.stdin`` or ``sys.stdout``.
+
+    ``filename``: path to open (``str`` or ``pathlib.Path``).
+                  If ``None``, yield ``fallback`` instead.
+    ``mode``: as in the builtin ``open``.
+    ``fallback``: stream to use when ``filename is None``. Typical values
+                  are ``sys.stdin`` (reading) and ``sys.stdout`` or
+                  ``sys.stderr`` (writing).
+    ``**kwargs``: passed through to ``open``.
+    """
+    if filename is not None:
+        with open(filename, mode, **kwargs) as f:
+            yield f
+    else:
+        yield fallback
+
+# --------------------------------------------------------------------------------
+# Logging utilities
+
+class UnionFilter(logging.Filter):
+    """A ``logging.Filter`` that matches if *any* sub-filter matches.
+
+    The standard library provides ``logging.Filter`` for a single logger-name
+    prefix, but no OR combinator.  ``UnionFilter`` fills the gap::
+
+        import logging
+        from unpythonic import UnionFilter
+        for handler in logging.root.handlers:
+            handler.addFilter(UnionFilter(logging.Filter("myapp.core"),
+                                          logging.Filter("myapp.io")))
+    """
+    def __init__(self, *filters: logging.Filter) -> None:
+        self.filters = filters
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        return any(f.filter(record) for f in self.filters)
+
+# --------------------------------------------------------------------------------
+# Number formatting
+
+def si_prefix(number: int | float, precision: int = 2) -> str:
+    """Format a number with an SI decimal prefix (powers of 1000).
+
+    Returns a string like ``"1.50 k"``, ``"23.40 M"``, ``"500.00 m"``
+    (milli), or ``"42.00"`` (no prefix for magnitudes in [1, 1000)).
+
+    ``number``: the value to format (``int`` or ``float``).
+    ``precision``: decimal places (default 2).
+
+    Negative numbers and zero are handled correctly.
+
+    Both positive prefixes (k through Q) and negative prefixes
+    (m through q) are supported.  The micro prefix is ``µ``
+    (U+00B5 MICRO SIGN).
+
+    Examples::
+
+        si_prefix(1500)        # "1.50 k"
+        si_prefix(2_500_000)   # "2.50 M"
+        si_prefix(0.0015)      # "1.50 m"
+        si_prefix(0.0000025)   # "2.50 µ"
+        si_prefix(-1500)       # "-1.50 k"
+        si_prefix(42)          # "42.00"
+    """
+    _large = ('', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y', 'R', 'Q')
+    _small = ('m', 'µ', 'n', 'p', 'f', 'a', 'z', 'y', 'r', 'q')
+    if number == 0:
+        return f"{0:.{precision}f}"
+    sign = -1 if number < 0 else 1
+    magnitude = abs(number)
+    if magnitude >= 1:
+        for prefix in _large:
+            if magnitude < 1000:
+                value = sign * magnitude
+                if prefix:
+                    return f"{value:.{precision}f} {prefix}"
+                return f"{value:.{precision}f}"
+            magnitude /= 1000
+        value = sign * magnitude
+        return f"{value:.{precision}f} {_large[-1]}"
+    else:
+        for prefix in _small:
+            magnitude *= 1000
+            if magnitude >= 1:
+                value = sign * magnitude
+                return f"{value:.{precision}f} {prefix}"
+        value = sign * magnitude
+        return f"{value:.{precision}f} {_small[-1]}"
