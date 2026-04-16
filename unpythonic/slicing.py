@@ -1,9 +1,10 @@
 # -*- coding: utf-8 -*-
 """Operations on sequences with native slice syntax. Syntactic sugar, pure Python."""
 
-__all__ = ["islice", "fup"]
+__all__ = ["islice", "Sliced", "fup"]
 
-from collections.abc import Iterable, Sequence
+from abc import abstractmethod
+from collections.abc import Iterable, Iterator, Sequence
 from itertools import islice as islicef
 from typing import Any
 
@@ -11,7 +12,13 @@ from .fup import fupdate
 from .it import first, lastn, butlastn
 from .misc import CountingIterator
 
-def islice(iterable: Iterable) -> Any:
+class Sliced:
+    """Tag type for the return value of ``islice``. Subscript to perform slicing."""
+    @abstractmethod
+    def __getitem__(self, k: int | slice) -> "Iterator | Any":
+        ...
+
+def islice(iterable: Iterable) -> Sliced:
     """Use itertools.islice with slice syntax, with some bonus features.
 
     Usage::
@@ -56,9 +63,9 @@ def islice(iterable: Iterable) -> Any:
     **CAUTION**: ``step``, if present, must be positive.
     """
     # manually curry to take indices later, but expect them in subscript syntax to support slicing
-    class islice1:
+    class islice1(Sliced):
         """Subscript me to perform the slicing."""
-        def __getitem__(self, k):
+        def __getitem__(self, k: int | slice) -> Iterator | Any:
             if isinstance(k, tuple):
                 raise TypeError(f"multidimensional indexing not supported, got {k}")
             if isinstance(k, slice):
@@ -131,12 +138,12 @@ def fup(seq: Sequence) -> Any:
     # two-phase manual curry, first expect a subscript, then an lshift.
     class fup1:
         """Subscript me to specify index or slice where to fupdate."""
-        def __getitem__(self, k):
+        def __getitem__(self, k: int | slice) -> Any:
             if isinstance(k, tuple):
                 raise TypeError(f"multidimensional indexing not supported, got {k}")
             class fup2:
                 """Left-shift me with values to perform the fupdate."""
-                def __lshift__(self, v):
+                def __lshift__(self, v: Any) -> Sequence:
                     return fupdate(seq, k, v)
             return fup2()
     return fup1()

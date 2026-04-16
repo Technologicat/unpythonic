@@ -5,7 +5,8 @@ __all__ = ["dyn", "make_dynvar"]
 
 import threading
 from collections import ChainMap
-from collections.abc import Container, Sized, Iterable, Mapping
+from collections.abc import Container, ItemsView, Iterator, KeysView, Sized, Iterable, Mapping, ValuesView
+from types import TracebackType
 from typing import Any
 
 from .singleton import Singleton
@@ -17,7 +18,7 @@ _L = threading.local()
 
 _mainthread_stack = []
 _mainthread_lock = threading.RLock()
-def _getstack():
+def _getstack() -> list[dict[str, Any]]:
     if threading.current_thread() is threading.main_thread():
         return _mainthread_stack
     if not hasattr(_L, "_stack"):
@@ -30,20 +31,20 @@ def _getstack():
             _L._stack = _mainthread_stack.copy()
     return _L._stack
 
-def _getobservers():
+def _getobservers() -> dict[int, "_DynLiveView"]:
     if not hasattr(_L, "_observers"):
         _L._observers = {}
     return _L._observers
 
 class _EnvBlock(object):
-    def __init__(self, bindings):
+    def __init__(self, bindings: dict[str, Any]) -> None:
         self.bindings = bindings
-    def __enter__(self):
+    def __enter__(self) -> None:
         if self.bindings:  # optimization, skip pushing an empty scope
             _getstack().append(self.bindings)
             for o in _getobservers().values():
                 o._refresh()
-    def __exit__(self, t, v, tb):
+    def __exit__(self, exctype: type[BaseException] | None, excvalue: BaseException | None, traceback: TracebackType | None) -> None:
         if self.bindings:
             _getstack().pop()
             for o in _getobservers().values():
@@ -52,14 +53,14 @@ class _EnvBlock(object):
 # We need multiple observer instances, because dynamic scope stacks are thread-local.
 # If they weren't, this could be a singleton and the __del__ method wouldn't be needed.
 class _DynLiveView(ChainMap):
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__(self)
         self._refresh()
         _getobservers()[id(self)] = self
     # TODO: __del__ most certainly runs during test_dynassign (as can be
     # evidenced by placing a debug print inside it), but coverage fails
     # to report it as covered.
-    def __del__(self):  # pragma: no cover
+    def __del__(self) -> None:  # pragma: no cover
         # No idea how, but our REPL server can trigger a KeyError here
         # if the user views `help()`, which causes the client to get stuck.
         # Then pressing `q` in the server console to quit the help, and then
@@ -74,7 +75,7 @@ class _DynLiveView(ChainMap):
             del _getobservers()[id(self)]
         except KeyError:
             pass
-    def _refresh(self):
+    def _refresh(self) -> None:
         self.maps = list(reversed(_getstack())) + [_global_dynvars]
 
 class _Dyn(Singleton):
@@ -144,7 +145,7 @@ class _Dyn(Singleton):
     # it doesn't matter that the default `__setstate__` clobbers the `__dict__`
     # of the singleton instance at unpickle time.
 
-    def _resolve(self, name):
+    def _resolve(self, name: str) -> dict[str, Any]:
         # Essentially asdict() and look up, but without creating the ChainMap
         # every time _resolve() is called.
         for scope in reversed(_getstack()):
@@ -154,12 +155,12 @@ class _Dyn(Singleton):
             return _global_dynvars
         raise AttributeError(f"dynamic variable {repr(name)} is not defined")
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         """Read the value of a dynamic binding."""
         scope = self._resolve(name)
         return scope[name]
 
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: Any) -> None:
         """Update an existing dynamic binding.
 
         The update occurs in the closest enclosing dynamic scope that has
@@ -174,7 +175,7 @@ class _Dyn(Singleton):
         scope = self._resolve(name)
         scope[name] = value
 
-    def let(self, **bindings):
+    def let(self, **bindings: Any) -> _EnvBlock:
         """Introduce dynamic bindings.
 
         Context manager; usage is ``with dyn.let(name=value, ...):``
@@ -190,7 +191,7 @@ class _Dyn(Singleton):
         """
         return _EnvBlock(bindings)
 
-    def update(self, **bindings):
+    def update(self, **bindings: Any) -> None:
         """Mass-update existing dynamic bindings.
 
         For each binding, the update occurs in the closest enclosing dynamic
@@ -203,7 +204,7 @@ class _Dyn(Singleton):
         caution applies. Use carefully, if at all.
         """
         # validate, and resolve scopes (let AttributeError propagate)
-        def doit():
+        def doit() -> None:
             scopes = {k: self._resolve(k) for k in bindings}
             for k, v in bindings.items():
                 scope = scopes[k]
@@ -217,7 +218,7 @@ class _Dyn(Singleton):
             doit()
 
     # membership test (in, not in)
-    def __contains__(self, name):
+    def __contains__(self, name: str) -> bool:
         try:
             getattr(self, name)
             return True
@@ -225,7 +226,7 @@ class _Dyn(Singleton):
             return False
 
     # iteration
-    def asdict(self):
+    def asdict(self) -> _DynLiveView:
         """Return a view of dyn as a ``collections.ChainMap``.
 
         When new dynamic scopes begin or old ones exit, its ``.maps`` attribute
@@ -233,34 +234,34 @@ class _Dyn(Singleton):
         """
         return _DynLiveView()
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return iter(self.asdict())
     # no __next__, iterating over dict.
 
     # Mapping
-    def items(self):
+    def items(self) -> ItemsView[str, Any]:
         """Abbreviation for asdict().items()."""
         return self.asdict().items()
-    def keys(self):
+    def keys(self) -> KeysView[str]:
         return self.asdict().keys()
-    def values(self):
+    def values(self) -> ValuesView[Any]:
         return self.asdict().values()
-    def get(self, k, default=None):
+    def get(self, k: str, default: Any = None) -> Any:
         return self[k] if k in self else default  # noqa: SIM401 -- this IS the .get() implementation
-    def __eq__(self, other):  # dyn is a singleton, but its contents can be compared to another mapping.
+    def __eq__(self, other: Any) -> bool:  # dyn is a singleton, but its contents can be compared to another mapping.
         return other == self.asdict()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.asdict())
 
     # subscripting
-    def __getitem__(self, k):
+    def __getitem__(self, k: str) -> Any:
         return getattr(self, k)
-    def __setitem__(self, k, v):
+    def __setitem__(self, k: str, v: Any) -> None:
         setattr(self, k, v)
 
     # pretty-printing
-    def __repr__(self):  # pragma: no cover
+    def __repr__(self) -> str:  # pragma: no cover
         bindings_list = [f"{k}={repr(self[k])}" for k in self]
         bindings_str = ", ".join(bindings_list)
         return f"<dyn object at 0x{id(self):x}: {{{bindings_str}}}>"

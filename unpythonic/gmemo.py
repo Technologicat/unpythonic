@@ -6,10 +6,10 @@ or iterators created by factory functions."""
 
 __all__ = ["gmemoize", "imemoize", "fimemoize"]
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Generator, Iterable, Iterator
 from functools import wraps
 from threading import RLock
-from typing import TypeVar
+from typing import Any, TypeVar
 
 from .arity import resolve_bindings, tuplify_bindings
 from .regutil import register_decorator
@@ -95,9 +95,9 @@ def gmemoize(gfunc: F) -> F:
 
     See also ``imemoize``, ``fimemoize``.
     """
-    memos = {}
+    memos: dict[tuple, tuple] = {}
     @wraps(gfunc)
-    def gmemoized(*args, **kwargs):
+    def gmemoized(*args: Any, **kwargs: Any) -> "_MemoizedGenerator":
         k = tuplify_bindings(resolve_bindings(gfunc, *args, **kwargs))
         if k not in memos:
             # underlying generator instance, memo instance, lock instance
@@ -109,17 +109,17 @@ _success = sym("_success")
 _fail = sym("_fail")
 class _MemoizedGenerator:
     """Wrapper that manages one memoized sequence. Co-operates with gmemoize."""
-    def __init__(self, g, memo, lock):
+    def __init__(self, g: Generator, memo: list, lock: RLock) -> None:
         self.g = g
         self.memo = memo  # each instance for the same g gets the same memo
         self.lock = lock
-        self.j = 0  # current position in memo
-    def __repr__(self):
+        self.j: int = 0  # current position in memo
+    def __repr__(self) -> str:
         return f"<_MemoizedGenerator object {self.g.__name__} at 0x{id(self):x}>"
     # Support the `collections.abc.Iterable` API
-    def __iter__(self):
+    def __iter__(self) -> "_MemoizedGenerator":
         return self
-    def __next__(self):
+    def __next__(self) -> Any:
         j = self.j
         memo = self.memo
         with self.lock:
@@ -137,9 +137,9 @@ class _MemoizedGenerator:
                 raise value
             return value
     # Support a subset of the `collections.abc.Sequence` API for already-computed items
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.memo)
-    def __getitem__(self, k):
+    def __getitem__(self, k: int | slice) -> Any:
         if not isinstance(k, (int, slice)):
             raise TypeError(f"Expected an int or slice index, got {type(k)} with value {repr(k)}")
         length = len(self.memo)
@@ -189,7 +189,7 @@ def imemoize(iterable: Iterable) -> Callable:
     If you need to take arguments to create the iterable, see ``fimemoize``.
     """
     @gmemoize
-    def iterable_as_gfunc():
+    def iterable_as_gfunc() -> Iterator:
         yield from iterable
     return iterable_as_gfunc
 
@@ -234,7 +234,7 @@ def fimemoize(ifactory: F) -> F:
         assert last(some_evens(25)) == last(some_evens(25))
     """
     @wraps(ifactory)
-    def gfunc(*args, **kwargs):
+    def gfunc(*args: Any, **kwargs: Any) -> Iterator:
         yield from ifactory(*args, **kwargs)
     return gmemoize(gfunc)
     # return gmemoize(lambda *a, **kw: (yield from ifactory(*a, **kw)))

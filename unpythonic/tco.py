@@ -247,7 +247,7 @@ def trampolined(function: F) -> F:
     if not dyn._build_lazy_trampoline:
         # building a trampoline for regular strict code
         @wraps(function)
-        def trampoline(*args, **kwargs):
+        def trampoline(*args: Any, **kwargs: Any) -> Any:
             f = function
             while True:
                 if callable(f):  # general case
@@ -281,7 +281,7 @@ def trampolined(function: F) -> F:
         # This is to avoid a drastic (~10x) performance hit in trampolines
         # built for regular strict code.
         @wraps(function)
-        def trampoline(*args, **kwargs):
+        def trampoline(*args: Any, **kwargs: Any) -> Any:
             f = function
             while True:
                 if callable(f):  # the maybe_force_args here causes the performance hit
