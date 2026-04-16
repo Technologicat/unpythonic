@@ -8,6 +8,7 @@
 - `maybe_open`: context manager that opens a file when given a path, or yields a fallback stream (e.g. `sys.stdin`, `sys.stdout`) when given `None`. Lets callers always use `with` syntax regardless of whether the target is a file or a standard stream.
 - `UnionFilter`: a `logging.Filter` that matches a log record if *any* of its sub-filters match — an OR combinator missing from the standard library.
 - `si_prefix`: format a number with SI decimal prefixes (k through Q, m through q) or IEC binary prefixes (Ki through Qi, mi through qi). Handles negative numbers, zero, and sub-unity magnitudes. The `binary=True` flag switches to base-1024 mode.
+- `partial` (type-checking `functools.partial`) is now exported in the public API. It was already implemented but missing from `fun.__all__`.
 
 **Changed**:
 
@@ -28,6 +29,7 @@
 - `unpythonic.net.client`: `connect()` is now a thin public shim over a private `_connect(..., _input=None)`. The `_input` seam lets tests drive the REPL loop without monkey-patching `builtins.input` globally. Public API unchanged.
 - `unpythonic.net.client`: `import readline` moved from module top into `connect()`, with a three-tier fallback (`readline` → `pyreadline3` → graceful degradation). POSIX behaviour unchanged; the module is now importable on Windows.
 - `unpythonic.net.tests.fixtures.nettest`: binds on port 0 (kernel-assigned), removed a `sleep(0.05)` race-condition bandage, and re-raises worker-thread exceptions instead of swallowing them.
+- Type annotations added to public API signatures across 12 modules: `regutil`, `symbol`, `assignonce`, `numutil`, `misc`, `excutil`, `fup`, `fix`, `environ`, `fun`, `it`, `funutil`/`lazyutil`. Convention: `F = TypeVar('F', bound=Callable)` for callable parameters, `T = TypeVar('T')` for data values. Covers ~110 functions; the deeply dynamic parts (`curry`, `compose`, `flatten`, TCO, continuations) are left for a future pass.
 
 
 ---
