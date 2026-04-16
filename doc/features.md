@@ -113,10 +113,14 @@ The exception are the features marked **[M]**, which are primarily intended as a
   - [`fixpoint`: arithmetic fixed-point finder](#fixpoint-arithmetic-fixed-point-finder)
   - [`partition_int`: partition integers](#partition_int-partition-integers)
   - [`ulp`: unit in last place](#ulp-unit-in-last-place)
+  - [`si_prefix`: format numbers with SI or IEC prefixes](#si_prefix-format-numbers-with-si-or-iec-prefixes)
 
 [**Other**](#other)
 - [`callsite_filename`](#callsite-filename)
 - [`safeissubclass`](#safeissubclass), convenience function.
+- [`environ_override`: temporarily override environment variables](#environ_override-temporarily-override-environment-variables)
+- [`maybe_open`: open a file or use a fallback stream](#maybe_open-open-a-file-or-use-a-fallback-stream)
+- [`UnionFilter`: OR-combine logging filters](#unionfilter-or-combine-logging-filters)
 - [`pack`: multi-arg constructor for tuple](#pack-multi-arg-constructor-for-tuple)
 - [`namelambda`: rename a function](#namelambda-rename-a-function)
 - [`timer`: a context manager for performance testing](#timer-a-context-manager-for-performance-testing)
@@ -4830,6 +4834,29 @@ print(ulp(2**52))
 When `x` is a round number in base-10, the ULP is not, because the usual kind of floats use base-2.
 
 
+### `si_prefix`: format numbers with SI or IEC prefixes
+
+**Added in v2.1.0.**
+
+Format a number with an [SI decimal prefix](https://en.wikipedia.org/wiki/Metric_prefix) (powers of 1000) or an [IEC binary prefix](https://en.wikipedia.org/wiki/Binary_prefix) (powers of 1024). Both positive and negative (sub-unity) prefixes are supported in either mode. The micro prefix is `µ` (U+00B5 MICRO SIGN).
+
+```python
+from unpythonic import si_prefix
+
+si_prefix(1500)                    # "1.50 k"
+si_prefix(2_500_000)               # "2.50 M"
+si_prefix(0.0015)                  # "1.50 m"
+si_prefix(0.000001)                # "1.00 µ"
+si_prefix(-1500)                   # "-1.50 k"
+si_prefix(42)                      # "42.00"
+si_prefix(42, precision=0)         # "42"
+
+# IEC binary mode (base 1024)
+si_prefix(1536, binary=True)       # "1.50 Ki"
+si_prefix(2_621_440, binary=True)  # "2.50 Mi"
+```
+
+
 ## Other
 
 Stuff that didn't fit elsewhere.
@@ -5114,3 +5141,62 @@ The input container must support either `popleft()` or `pop(0)`. This is fully d
 Per-iteration efficiency is O(1) for `collections.deque`, and O(n) for a `list`.
 
 Named after [Karl Popper](https://en.wikipedia.org/wiki/Karl_Popper).
+
+
+### `environ_override`: temporarily override environment variables
+
+**Added in v2.1.0.**
+
+Context manager to temporarily override OS environment variables within a `with` block, restoring the previous state on exit. If a variable was unset before entry, it is removed again on exit.
+
+Thread-safe: concurrent overrides from different threads are serialised by a module-level `RLock`, so only one set of overrides is active at a time. Same-thread nesting is supported (the lock is reentrant).
+
+```python
+import os
+from unpythonic import environ_override
+
+os.environ["MY_VAR"] = "original"
+with environ_override(MY_VAR="temporary", OTHER="added"):
+    print(os.environ["MY_VAR"])   # "temporary"
+    print(os.environ["OTHER"])     # "added"
+print(os.environ["MY_VAR"])       # "original"
+print("OTHER" in os.environ)       # False
+```
+
+The function lives in `unpythonic.environ` as `override`; at the top level it is re-exported as `environ_override`.
+
+
+### `maybe_open`: open a file or use a fallback stream
+
+**Added in v2.1.0.**
+
+Context manager that opens a file when given a path, or yields a fallback stream when given `None`. This lets callers always use `with` syntax regardless of whether the target is a file or a standard stream.
+
+```python
+import sys
+from unpythonic import maybe_open
+
+def process(filename=None):
+    with maybe_open(filename, "r", sys.stdin) as f:
+        for line in f:
+            print(line, end="")
+
+process("data.txt")  # reads from file
+process()            # reads from stdin
+```
+
+
+### `UnionFilter`: OR-combine logging filters
+
+**Added in v2.1.0.**
+
+A `logging.Filter` that matches a log record if *any* of its sub-filters match. The standard library provides `logging.Filter` for a single logger-name prefix, but no OR combinator. `UnionFilter` fills the gap.
+
+```python
+import logging
+from unpythonic import UnionFilter
+
+for handler in logging.root.handlers:
+    handler.addFilter(UnionFilter(logging.Filter("myapp.core"),
+                                  logging.Filter("myapp.io")))
+```
