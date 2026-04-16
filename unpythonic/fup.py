@@ -3,11 +3,15 @@
 
 __all__ = ["fupdate"]
 
+from collections.abc import Iterable, Sequence
 from copy import copy
+from typing import Any, TypeVar
 
 from .collections import frozendict, ShadowedSequence
 
-def fupdate(target, indices=None, values=None, **bindings):
+T = TypeVar('T')
+
+def fupdate(target: T, indices: "int | slice | Sequence[int | slice] | None" = None, values: Any = None, **bindings: Any) -> T:
     """Return a functionally updated copy of a sequence or a mapping.
 
     The input can be mutable or immutable; it does not matter.
@@ -105,7 +109,7 @@ def fupdate(target, indices=None, values=None, **bindings):
     if indices is not None and bindings:
         raise ValueError("Cannot use both indices and bindings.")
     if indices is not None:
-        def make_output(seq):
+        def make_output(seq: Iterable) -> T:
             cls = type(target)
             ctor = cls._make if hasattr(cls, "_make") else cls  # namedtuple support
             gen = (x for x in seq)

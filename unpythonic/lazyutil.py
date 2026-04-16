@@ -15,7 +15,7 @@ from .symbol import sym
 # HACK: break dependency loop llist -> fun -> lazyutil -> collections -> llist
 _init_done = False
 jump = sym("jump")  # doesn't matter what the value is, will be overwritten later
-def _init_module():  # called by unpythonic.__init__ when otherwise done
+def _init_module() -> None:  # called by unpythonic.__init__ when otherwise done
     global mogrify, jump, _init_done
     from .collections import mogrify
     from .tco import jump

@@ -6,9 +6,11 @@ __all__ = ["raisef", "tryf",
            "async_raise",
            "reraise_in", "reraise"]
 
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 import sys
 import threading
+from typing import Any, NoReturn
 from types import TracebackType
 
 # For async_raise only. Note `ctypes.pythonapi` is not an actual module;
@@ -24,10 +26,15 @@ else:  # pragma: no cover, coverage is measured on CPython.
     ctypes = None
     PyThreadState_SetAsyncExc = None
 
+# Key: exception type or tuple of exception types (matched with isinstance).
+# Value: exception type or instance to raise as the replacement.
+ExcSpec = type[BaseException] | tuple[type[BaseException], ...]
+ExcMapping = Mapping[ExcSpec, type[BaseException] | BaseException]
+
 from .arity import arity_includes, UnknownArity
 
 
-def raisef(exc, *, cause=None):
+def raisef(exc: BaseException | type[BaseException], *, cause: BaseException | None = None) -> NoReturn:
     """``raise`` as a function, to make it possible for lambdas to raise exceptions.
 
     Example::
@@ -54,7 +61,7 @@ def raisef(exc, *, cause=None):
     else:
         raise exc
 
-def tryf(body, *handlers, elsef=None, finallyf=None):
+def tryf(body: Callable[[], Any], *handlers: tuple, elsef: Callable[[], Any] | None = None, finallyf: Callable[[], Any] | None = None) -> Any:
     """``try``/``except``/``finally`` as a function.
 
     This allows lambdas to handle exceptions.
@@ -91,7 +98,7 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
     you can also just create an ``env`` at an appropriate point,
     and store them there.
     """
-    def accepts_arg(f):
+    def accepts_arg(f: Callable) -> bool:
         try:
             if arity_includes(f, 1):
                 return True
@@ -99,7 +106,7 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
             return True  # just assume it
         return False
 
-    def isexceptiontype(exc):
+    def isexceptiontype(exc: Any) -> bool:
         try:
             if issubclass(exc, BaseException):
                 return True
@@ -147,7 +154,7 @@ def tryf(body, *handlers, elsef=None, finallyf=None):
         if finallyf is not None:
             finallyf()
 
-def equip_with_traceback(exc, stacklevel=1):  # Python 3.7+
+def equip_with_traceback(exc: BaseException, stacklevel: int = 1) -> BaseException:  # Python 3.7+
     """Given an exception instance exc, equip it with a traceback.
 
     `stacklevel` is the starting depth below the top of the call stack,
@@ -220,7 +227,7 @@ def equip_with_traceback(exc, stacklevel=1):  # Python 3.7+
 # mechanism strictly opt-in. The decorator could inject an `asyncexc_ok` attribute to the Thread object;
 # that's enough to prevent accidental misuse.
 # OTOH, having no such mechanism is the simpler design.
-def async_raise(thread_obj, exception):
+def async_raise(thread_obj: threading.Thread, exception: type[BaseException] | BaseException) -> None:
     """Raise an exception in another thread.
 
     thread_obj: `threading.Thread` object
@@ -316,7 +323,7 @@ def async_raise(thread_obj, exception):
         PyThreadState_SetAsyncExc(ctypes.c_long(target_tid), ctypes.c_long(0))
         raise SystemError("PyThreadState_SetAsyncExc failed, broke the interpreter state.")
 
-def reraise_in(body, mapping):
+def reraise_in(body: Callable[[], Any], mapping: ExcMapping) -> Any:
     """Remap exception types in an expression.
 
     This allows conveniently converting library exceptions to application
@@ -356,7 +363,7 @@ def reraise_in(body, mapping):
         _reraise_handler(mapping, libraryexc)
 
 @contextmanager
-def reraise(mapping):
+def reraise(mapping: ExcMapping) -> Iterator[None]:
     """Remap exception types. Context manager.
 
     This allows conveniently converting library exceptions to application
@@ -393,7 +400,7 @@ def reraise(mapping):
     except BaseException as libraryexc:
         _reraise_handler(mapping, libraryexc)
 
-def _reraise_handler(mapping, libraryexc):
+def _reraise_handler(mapping: ExcMapping, libraryexc: BaseException) -> NoReturn:
     """Remap an exception instance to another exception type.
 
     `mapping`: dict-like, `{LibraryExc0: ApplicationExc0, ...}`

@@ -52,9 +52,11 @@ Our version is a redesign with kwargs support, thread safety, and TCO support.
 
 __all__ = ["fix", "fixtco"]
 
+from collections.abc import Callable
 import typing  # we use typing.NoReturn as a special value at runtime
 import threading
 from functools import wraps
+from typing import Any
 
 from .fun import const, memoize
 from .tco import trampolined, _jump
@@ -63,7 +65,7 @@ from .arity import resolve_bindings, tuplify_bindings
 from .regutil import register_decorator
 
 _L = threading.local()
-def _get_threadlocals():
+def _get_threadlocals() -> "env":
     if not hasattr(_L, "_data"):
         # TCO info forms a stack to support nested TCO chains (during a
         # TCO chain, regular call, which then calls another TCO chain).
@@ -71,7 +73,7 @@ def _get_threadlocals():
     return _L._data
 
 @register_decorator(priority=40, istco=False)  # same priority as @fixtco
-def fix(bottom=typing.NoReturn, memo=True):
+def fix(bottom: Any = typing.NoReturn, memo: bool = True) -> Callable:
     """Break recursion cycles. Parametric decorator.
 
     This is sometimes useful for recursive pattern-matching definitions. For an
@@ -147,7 +149,7 @@ def fix(bottom=typing.NoReturn, memo=True):
     return _fix(bottom, memo, tco=False)
 
 @register_decorator(priority=40, istco=True)  # same priority as @trampolined
-def fixtco(bottom=typing.NoReturn, memo=True):
+def fixtco(bottom: Any = typing.NoReturn, memo: bool = True) -> Callable:
     """TCO-enabled version of @fix.
 
     On top of performing the duties of `fix`, this parametric decorator applies
@@ -206,7 +208,7 @@ def fixtco(bottom=typing.NoReturn, memo=True):
 #   OTOH, maybe that's not needed, since by definition, a decorator overwrites the name.
 #   So returning the decorated version would be just fine.
 #
-def _fix(bottom=typing.NoReturn, memo=True, *, tco):
+def _fix(bottom: Any = typing.NoReturn, memo: bool = True, *, tco: bool) -> Callable:
     # Being a class, typing.NoReturn is technically callable (to construct an
     # instance), but because it's an abstract class, the call raises TypeError.
     # We want to use the class itself as a data value, so we special-case it.

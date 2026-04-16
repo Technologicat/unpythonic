@@ -13,7 +13,7 @@ from .symbol import sym
 # HACK: break dependency loop llist -> fun -> funutil -> collections -> llist
 _init_done = False
 frozendict = sym("frozendict")  # doesn't matter what the value is, will be overwritten later
-def _init_module():  # called by unpythonic.__init__ when otherwise done
+def _init_module() -> None:  # called by unpythonic.__init__ when otherwise done
     global frozendict, _init_done
     from .collections import frozendict
     _init_done = True

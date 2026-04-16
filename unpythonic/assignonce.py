@@ -3,6 +3,8 @@
 
 __all__ = ["assignonce"]
 
+from typing import Any
+
 from .env import env as _envcls
 
 class assignonce(_envcls):
@@ -23,13 +25,13 @@ class assignonce(_envcls):
         e.set("foo", "tavern")
         e.foo = "quux"  # AttributeError
     """
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: Any) -> None:
         if name in self._reserved_names or name not in self:
             return super().__setattr__(name, value)
         else:
             raise AttributeError(f"name {repr(name)} is already defined")
 
-    def set(self, name, value):
+    def set(self, name: str, value: Any) -> Any:
         """Rebind an existing name to a new value."""
         env = self._env
         if name not in env:

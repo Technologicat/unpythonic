@@ -5,9 +5,13 @@ __all__ = ["almosteq", "ulp",
            "fixpoint",
            "partition_int", "partition_int_triangular", "partition_int_custom"]
 
+from collections.abc import Callable, Generator, Iterable
 from itertools import takewhile
 from math import floor, log2
 import sys
+from typing import TypeVar
+
+T = TypeVar('T')
 
 from .it import iterate1, last, within, rev
 from .symbol import sym
@@ -15,7 +19,7 @@ from .symbol import sym
 # HACK: break dependency loop mathseq -> numutil -> mathseq
 _init_done = False
 triangular = sym("triangular")  # doesn't matter what the value is, will be overwritten later
-def _init_module():  # called by unpythonic.__init__ when otherwise done
+def _init_module() -> None:  # called by unpythonic.__init__ when otherwise done
     global triangular, _init_done
     from .mathseq import triangular
     _init_done = True
@@ -32,7 +36,7 @@ except ImportError:  # pragma: no cover, optional at runtime, but installed at d
 
 
 # TODO: Overhaul `almosteq` in v0.16.0, should work like mpf for consistency.
-def almosteq(a, b, tol=1e-8):
+def almosteq(a: float, b: float, tol: float = 1e-8) -> bool:
     """Almost-equality that supports several formats.
 
     The tolerance ``tol`` is used for the builtin ``float`` and ``mpmath.mpf``.
@@ -66,7 +70,7 @@ def almosteq(a, b, tol=1e-8):
     return d / min(abs(a) + abs(b), max_float) < tol
 
 
-def ulp(x):  # Unit in the Last Place
+def ulp(x: float) -> float:  # Unit in the Last Place
     """Given a float x, return the unit in the last place (ULP).
 
     This is the numerical value of the least-significant bit, as a float.
@@ -81,7 +85,7 @@ def ulp(x):  # Unit in the Last Place
     return m_min * eps
 
 
-def fixpoint(f, x0, tol=0):
+def fixpoint(f: Callable[[T], T], x0: T, tol: float = 0) -> T:
     """Compute the (arithmetic) fixed point of f, starting from the initial guess x0.
 
     (Not to be confused with the logical fixed point with respect to the
@@ -119,7 +123,7 @@ def fixpoint(f, x0, tol=0):
     return last(within(tol, iterate1(f, x0)))
 
 
-def partition_int(n, lower=1, upper=None):
+def partition_int(n: int, lower: int = 1, upper: int | None = None) -> Generator[tuple[int, ...], None, None]:
     """Yield all ordered sequences of smaller positive integers that sum to `n`.
 
     `n` must be an integer >= 1.
@@ -164,7 +168,7 @@ def partition_int(n, lower=1, upper=None):
 
     return partition_int_custom(n, range(min(n, upper), lower - 1, -1))  # instantiate the generator
 
-def partition_int_triangular(n, lower=1, upper=None):
+def partition_int_triangular(n: int, lower: int = 1, upper: int | None = None) -> Generator[tuple[int, ...], None, None]:
     """Like `partition_int`, but allow only triangular numbers in the result.
 
     Triangular numbers are 1, 3, 6, 10, ...
@@ -202,13 +206,16 @@ def partition_int_triangular(n, lower=1, upper=None):
     return partition_int_custom(n, rev(filter(lambda m: lower <= m <= upper,
                                               triangulars_upto_n)))
 
-def partition_int_custom(n, components):
+def partition_int_custom(n: int, components: Iterable[int]) -> Generator[tuple[int, ...], None, None]:
     """Partition an integer in a custom way.
 
     `n`: integer to partition.
     `components`: iterable of ints; numbers that are allowed to appear
                   in the partitioning result. Each number `m` must
                   satisfy `1 <= m <= n`.
+
+                  Will be forced into a `tuple` internally; hence,
+                  only finite iterables are supported.
 
     See `partition_int`, `partition_triangular`.
     """

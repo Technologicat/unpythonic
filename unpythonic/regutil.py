@@ -21,13 +21,18 @@ See ``unpythonic.syntax.tailtools``.
 # would require its __init__.py to run first, but it in turn expects pretty
 # much all of the regular code to be already initialized.
 
+from collections.abc import Callable
+from typing import TypeVar
+
+F = TypeVar('F', bound=Callable)
+
 # These names must be bound exactly once, as anyone may from-import them.
-decorator_registry = []
-all_decorators = set()
-tco_decorators = set()
+decorator_registry: list[tuple[float, str]] = []
+all_decorators: set[str] = set()
+tco_decorators: set[str] = set()
 
 # Basic idea shamelessly stolen from MacroPy's macro registry.
-def register_decorator(priority=0.0, istco=False):
+def register_decorator(priority: float = 0.0, istco: bool = False) -> Callable[[F], F]:
     """Decorator that registers a custom decorator for the syntax machinery.
 
     Unknown decorators cannot be reordered robustly, hence ``sort_lambda_decorators``

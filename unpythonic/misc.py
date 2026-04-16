@@ -13,7 +13,7 @@ __all__ = ["pack",
            "UnionFilter",
            "si_prefix"]
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterable, Iterator
 import contextlib
 from copy import copy
 from functools import partial
@@ -21,14 +21,16 @@ from itertools import count
 import inspect
 import logging
 import pathlib
-from queue import Empty
+from queue import Empty, Queue
 from time import perf_counter
-from typing import IO
-from types import FunctionType, LambdaType
+from typing import Any, IO, TypeVar
+from types import FunctionType, LambdaType, TracebackType
+
+F = TypeVar('F', bound=Callable)
 
 from .regutil import register_decorator
 
-def pack(*args):
+def pack(*args: Any) -> tuple:
     """Multi-argument constructor for tuples.
 
     In other words, the inverse of tuple unpacking, as a function.
@@ -59,7 +61,7 @@ def pack(*args):
     return args  # pretty much like in Lisps, (define (list . args) args)
 
 @register_decorator(priority=5)  # allow sorting by unpythonic.syntax.sort_lambda_decorators
-def namelambda(name):
+def namelambda(name: str) -> Callable[[F], F]:
     """Rename a function. Decorator.
 
     This can be used to give a lambda a meaningful name, which is especially
@@ -93,7 +95,7 @@ def namelambda(name):
 
     Note the inner lambda does not see the outer's new name.
     """
-    def rename(f):
+    def rename(f: F) -> F:
         if not isinstance(f, (LambdaType, FunctionType)):
             # TODO: Can't raise TypeError; @fploop et al. do-it-now-and-replace-def-with-result
             # TODO: decorators need to do this.
@@ -125,13 +127,13 @@ class timer:
             for _ in range(int(1e7)):
                 pass
     """
-    def __init__(self, p=False):
+    def __init__(self, p: bool = False) -> None:
         """p: if True, print the delta-t when done.
 
         Regardless of ``p``, the result is always accessible as the ``dt``.
         """
         self.p = p
-    def __enter__(self):
+    def __enter__(self) -> "timer":
         # `perf_counter`, not `monotonic`: the former is documented as "a
         # clock with the highest available resolution to measure a short
         # duration" and is backed by `QueryPerformanceCounter` (~100 ns) on
@@ -143,12 +145,12 @@ class timer:
         # a dynamic extent in wall-clock time within a single process.
         self.t0 = perf_counter()
         return self
-    def __exit__(self, exctype, excvalue, traceback):
+    def __exit__(self, exctype: type[BaseException] | None, excvalue: BaseException | None, traceback: TracebackType | None) -> None:
         self.dt = perf_counter() - self.t0
         if self.p:
             print(self.dt)
 
-def getattrrec(object, name, *default):
+def getattrrec(object: Any, name: str, *default: Any) -> Any:
     """Extract the underlying data from an onion of wrapper objects.
 
     ``r = object.name``, and then get ``r.name`` recursively, as long as
@@ -163,7 +165,7 @@ def getattrrec(object, name, *default):
         o = getattr(o, name, *default)
     return o
 
-def setattrrec(object, name, value):
+def setattrrec(object: Any, name: str, value: Any) -> None:
     """Inject data into the innermost layer in an onion of wrapper objects.
 
     See also ``getattrrec``.
@@ -227,7 +229,7 @@ class Popper:
 
     Named after Karl Popper.
     """
-    def __init__(self, seq):
+    def __init__(self, seq: Iterable[Any]) -> None:
         """seq: input container. Must support either ``popleft()`` or ``pop(0)``.
 
         Fully duck-typed. At least ``collections.deque`` and any
@@ -235,9 +237,9 @@ class Popper:
         """
         self.seq = seq
         self._pop = seq.popleft if hasattr(seq, "popleft") else partial(seq.pop, 0)
-    def __iter__(self):
+    def __iter__(self) -> "Popper":
         return self
-    def __next__(self):
+    def __next__(self) -> Any:
         if self.seq:
             return self._pop()
         raise StopIteration
@@ -251,17 +253,17 @@ class CountingIterator:
 
     The count stops updating when the original iterator raises StopIteration.
     """
-    def __init__(self, iterable):
+    def __init__(self, iterable: Iterable[Any]) -> None:
         self._it = iter(iterable)
-        self.count = 0
-    def __iter__(self):
+        self.count: int = 0
+    def __iter__(self) -> "CountingIterator":
         return self
-    def __next__(self):
+    def __next__(self) -> Any:
         x = next(self._it)  # let StopIteration propagate
         self.count += 1
         return x
 
-def slurp(queue):
+def slurp(queue: Queue) -> list:
     """Slurp all items currently on a queue.Queue into a list.
 
     This retrieves items from the queue until it is empty, populates a list with them
@@ -280,7 +282,7 @@ def slurp(queue):
         pass
     return out
 
-def callsite_filename():
+def callsite_filename() -> str:
     """Return the filename of the call site, as a string.
 
     Useful as a building block for debug utilities and similar.
@@ -299,7 +301,7 @@ def callsite_filename():
             filename = frame.f_code.co_filename
             return filename
 
-def safeissubclass(cls, cls_or_tuple):
+def safeissubclass(cls: Any, cls_or_tuple: type | tuple[type, ...]) -> bool:
     """Like issubclass, but if `cls` is not a class, swallow the `TypeError` and return `False`."""
     try:
         return issubclass(cls, cls_or_tuple)

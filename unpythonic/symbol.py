@@ -13,12 +13,12 @@ import threading
 import uuid
 
 # Symbol registry. Used for tracking symbol object identities within the same process.
-_symbols = WeakValueDictionary()
+_symbols: WeakValueDictionary[str, "sym"] = WeakValueDictionary()
 _symbols_update_lock = threading.Lock()
 
 # Gensyms go into a separate registry, to make name conflicts with named symbols
 # impossible, even if someone grabs one of the UUIDs and uses it as a name.
-_gensyms = WeakValueDictionary()
+_gensyms: WeakValueDictionary[uuid.UUID, "gsym"] = WeakValueDictionary()
 _gensyms_update_lock = threading.Lock()
 
 class Symbol:
@@ -35,7 +35,7 @@ class sym(Symbol):
     In plain English: a lightweight, human-readable, process-wide unique marker,
     that can be quickly compared to another such marker by object identity.
 
-    name: any hashable, typically str.
+    name: str
         The human-readable name of the symbol. Maps to the object identity.
 
     Example::
@@ -58,7 +58,7 @@ class sym(Symbol):
     CAUTION: If you're familiar with JavaScript's `Symbol` and looking
     for that, see `gensym`.
     """
-    def __new__(cls, name):  # This covers unpickling, too.
+    def __new__(cls, name: str) -> "sym":  # This covers unpickling, too.
         # What we want to do:
         #   if name not in _symbols:
         #       _symbols[name] = super().__new__(cls)
@@ -79,7 +79,7 @@ class sym(Symbol):
                     instance = _symbols[name]
             return instance
 
-    def __init__(self, name):
+    def __init__(self, name: str) -> None:
         self.name = name
 
     # Pickle support. The default `__setstate__` (writing to `self.__dict__`)
@@ -89,12 +89,12 @@ class sym(Symbol):
     # Note we don't `sys.intern` the name *strings*; if we did, we'd need a
     # custom `__setstate__` to redo that upon unpickling, since for `pickle`
     # a string is a string, whether the original was interned or not.
-    def __getnewargs__(self):
+    def __getnewargs__(self) -> tuple:
         return (self.name,)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'sym("{self.name}")'
 
 
@@ -110,7 +110,7 @@ class gsym(Symbol):
     label: str
         The human-readable label, shown in `str` and `repr`.
     """
-    def __new__(cls, uid, label):
+    def __new__(cls, uid: uuid.UUID, label: str) -> "gsym":
         try:
             return _gensyms[uid]
         except KeyError:
@@ -124,20 +124,20 @@ class gsym(Symbol):
                     instance = _gensyms[uid]
             return instance
 
-    def __init__(self, uid, label):
+    def __init__(self, uid: uuid.UUID, label: str) -> None:
         self.uid = uid
         self.label = label
 
-    def __getnewargs__(self):
+    def __getnewargs__(self) -> tuple:
         return (self.uid, self.label)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"gensym#{self.label}:{self.uid}"
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'gsym("{self.label}", {repr(self.uid)})'
 
 
-def gensym(label):
+def gensym(label: str) -> gsym:
     """Create an uninterned symbol.
 
     The return value is the only time you'll see that symbol object; take good
