@@ -4,37 +4,71 @@
 
 **New**:
 
-- `environ_override`: context manager to temporarily override OS environment variables within a `with` block, restoring the previous state on exit. Thread-safe (serialises concurrent overrides via `RLock`); same-thread nesting supported. New module `unpythonic.environ`; the function is named `override` at the module level and re-exported as `environ_override` at the top level.
-- `maybe_open`: context manager that opens a file when given a path, or yields a fallback stream (e.g. `sys.stdin`, `sys.stdout`) when given `None`. Lets callers always use `with` syntax regardless of whether the target is a file or a standard stream.
-- `UnionFilter`: a `logging.Filter` that matches a log record if *any* of its sub-filters match — an OR combinator missing from the standard library.
-- `si_prefix`: format a number with SI decimal prefixes (k through Q, m through q) or IEC binary prefixes (Ki through Qi, mi through qi). Handles negative numbers, zero, and sub-unity magnitudes. The `binary=True` flag switches to base-1024 mode.
-- `partial` (type-checking `functools.partial`) is now exported in the public API. It was already implemented but missing from `fun.__all__`.
-- `Sliced`, `FupTarget`, `Fuppable`: tag types in `unpythonic.slicing` for annotating the return values of `islice` and `fup`. `Sliced` has abstract `__getitem__`; `FupTarget` has abstract `__getitem__` returning `Fuppable`; `Fuppable` has abstract `__lshift__`.
+- `environ_override`: context manager to temporarily override OS environment variables within a `with` block, restoring the previous state on exit.
+  - Thread-safe (serialises concurrent overrides via `RLock`); same-thread nesting supported.
+  - New module `unpythonic.environ`; the function is named `override` at the module level and re-exported as `environ_override` at the top level.
+- `maybe_open`: context manager that opens a file when given a path, or yields a fallback stream (e.g. `sys.stdin`, `sys.stdout`) when given `None`.
+  - Lets callers always use `with` syntax regardless of whether the target is a file or a standard stream.
+- `UnionFilter`: a `logging.Filter` that matches a log record if *any* of its sub-filters match.
+  - This is an OR combinator that is oddly missing from the standard library.
+- `si_prefix`: format a number with SI decimal prefixes (k through Q, m through q) or IEC binary prefixes (Ki through Qi, mi through qi).
+  - Handles negative numbers, zero, and sub-unity magnitudes.
+  - The `binary=True` flag switches to base-1024 mode.
+- `partial` (type-checking wrapper over `functools.partial`) is now exported in the public API.
+  - It was already implemented but missing from `fun.__all__`.
+- `Sliced`, `FupTarget`, `Fuppable`: tag types in `unpythonic.slicing` for annotating the return values of `islice` and `fup`.
+  - `Sliced` has abstract `__getitem__`.
+  - `FupTarget` has abstract `__getitem__` returning `Fuppable`.
+  - `Fuppable` has abstract `__lshift__`.
 
 **Changed**:
 
-- `unpythonic.net` (REPL server and client) now runs on MS Windows. Previously the whole subsystem was POSIX-only because `unpythonic.net.ptyproxy` required `termios`, `tty`, and `os.openpty`. A new `socket.socketpair()`-based backend stands in for the pty master/slave endpoints on Windows, plugged in via a platform dispatch in `PTYSocketProxy`. Known wart: `os.isatty(sys.stdin.fileno())` inside a REPL session returns `False` on Windows (no real pseudo-terminal is involved), whereas it returns `True` on POSIX — user code *inside* the REPL that checks `sys.stdin.isatty()` will see the Windows result; the framework itself doesn't care.
+- `unpythonic.net` (REPL server and client) now runs on MS Windows.
+  - Previously the whole subsystem was POSIX-only because `unpythonic.net.ptyproxy` required `termios`, `tty`, and `os.openpty`.
+  - A new `socket.socketpair()`-based backend stands in for the pty master/slave endpoints on Windows, plugged in via a platform dispatch in `PTYSocketProxy`.
+  - Known wart: `os.isatty(sys.stdin.fileno())` inside a REPL session returns `False` on Windows (no real pseudo-terminal is involved), whereas it returns `True` on POSIX — user code *inside* the REPL that checks `sys.stdin.isatty()` will see the Windows result; the framework itself doesn't care.
 
 **Fixed**:
 
-- `unpythonic.net.server`: `start()` now returns the actually-bound ports, not the values the caller passed in. Matters when passing `repl_port=0` / `control_port=0` to let the kernel pick a free port — previously the caller got `(bind, 0, 0)` back. Also fixes a latent bug in `unpythonic.net.util.ReuseAddrThreadingTCPServer`: its custom `server_bind()` override dropped the `self.server_address = self.socket.getsockname()` refresh from stdlib's `TCPServer.server_bind`.
-- `unpythonic.net.ptyproxy`: `stop()` is now idempotent and safe to call on a proxy that was never started. Latent bug: previously `stop()` gated the entire teardown (including `os.close(master)` / `os.close(slave)`) behind `if self._thread:`, so constructing a proxy and then exiting without calling `start()` leaked both fds.
-- `unpythonic.net.client`: tab completion now works on macOS. macOS ships `readline` backed by `libedit`, which speaks a different `parse_and_bind` dialect than GNU readline — the client now detects `platform.system() == "Darwin"` and issues the libedit form there.
-- `unpythonic.misc.timer` and `unpythonic.timeutil.ETAEstimator`: switched from `time.monotonic()` to `time.perf_counter()`. Latent Windows-only bug: `monotonic` is backed by a ~16 ms tick counter on Windows, so microsecond-scale `with timer() as t: ...` blocks recorded `t.dt = 0.0` and downstream divisions raised `ZeroDivisionError`. `perf_counter` has the highest available resolution on every platform. POSIX unaffected.
-- `unpythonic.test.runner`: module discovery no longer crashes on MS Windows with `re.error: bad escape`. The runner used `re.sub(os.path.sep, ...)` — `os.path.sep` is a lone backslash on Windows, an invalid regex pattern. Fixed by using `str.replace`. Affects any project reusing `unpythonic.test.runner`.
+- `unpythonic.net.server`: `start()` now returns the actually-bound ports, not the values the caller passed in.
+  - Matters when passing `repl_port=0` / `control_port=0` to let the kernel pick a free port — previously the caller got `(bind, 0, 0)` back.
+  - Also fixes a latent bug in `unpythonic.net.util.ReuseAddrThreadingTCPServer`: its custom `server_bind()` override dropped the `self.server_address = self.socket.getsockname()` refresh from stdlib's `TCPServer.server_bind`.
+- `unpythonic.net.ptyproxy`: `stop()` is now idempotent and safe to call on a proxy that was never started.
+  - Latent bug: previously `stop()` gated the entire teardown (including `os.close(master)` / `os.close(slave)`) behind `if self._thread:`, so constructing a proxy and then exiting without calling `start()` leaked both fds.
+- `unpythonic.net.client`: tab completion now works on macOS.
+  - macOS ships `readline` backed by `libedit`, which speaks a different `parse_and_bind` dialect than GNU readline — the client now detects `platform.system() == "Darwin"` and issues the libedit form there.
+- `unpythonic.misc.timer` and `unpythonic.timeutil.ETAEstimator`: switched from `time.monotonic()` to `time.perf_counter()`.
+  - Latent Windows-only bug: `monotonic` is backed by a ~16 ms tick counter on Windows, so microsecond-scale `with timer() as t: ...` blocks recorded `t.dt = 0.0` and downstream divisions raised `ZeroDivisionError`. `perf_counter` has the highest available resolution on every platform. POSIX unaffected.
+- `unpythonic.test.runner`: module discovery no longer crashes on MS Windows with `re.error: bad escape`.
+  - The runner used `re.sub(os.path.sep, ...)` — `os.path.sep` is a lone backslash on Windows, an invalid regex pattern. Fixed by using `str.replace`. Affects any project reusing `unpythonic.test.runner`.
 
 **Internal**:
 
-- `unpythonic.net` now has an automated test suite for the REPL client and server. `unpythonic/net/tests/test_client.py` exercises the full client ↔ server roundtrip in-process (eval, multi-line, syntax-error recovery, clean disconnect), netcat-mode raw-socket access, control-channel RPC, and stretch cases (sequential reconnect, two concurrent clients). Tier 1 only — no subprocess / pty driver. Runs on every CI platform (Linux, macOS, Windows).
-- `unpythonic.net.ptyproxy`: refactored into an abstract base class with platform-specific backends (`PosixPTYSocketProxy` via `os.openpty`, `WindowsPTYSocketProxy` via `socket.socketpair`). Dispatch happens inside `PTYSocketProxy.__new__`, so callers instantiate the base class and get the right backend for free. `PTYSocketProxy` is now a context manager (`with PTYSocketProxy(...) as proxy:`) for guaranteed cleanup. Public interface otherwise unchanged.
-- `unpythonic.net.client`: `connect()` is now a thin public shim over a private `_connect(..., _input=None)`. The `_input` seam lets tests drive the REPL loop without monkey-patching `builtins.input` globally. Public API unchanged.
-- `unpythonic.net.client`: `import readline` moved from module top into `connect()`, with a three-tier fallback (`readline` → `pyreadline3` → graceful degradation). POSIX behaviour unchanged; the module is now importable on Windows.
+- `unpythonic.net` now has an automated test suite for the REPL client and server.
+  - `unpythonic/net/tests/test_client.py` exercises the full client ↔ server roundtrip in-process (eval, multi-line, syntax-error recovery, clean disconnect), netcat-mode raw-socket access, control-channel RPC, and stretch cases (sequential reconnect, two concurrent clients). Tier 1 only — no subprocess / pty driver. Runs on every CI platform (Linux, macOS, Windows).
+- `unpythonic.net.ptyproxy`: refactored into an abstract base class with platform-specific backends (`PosixPTYSocketProxy` via `os.openpty`, `WindowsPTYSocketProxy` via `socket.socketpair`).
+  - Dispatch happens inside `PTYSocketProxy.__new__`, so callers instantiate the base class and get the right backend for free.
+  - `PTYSocketProxy` is now a context manager (`with PTYSocketProxy(...) as proxy:`) for guaranteed cleanup. Public interface otherwise unchanged.
+- `unpythonic.net.client`: `connect()` is now a thin public shim over a private `_connect(..., _input=None)`.
+  - The `_input` seam lets tests drive the REPL loop without monkey-patching `builtins.input` globally. Public API unchanged.
+- `unpythonic.net.client`: `import readline` moved from module top into `connect()`, with a three-tier fallback (`readline` → `pyreadline3` → graceful degradation).
+  - POSIX behaviour unchanged; the module is now importable on Windows.
 - `unpythonic.net.tests.fixtures.nettest`: binds on port 0 (kernel-assigned), removed a `sleep(0.05)` race-condition bandage, and re-raises worker-thread exceptions instead of swallowing them.
-- Type annotations added to public API signatures (and private helpers/closures) across 29 modules: `regutil`, `symbol`, `assignonce`, `numutil`, `misc`, `excutil`, `fup`, `fix`, `environ`, `fun`, `it`, `fold`, `funutil`, `lazyutil`, `ec`, `singleton`, `env`, `gtco`, `amb`, `tco`, `slicing`, `dynassign`, `gmemo`, `llist`, `fploop`, `let`, `lispylet`, `seq`, `collections`. Convention: `F = TypeVar('F', bound=Callable)` for callable parameters, `T = TypeVar('T')` for data values. Remaining unannotated: `conditions`, `dispatch`, `mathseq`, `typecheck`, `arity` (hard tier — deeply dynamic or inspect-heavy).
-- `amb`: `Assignment` renamed to `Choice`; internal `env` class renamed to `Scope`; `MonadicList` constructor standardized to accept a single iterable (like `list`/`tuple`); `Sequence` methods added (`__reversed__`, `__contains__`, `index`, `count`); registered as `Container`/`Iterable`/`Sized`/`Sequence` ABC.
-- `slicing`: new `Sliced` and `FupTarget`/`Fuppable` tag types with abstract methods, replacing bare `Any` return types on `islice` and `fup`. Exported in `__all__`.
-- `collections`: `_StrReprEqMixin` renamed to `_SequenceReprEqMixin`; `__eq__` now requires `Sequence` and raises `TypeError` for incompatible types (latent bug: previously crashed on non-`Sized` input). `roview._cache` attribute now declared in `__init__`. `_make_negidx_converter.convert` now has explicit `return None` for passthrough path.
-- Bare `object()` sentinels replaced with `sym`/`gensym` for debug readability: `ec.py` (`gensym("anchor")`), `llist.py` (`gensym("fill")`, module-level), `fold.py` (`sym("_uselast")`), `test_conditions.py`, `test_collections.py`.
+- Type annotations added to public API signatures (and private helpers/closures) across 29 modules.
+  - Full list of newly type-annotated modules: `regutil`, `symbol`, `assignonce`, `numutil`, `misc`, `excutil`, `fup`, `fix`, `environ`, `fun`, `it`, `fold`, `funutil`, `lazyutil`, `ec`, `singleton`, `env`, `gtco`, `amb`, `tco`, `slicing`, `dynassign`, `gmemo`, `llist`, `fploop`, `let`, `lispylet`, `seq`, `collections`.
+  - Remaining unannotated: `conditions`, `dispatch`, `mathseq`, `typecheck`, `arity` (hard tier — deeply dynamic or inspect-heavy).
+  - Convention: `F = TypeVar('F', bound=Callable)` for callable parameters, `T = TypeVar('T')` for data values.
+- `amb` cleanups.
+  - `Assignment` renamed to `Choice`.
+  - Internal `env` class renamed to `Scope`.
+  - `MonadicList` constructor standardized to accept a single iterable (like `list`/`tuple`); `Sequence` methods added (`__reversed__`, `__contains__`, `index`, `count`); registered as `Container`/`Iterable`/`Sized`/`Sequence` ABC.
+- `slicing`: New `Sliced` and `FupTarget`/`Fuppable` tag types with abstract methods, used as return types for `islice` and `fup`. Public API for type annotations, exported in `__all__`.
+- `collections`: Internal class `_StrReprEqMixin` renamed to `_SequenceReprEqMixin`.
+  - `__eq__` now requires `Sequence` and raises `TypeError` for incompatible types (latent bug: previously crashed on non-`Sized` input).
+  - `roview._cache` attribute now declared in `__init__`.
+  - `_make_negidx_converter.convert` now has explicit `return None` for passthrough path.
+- Bare `object()` sentinels replaced with `sym`/`gensym` for debug readability.
+  - Affected: `ec.py` (`gensym("anchor")`), `llist.py` (`gensym("fill")`, module-level), `fold.py` (`sym("_uselast")`), `test_conditions.py`, `test_collections.py`.
 
 
 ---
