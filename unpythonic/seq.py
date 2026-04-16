@@ -8,6 +8,8 @@ __all__ = ["begin", "begin0", "lazy_begin", "lazy_begin0",
            "do", "do0", "assign"]
 
 from collections import namedtuple
+from collections.abc import Callable
+from typing import Any
 
 from .arity import arity_includes, UnknownArity
 from .dynassign import dyn
@@ -18,7 +20,7 @@ from .lazyutil import force1, force, maybe_force_args, passthrough_lazy_args
 from .symbol import sym
 
 # sequence side effects in a lambda
-def begin(*vals):
+def begin(*vals: Any) -> Any:
     """Racket-like begin: return the last value.
 
     Eager; bodys already evaluated by Python when this is called.
@@ -33,7 +35,7 @@ def begin(*vals):
     """
     return vals[-1] if len(vals) else None
 
-def begin0(*vals):  # eager, bodys already evaluated when this is called
+def begin0(*vals: Any) -> Any:  # eager, bodys already evaluated when this is called
     """Racket-like begin0: return the first value.
 
     Eager; bodys already evaluated by Python when this is called.
@@ -48,7 +50,7 @@ def begin0(*vals):  # eager, bodys already evaluated when this is called
     """
     return vals[0] if len(vals) else None
 
-def lazy_begin(*bodys):
+def lazy_begin(*bodys: Callable[[], Any]) -> Any:
     """Racket-like begin: run bodys in sequence, return the last return value.
 
     Lazy; each body must be a thunk (0-argument function), to delay its evaluation
@@ -73,7 +75,7 @@ def lazy_begin(*bodys):
         body()
     return last()
 
-def lazy_begin0(*bodys):
+def lazy_begin0(*bodys: Callable[[], Any]) -> Any:
     """Racket-like begin0: run bodys in sequence, return the first return value.
 
     Lazy; each body must be a thunk (0-argument function), to delay its evaluation
@@ -101,7 +103,7 @@ def lazy_begin0(*bodys):
 
 # sequence one-input, one-output functions
 @passthrough_lazy_args
-def pipe1(value0, *bodys):
+def pipe1(value0: Any, *bodys: Callable) -> Any:
     """Perform a sequence of operations on an initial value.
 
     Bodys are applied left to right.
@@ -176,10 +178,10 @@ class piped1:
 
     Eager; apply each function immediately and store the new value.
     """
-    def __init__(self, x):
+    def __init__(self, x: Any) -> None:
         """Set up a pipe and load the initial value x into it."""
         self._x = x
-    def __or__(self, f):
+    def __or__(self, f: Any) -> "piped1 | Any":
         """Pipe the value through the one-argument function f.
 
         Return a ``piped`` object, for chainability.
@@ -223,14 +225,14 @@ class lazy_piped1:
     Another way to say this is that ``lazy_piped`` looks up the initial value
     dynamically, at get time.
     """
-    def __init__(self, x, *, _funcs=None):
+    def __init__(self, x: Any, *, _funcs: tuple | None = None) -> None:
         """Set up a lazy pipe and load the initial value x into it.
 
         The ``_funcs`` parameter is for internal use.
         """
         self._x = x
         self._funcs = force(_funcs or ())
-    def __or__(self, f):
+    def __or__(self, f: Any) -> "lazy_piped1 | Any":
         """Pipe the value into f; but just plan to do so, don't perform it yet.
 
         To run the stored computation, pipe into ``exitpipe``.
@@ -276,7 +278,7 @@ class lazy_piped1:
         return f"<lazy_piped1 at 0x{id(self):x}; initial value now {self._x}, functions {self._funcs}>"
 
 @passthrough_lazy_args
-def pipe(values0, *bodys):
+def pipe(values0: Any, *bodys: Callable) -> Any:
     """Like pipe1, but with arbitrary number of inputs/outputs at each step.
 
     The only restriction is that the call and return signatures must match:
@@ -347,7 +349,7 @@ def pipe(values0, *bodys):
     return xs
 
 @passthrough_lazy_args
-def pipec(values0, *bodys):
+def pipec(values0: Any, *bodys: Callable) -> Any:
     """Like pipe, but curry each function before piping.
 
     Useful with the passthrough in ``curry``. Each function only needs to
@@ -370,13 +372,13 @@ class piped:
     returns. Use a `Values` object to denote multiple-return-values, and/or
     named return values.
     """
-    def __init__(self, *xs, **kws):
+    def __init__(self, *xs: Any, **kws: Any) -> None:
         """Set up a pipe and load the initial values xs and kws into it.
 
         The inputs are automatically packed into a `Values`.
         """
         self._xs = Values(*xs, **kws)
-    def __or__(self, f):
+    def __or__(self, f: Any) -> "piped | Any":
         """Pipe the values through the function f.
 
         If the data currently in the pipe is a `Values`, it is unpacked
@@ -434,7 +436,7 @@ class lazy_piped:
         assert p | exitpipe == Values(a=89, b=144)  # run; check final state
         assert fibos == [1, 1, 2, 3, 5, 8, 13, 21, 34, 55]
     """
-    def __init__(self, *xs, _funcs=None, **kws):
+    def __init__(self, *xs: Any, _funcs: tuple | None = None, **kws: Any) -> None:
         """Set up a lazy pipe and load the initial values xs and kws into it.
 
         The inputs are automatically packed into a `Values`.
@@ -443,7 +445,7 @@ class lazy_piped:
         """
         self._xs = Values(*xs, **kws)
         self._funcs = force(_funcs or ())
-    def __or__(self, f):
+    def __or__(self, f: Any) -> "lazy_piped | Any":
         """Pipe the values into f; but just plan to do so, don't perform it yet.
 
         When f is `exitpipe`, perform the planned computation.
@@ -482,7 +484,7 @@ class lazy_piped:
 
 # do(): improved begin() that can name intermediate results and refer to them
 DoAssign = namedtuple("DoAssign", "name value")
-def assign(**binding):
+def assign(**binding: Any) -> "DoAssign":
     """Bind a name to a value inside a do().
 
     Re-using a previous name overwrites.
@@ -508,7 +510,7 @@ def assign(**binding):
     for k, v in binding.items():
         return DoAssign(k, v)
 
-def do(*items):
+def do(*items: Any) -> Any:
     """Haskell-ish do, but without any monadic magic.
 
     Run ``items`` sequentially. Optionally, locally bind a name to each result,
@@ -574,7 +576,7 @@ def do(*items):
     consistent for all of the expressions.
     """
     e = env()
-    def maybe_call(v):
+    def maybe_call(v: Any) -> Any:
         if callable(v):
             try:
                 if not arity_includes(v, 1):
@@ -591,7 +593,7 @@ def do(*items):
             item = maybe_call(item)  # perform side effects
     return item  # return the final value
 
-def do0(*items):
+def do0(*items: Any) -> Any:
     """Like do, but return the value of the first item.
 
     Examples::

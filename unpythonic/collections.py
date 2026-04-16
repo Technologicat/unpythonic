@@ -11,13 +11,14 @@ from functools import wraps
 from itertools import repeat
 from abc import abstractmethod
 from collections import abc
-from collections.abc import (Container, Iterable, Hashable, Sized,
+from collections.abc import (Callable, Container, Iterable, Hashable, Iterator, Sized,
                              Sequence, Mapping, Set,
                              MutableSequence, MutableMapping, MutableSet,
                              MappingView)
 from inspect import isclass
 from operator import lt, le, ge, gt
 import threading
+from typing import Any
 
 # Some of these are used only to detect (and perhaps mogrify) our own cat food in `mogrify`.
 #
@@ -31,14 +32,14 @@ from .it import drop
 from .llist import cons, Nil
 from .misc import getattrrec, CountingIterator
 
-def get_abcs(cls):
+def get_abcs(cls: type) -> set[type]:
     """Return a set of the collections.abc superclasses of cls (virtuals too)."""
     return {v for k, v in vars(abc).items() if isclass(v) and issubclass(cls, v)}
 
 # TODO: allow multiple input container args in mogrify, like map does (also support longest, fillvalue)
 #   OTOH, that's assuming an ordered iterable... so maybe not for general containers?
 # TODO: move to unpythonic.it? This is a spork...
-def mogrify(func, container):
+def mogrify(func: Callable, container: Any) -> Any:
     """In-place recursive map for mutable containers.
 
     Recurse on container, apply func to each atom. Containers can be nested,
@@ -197,19 +198,19 @@ class box:
     for the particular situation. This class just makes the programmer's intent
     more explicit.
     """
-    def __init__(self, x=None):
+    def __init__(self, x: Any = None) -> None:
         self.x = x
-    def __repr__(self):  # pragma: no cover
+    def __repr__(self) -> str:  # pragma: no cover
         return f"box({repr(self.x)})"
-    def __contains__(self, x):
+    def __contains__(self, x: Any) -> bool:
         return self.x == x
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         return (x for x in (self.x,))
-    def __len__(self):
+    def __len__(self) -> int:
         return 1
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return other == self.x
-    def set(self, x):
+    def set(self, x: Any) -> Any:
         """Store a new value in the box, replacing the old one.
 
         As a convenience, returns the new value.
@@ -219,7 +220,7 @@ class box:
         """
         self.x = x
         return x
-    def __lshift__(self, x):
+    def __lshift__(self, x: Any) -> Any:
         """Syntactic sugar for storing a new value.
 
         `b << 42` is the same as `b.set(42)`.
@@ -229,7 +230,7 @@ class box:
         for a `box`, so we just return the new value.)
         """
         return self.set(x)
-    def get(self):
+    def get(self) -> Any:
         """Return the value currently in the box.
 
         The syntactic sugar for `b.get()` is `unbox(b)`.
@@ -294,26 +295,26 @@ class Some:
     It is also the logical opposite of a bare `None`, also syntactically:
     `Some(...) is not None`.
     """
-    def __init__(self, x=None):
+    def __init__(self, x: Any = None) -> None:
         self.x = x
-    def __repr__(self):  # pragma: no cover
+    def __repr__(self) -> str:  # pragma: no cover
         return f"Some({repr(self.x)})"
-    def __contains__(self, x):
+    def __contains__(self, x: Any) -> bool:
         return self.x == x
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         return (x for x in (self.x,))
-    def __len__(self):
+    def __len__(self) -> int:
         return 1
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return other == self.x
-    def get(self):
+    def get(self) -> Any:
         """Return the value currently in the `Some`.
 
         The syntactic sugar for `b.get()` is `unbox(b)`.
         """
         return self.x
 
-def unbox(b):
+def unbox(b: "box | Some") -> Any:
     """Return the value from inside the box b.
 
     Syntactic sugar for `b.get()`.
@@ -368,12 +369,12 @@ class Shim:
 
     Here `Shim(box, fallback)` is foldr's `op(elt, acc)`.
     """
-    def __init__(self, thebox, fallback=None):
+    def __init__(self, thebox: box, fallback: "box | Any | None" = None) -> None:
         if not isinstance(thebox, box):
             raise TypeError(f"Expected box, got {type(thebox)} with value {repr(thebox)}")
         self._shim_box = thebox
         self._shim_fallback = fallback
-    def __getattr__(self, k):
+    def __getattr__(self, k: str) -> Any:
         thing = unbox(self._shim_box)
         fallback = self._shim_fallback
         if not fallback or hasattr(thing, k):
@@ -381,7 +382,7 @@ class Shim:
         # fallback and not hasattr(thing, k)
         otherthing = unbox(fallback) if isinstance(fallback, box) else fallback
         return getattr(otherthing, k)
-    def __setattr__(self, k, v):
+    def __setattr__(self, k: str, v: Any) -> None:
         if k in ("_shim_box", "_shim_fallback"):
             return super().__setattr__(k, v)
         thing = unbox(self._shim_box)
@@ -842,7 +843,7 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
                 assert False
         return self.seq[k]  # not in slice
 
-def in_slice(i, s, length=None):
+def in_slice(i: int, s: int | slice, length: int | None = None) -> bool:
     """Return whether the int i is in the slice s.
 
     For convenience, ``s`` may be int instead of slice; then return
@@ -871,7 +872,7 @@ def in_slice(i, s, length=None):
     on_grid = (i - start) % step == 0
     return at_or_after_start and on_grid and before_stop
 
-def index_in_slice(i, s, length=None):
+def index_in_slice(i: int, s: int | slice, length: int | None = None) -> int | None:
     """Return the index of the int i in the slice s, or None if i is not in s.
 
     (I.e. how-manyth item of the slice the index i is.)
