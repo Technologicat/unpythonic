@@ -2,6 +2,13 @@
 
 **2.0.1** (in progress):
 
+**New**:
+
+- `environ_override`: context manager to temporarily override OS environment variables within a `with` block, restoring the previous state on exit. Thread-safe (serialises concurrent overrides via `RLock`); same-thread nesting supported. New module `unpythonic.environ`; the function is named `override` at the module level and re-exported as `environ_override` at the top level.
+- `maybe_open`: context manager that opens a file when given a path, or yields a fallback stream (e.g. `sys.stdin`, `sys.stdout`) when given `None`. Lets callers always use `with` syntax regardless of whether the target is a file or a standard stream.
+- `UnionFilter`: a `logging.Filter` that matches a log record if *any* of its sub-filters match — an OR combinator missing from the standard library.
+- `si_prefix`: format a number with SI decimal prefixes (k through Q, m through q) or IEC binary prefixes (Ki through Qi, mi through qi). Handles negative numbers, zero, and sub-unity magnitudes. The `binary=True` flag switches to base-1024 mode.
+
 **Changed**:
 
 - `unpythonic.net` (REPL server and client) now runs on MS Windows. Previously the whole subsystem was POSIX-only because `unpythonic.net.ptyproxy` required `termios`, `tty`, and `os.openpty`. A new `socket.socketpair()`-based backend stands in for the pty master/slave endpoints on Windows, plugged in via a platform dispatch in `PTYSocketProxy`. Known wart: `os.isatty(sys.stdin.fileno())` inside a REPL session returns `False` on Windows (no real pseudo-terminal is involved), whereas it returns `True` on POSIX — user code *inside* the REPL that checks `sys.stdin.isatty()` will see the Windows result; the framework itself doesn't care.
