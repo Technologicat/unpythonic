@@ -9,6 +9,7 @@
 - `UnionFilter`: a `logging.Filter` that matches a log record if *any* of its sub-filters match — an OR combinator missing from the standard library.
 - `si_prefix`: format a number with SI decimal prefixes (k through Q, m through q) or IEC binary prefixes (Ki through Qi, mi through qi). Handles negative numbers, zero, and sub-unity magnitudes. The `binary=True` flag switches to base-1024 mode.
 - `partial` (type-checking `functools.partial`) is now exported in the public API. It was already implemented but missing from `fun.__all__`.
+- `Sliced`, `FupTarget`, `Fuppable`: tag types in `unpythonic.slicing` for annotating the return values of `islice` and `fup`. `Sliced` has abstract `__getitem__`; `FupTarget` has abstract `__getitem__` returning `Fuppable`; `Fuppable` has abstract `__lshift__`.
 
 **Changed**:
 
