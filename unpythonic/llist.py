@@ -5,8 +5,9 @@ Hashable, pickleable, hooks into the built-in reversed(), can print like in Lisp
 """
 
 from abc import ABCMeta, abstractmethod
-from collections.abc import Iterable, Iterator
+from collections.abc import Callable, Generator, Iterable, Iterator
 from itertools import zip_longest
+from typing import Any
 
 from .fun import composer1i
 from .fold import foldr, foldl
@@ -39,11 +40,11 @@ __all__ = _exports
 class Nil(Singleton):
     """The empty linked list. Singleton."""
     # support the iterator protocol so we can say tuple(nil) --> ()
-    def __iter__(self):
+    def __iter__(self) -> "Nil":
         return self
-    def __next__(self):
+    def __next__(self) -> Any:
         raise StopIteration()
-    def __repr__(self):
+    def __repr__(self) -> str:
         return "nil"
 nil = Nil()
 
@@ -63,20 +64,20 @@ class ConsIterator(metaclass=ABCMeta):
     For usage examples see the predefined iterators in ``unpythonic.llist``.
     """
     @abstractmethod
-    def __init__(self, startcell, walker):
+    def __init__(self, startcell: "cons", walker: Callable[["cons"], Generator]) -> None:
         if not isinstance(startcell, cons):
             raise TypeError(f"Expected a cons, got {type(startcell)} with value {startcell}")
         self.walker = iter(walker(startcell))  # iter() needed to support gtrampolined generators
-    def __iter__(self):
+    def __iter__(self) -> "ConsIterator":
         return self
-    def __next__(self):
+    def __next__(self) -> Any:
         return next(self.walker)
 Iterable.register(ConsIterator)
 Iterator.register(ConsIterator)
 
 class LinkedListIterator(ConsIterator):
     """Iterator for linked lists built from cons cells."""
-    def __init__(self, head, _fullerror=True):
+    def __init__(self, head: "cons", _fullerror: bool = True) -> None:
         def walker(head):
             cell = head
             while cell is not nil:
@@ -96,7 +97,7 @@ class LinkedListReverseIterator(LinkedListIterator):
     Computes the reversed list at init time, so it can then be walked forward.
     Cost O(n).
     """
-    def __init__(self, head, _fullerror=True):
+    def __init__(self, head: "cons", _fullerror: bool = True) -> None:
         self._data = lreverse(head)
         super().__init__(self._data, _fullerror)
 
@@ -105,7 +106,7 @@ class LinkedListOrCellIterator(ConsIterator):
 
     Default iteration strategy. Useful for sequence unpacking of cons and ll.
     """
-    def __init__(self, head, _fullerror=True):
+    def __init__(self, head: "cons", _fullerror: bool = True) -> None:
         def walker(head):
             cell = head
             while cell is not nil:
@@ -129,7 +130,7 @@ class TailIterator(ConsIterator):  # for member()
 
         TailIterator(ll(1, 2, 3)) --> ll(1, 2, 3), ll(2, 3), ll(3)
     """
-    def __init__(self, head):
+    def __init__(self, head: "cons") -> None:
         def walker(head):
             cell = head
             while cell is not nil:
@@ -142,7 +143,7 @@ class TailIterator(ConsIterator):  # for member()
 
 class BinaryTreeIterator(ConsIterator):
     """Iterator for binary trees built from cons cells."""
-    def __init__(self, root):
+    def __init__(self, root: "cons") -> None:
         #        def walker(cell):  # FP, call stack overflow for deep trees
         #            for x in (cell.car, cell.cdr):
         #                if isinstance(x, cons):
@@ -182,7 +183,7 @@ class JackOfAllTradesIterator(ConsIterator):
     If you want the ace for a particular trade, use the specific iterator for
     the specific kind of cons structure you have.
     """
-    def __init__(self, root):
+    def __init__(self, root: "cons") -> None:
         #        @gtrampolined
         #        def walker(cell):  # FP, tail-recursive in the cdr half only
         #            if isinstance(cell.car, cons):
@@ -214,21 +215,21 @@ class cons:
 
     Iterable. Default is to iterate as a linked list.
     """
-    def __init__(self, v1, v2):
+    def __init__(self, v1: Any, v2: Any) -> None:
         self.car = v1
         self.cdr = v2
         self._immutable = True
-    def __setattr__(self, k, v):
+    def __setattr__(self, k: str, v: Any) -> None:
         if hasattr(self, "_immutable"):
             raise TypeError("'cons' object does not support item assignment")
         super().__setattr__(k, v)
-    def __iter__(self):
+    def __iter__(self) -> LinkedListOrCellIterator:
         """Return iterator with default iteration scheme: single cell or list."""
         return LinkedListOrCellIterator(self)
-    def __reversed__(self):
+    def __reversed__(self) -> LinkedListReverseIterator:
         """For lists. Caution: O(n), works by building a reversed list."""
         return LinkedListReverseIterator(self)
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Representation in pythonic notation.
 
         Suitable for ``eval`` if all elements are."""
@@ -241,7 +242,7 @@ class cons:
             result_list = (repr(self.car), repr(self.cdr))
             result_str = ", ".join(result_list)
             return f"cons({result_str})"
-    def lispyrepr(self):  # TODO: maybe rename or alias this to `__str__`?
+    def lispyrepr(self) -> str:  # TODO: maybe rename or alias this to `__str__`?
         """Representation in Lisp-like dot notation."""
         try:
             result_list = [repr(x) for x in LinkedListIterator(self, _fullerror=False)]
@@ -250,7 +251,7 @@ class cons:
             result_list = (r(self.car), ".", r(self.cdr))
         result_str = " ".join(result_list)
         return f"({result_str})"
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if other is self:
             return True
         if isinstance(other, cons):
@@ -260,30 +261,30 @@ class cons:
             except TypeError:
                 return self.car == other.car and self.cdr == other.cdr
         return False
-    def __hash__(self):
+    def __hash__(self) -> int:
         try:  # duck test linked list
             tpl = tuple(LinkedListIterator(self))
         except TypeError:
             tpl = (self.car, self.cdr)
         return hash(tpl)
 
-def _car(x):
+def _car(x: cons) -> Any:
     return _typecheck(x).car
-def _cdr(x):
+def _cdr(x: cons) -> Any:
     return _typecheck(x).cdr
-def _typecheck(x):
+def _typecheck(x: Any) -> cons:
     if not isinstance(x, cons):
         raise TypeError(f"Expected a cons, got {type(x)} with value {x}")
     return x
-def _build_accessor(name):
+def _build_accessor(name: str) -> Callable[[cons], Any]:
     spec = name[1:-1]
     f = {'a': _car, 'd': _cdr}
     return composer1i(f[char] for char in spec)
 
-def car(x):
+def car(x: cons) -> Any:
     """Return the first half of a cons cell."""
     return _car(x)
-def cdr(x):
+def cdr(x: cons) -> Any:
     """Return the second half of a cons cell."""
     return _cdr(x)
 
@@ -318,7 +319,7 @@ cddadr = _build_accessor("cddadr")
 cdddar = _build_accessor("cdddar")
 cddddr = _build_accessor("cddddr")
 
-def ll(*elts):
+def ll(*elts: Any) -> "cons | Nil":
     """Make a linked list with the given elements.
 
     ``ll(...)`` plays the same role as ``[...]`` or ``(...)`` for lists or tuples,
@@ -332,7 +333,7 @@ def ll(*elts):
     """
     return llist(elts)
 
-def llist(iterable):
+def llist(iterable: Iterable) -> "cons | Nil":
     """Make a linked list from iterable.
 
     ``llist(...)`` plays the same role as ``list(...)`` or ``tuple(...)`` for
@@ -358,7 +359,7 @@ def llist(iterable):
         return iterable._data
     return lreverse(rev(iterable))
 
-def lreverse(iterable):
+def lreverse(iterable: Iterable) -> "cons | Nil":
     """Reverse an iterable, loading the result into a linked list.
 
     If you have a linked list and want an iterator instead, use ``reversed(l)``.
@@ -366,13 +367,13 @@ def lreverse(iterable):
     """
     return foldl(cons, nil, iterable)
 
-def lappend(*ls):
+def lappend(*ls: "cons | Nil") -> "cons | Nil":
     """Append the given linked lists left-to-right."""
-    def lappend_two(l1, l2):
+    def lappend_two(l1: "cons | Nil", l2: "cons | Nil") -> "cons | Nil":
         return foldr(cons, l2, l1)
     return foldr(lappend_two, nil, ls)
 
-def member(x, l):  # noqa: E741 -- standard Lisp name for a linked list
+def member(x: Any, l: cons) -> "cons | bool":  # noqa: E741 -- standard Lisp name for a linked list
     """Walk linked list l and check if item x is in it.
 
     Returns:
@@ -383,7 +384,7 @@ def member(x, l):  # noqa: E741 -- standard Lisp name for a linked list
             return t
     return False
 
-def lzip(*ls):
+def lzip(*ls: "cons | Nil") -> "cons | Nil":
     """Zip linked lists, producing a linked list of linked lists.
 
     Built-in zip() works too, but produces tuples.
