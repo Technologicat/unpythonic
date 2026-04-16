@@ -33,11 +33,10 @@ If you want to roll your own monads, the parts for this module come from:
 __all__ = ["forall", "choice", "insist", "deny"]
 
 from collections import namedtuple
-from collections.abc import Callable, Container, Iterable, Iterator, Sized
+from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
 from typing import Any
 
 from .arity import arity_includes, UnknownArity
-from .llist import nil  # we need a sentinel, let's recycle the existing one
 
 Choice = namedtuple("Choice", "k v")
 
@@ -219,22 +218,20 @@ def monadify(value: Any, unpack: bool = True) -> "MonadicList":
             return MonadicList.from_iterable(value)
         except TypeError:
             pass  # fall through
-    return MonadicList(value)  # unit(MonadicList, value)
+    return MonadicList((value,))  # unit
 
 class MonadicList:  # TODO: This if anything is **the** place to use @typed.
     """A monadic list."""
-    def __init__(self, *elts: Any) -> None:
-        """The unit operator. Lift value(s) into a MonadicList.
+    def __init__(self, iterable: Iterable = ()) -> None:
+        """Construct a MonadicList from an iterable.
 
-        *elts: a or [a]
+        iterable: Iterable[a]
         returns: M a
+
+        Like ``list`` and ``tuple``, accepts a single iterable argument.
+        Use ``MonadicList((value,))`` for a singleton (the unit operator).
         """
-        # Accept the sentinel nil as a special **item** that, when passed to
-        # the MonadicList constructor, produces an empty list.
-        if len(elts) == 1 and elts[0] is nil:
-            self.x = ()
-        else:
-            self.x = elts
+        self.x = tuple(iterable)
 
     def __rshift__(self, f: Callable) -> "MonadicList":
         """Monadic bind; standard notation ">>=" in Haskell.
@@ -283,13 +280,12 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
           - Use `.then(...)` just after the `guard` to discard the dummy, and replace with
             the actual output you want. The value (that passed the guard) from the original
             `MonadicList` is still live in the current scope.
-              - If you just want to filter, just `MonadicList(x)` it (recall that here the
-                constructor stands for the `unit` operator).
+              - If you just want to filter, just `MonadicList((x,))` it (the unit operator).
           - When an input doesn't pass the guard, the blank output from `guard` automatically
             cancels the rest of that branch of the computation.
         """
         if b:
-            return cls(True)  # MonadicList with one element; value not intended to be actually used.
+            return cls((True,))  # MonadicList with one element; value not intended to be actually used.
         return cls()  # 0-element MonadicList; short-circuit this branch of the computation.
 
     # Sequence ABC interface.
@@ -334,15 +330,12 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         Eager; the input iterable will be iterated over in its entirety
         to produce the list. If it is consumable, it will be consumed.
         """
-        try:
-            return cls(*iterable)
-        except TypeError:  # maybe a generator; try forcing it before giving up.
-            return cls(*tuple(iterable))
+        return cls(iterable)
 
     def copy(self) -> "MonadicList":
         """Return a copy of this MonadicList."""
         cls = self.__class__
-        return cls(*self.x)
+        return cls(self.x)
 
     @classmethod
     def lift(cls, f: Callable) -> Callable:
@@ -351,7 +344,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         f: a -> b
         returns: a -> M b
         """
-        return lambda x: cls(f(x))
+        return lambda x: cls((f(x),))
 
     def fmap(self, f: Callable) -> "MonadicList":
         """The map operator.
@@ -381,9 +374,8 @@ def deny(v: Any) -> Any:
     return insist(not v)
 
 # register virtual base classes
-# Not registering as Sequence: mogrify (in unpythonic.collections) expects
-# Sequence constructors to accept a single iterable, but MonadicList uses *elts.
-for _abscls in (Container, Iterable, Sized):
+# register virtual base classes
+for _abscls in (Iterable, Sized, Sequence):
     _abscls.register(MonadicList)
 del _abscls
 

@@ -4,62 +4,62 @@ from ..syntax import macros, test, test_raises, the  # noqa: F401
 from ..test.fixtures import session, testset
 
 from ..amb import (forall, choice, insist, deny, ok, fail,
-                   Choice, MonadicList, nil)
+                   Choice, MonadicList)
 
 def runtests():
     with testset("MonadicList (internal utility)"):
-        m = MonadicList(1, 2, 3)
+        m = MonadicList([1, 2, 3])
         test[tuple(m) == (1, 2, 3)]
         test[len(m) == 3]
         test[m[0] == 1 and m[1] == 2 and m[2] == 3]
 
-        m = MonadicList(nil)  # special *item* that produces an empty *list*
+        m = MonadicList()  # empty
         test[tuple(m) == ()]
 
         # Monadic bind (for MonadicList, it's flatmap).
         # This also tests fmap and join.
-        m = MonadicList(1, 2, 3)
-        f = lambda a: MonadicList(a, 10 * a)  # a -> M b
+        m = MonadicList([1, 2, 3])
+        f = lambda a: MonadicList([a, 10 * a])  # a -> M b
         test[tuple(m >> f) == (1, 10, 2, 20, 3, 30)]
 
         # .then(...): discard current value, replace by given value.
         # The new value must be wrapped in MonadicList.
-        m = MonadicList(1, 2, 3)
-        const = MonadicList(42)  # M b
+        m = MonadicList([1, 2, 3])
+        const = MonadicList((42,))  # M b (singleton)
         test[tuple(m.then(const)) == (42, 42, 42)]  # one 42 for each element of m
 
         test_raises[TypeError, m.then(f)]  # expected a MonadicList, got a function
 
-        m1 = MonadicList(1, 2)
-        m2 = MonadicList(3, 4, 5)
+        m1 = MonadicList([1, 2])
+        m2 = MonadicList([3, 4, 5])
         test[m1 == m1]
         test[the[m2] != the[m1]]
 
-        m1 = MonadicList(1, 2)
-        m2 = MonadicList(3, 4)
-        test[m1 + m2 == MonadicList(1, 2, 3, 4)]
+        m1 = MonadicList([1, 2])
+        m2 = MonadicList([3, 4])
+        test[m1 + m2 == MonadicList([1, 2, 3, 4])]
 
-        m1 = MonadicList(1, 2)
+        m1 = MonadicList([1, 2])
         notamonadiclist = (3, 4)
         test_raises[TypeError, m1 + notamonadiclist]
 
-        test[MonadicList.from_iterable(range(3)) == MonadicList(0, 1, 2)]
+        test[MonadicList.from_iterable(range(3)) == MonadicList([0, 1, 2])]
 
-        m1 = MonadicList(1, 2, 3)
+        m1 = MonadicList([1, 2, 3])
         m2 = m1.copy()
         test[the[m2] is not the[m1] and m2 == m1]
 
         double = lambda x: 2 * x
-        m = MonadicList(1, 2, 3)
+        m = MonadicList([1, 2, 3])
         test[tuple(m >> MonadicList.lift(double)) == (2, 4, 6)]
 
-        m = MonadicList(1, 2, 3)
+        m = MonadicList([1, 2, 3])
         test_raises[TypeError, m.join()]  # join() flattens a nested list, which m isn't
 
         # Usage example for `guard`
-        m = MonadicList(1, 2, 3)
+        m = MonadicList([1, 2, 3])
         test[tuple(m >> (lambda x: MonadicList.guard(x % 2 == 1)
-                                              .then(MonadicList(x)))) == (1, 3)]
+                                          .then(MonadicList((x,))))) == (1, 3)]
 
     with testset("basic usage"):
         test[forall(choice(x=range(5)),
@@ -114,7 +114,7 @@ def runtests():
     with testset("error cases"):
         test_raises[ValueError, choice(a=1, b=2)]  # choice() takes only one binding
 
-        # To trigger this corner case, we must manually create an `Choice`
+        # To trigger this corner case, we must manually create a `Choice`
         # that has an invalid name - in normal use, `choice()` protects against
         # that by its syntax, since the name of a kwarg must be a valid identifier.
         invalid_name = "∀δ>0∃ε>0:f(x+δ)-f(x)<ε"
