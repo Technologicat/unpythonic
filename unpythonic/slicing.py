@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Operations on sequences with native slice syntax. Syntactic sugar, pure Python."""
 
-__all__ = ["islice", "Sliced", "fup"]
+__all__ = ["islice", "Sliced", "fup", "FupTarget", "Fuppable"]
 
 from abc import abstractmethod
 from collections.abc import Iterable, Iterator, Sequence
@@ -113,7 +113,19 @@ def islice(iterable: Iterable) -> Sliced:
 #             return first(islicef(iterable, k, k + 1))
 #     return islice1()
 
-def fup(seq: Sequence) -> Any:
+class Fuppable:
+    """Ready to be fupped. Left-shift (``<<``) with values to perform the update."""
+    @abstractmethod
+    def __lshift__(self, v: Any) -> Sequence:
+        ...
+
+class FupTarget:
+    """The target sequence of a ``fup``. Subscript to select where to fup it."""
+    @abstractmethod
+    def __getitem__(self, k: int | slice) -> Fuppable:
+        ...
+
+def fup(seq: Sequence) -> FupTarget:
     """Functionally update a sequence.
 
     Usage::
@@ -136,12 +148,12 @@ def fup(seq: Sequence) -> Any:
     Named after the sound a sequence makes when it is hit by a functional update.
     """
     # two-phase manual curry, first expect a subscript, then an lshift.
-    class fup1:
+    class fup1(FupTarget):
         """Subscript me to specify index or slice where to fupdate."""
-        def __getitem__(self, k: int | slice) -> Any:
+        def __getitem__(self, k: int | slice) -> Fuppable:
             if isinstance(k, tuple):
                 raise TypeError(f"multidimensional indexing not supported, got {k}")
-            class fup2:
+            class fup2(Fuppable):
                 """Left-shift me with values to perform the fupdate."""
                 def __lshift__(self, v: Any) -> Sequence:
                     return fupdate(seq, k, v)
