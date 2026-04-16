@@ -3,7 +3,9 @@
 
 __all__ = ["env"]
 
-from collections.abc import Container, Sized, Iterable, Mapping, MutableMapping
+from collections.abc import Container, Sized, Iterable, ItemsView, Iterator, KeysView, Mapping, MutableMapping, ValuesView
+from types import TracebackType
+from typing import Any
 from .lazyutil import passthrough_lazy_args
 
 # co-operate with unpythonic.syntax.lazify; this is essentially a binding construct,
@@ -57,21 +59,21 @@ class env:
 
     # For pickle support, since unpickling calls `__new__` but not `__init__`.
     # If `self._env` is not present, `__getattr__` will crash with an infinite loop. So create it as early as possible.
-    def __new__(cls, **kwargs):
+    def __new__(cls, **kwargs: Any) -> "env":
         instance = super().__new__(cls)
         instance._env = {}
         instance._finalized = False  # "let" sets this once env setup done
         instance.__init__(**kwargs)
         return instance
 
-    def __init__(self, **bindings):
+    def __init__(self, **bindings: Any) -> None:
         for name, value in bindings.items():
             setattr(self, name, value)
 
     # item access by name
     # https://docs.python.org/3/reference/datamodel.html#object.__setattr__
     # https://docs.python.org/3/reference/datamodel.html#object.__getattr__
-    def __setattr__(self, name, value):
+    def __setattr__(self, name: str, value: Any) -> None:
         # TODO: doesn't protect against client code writing to the _direct_write names.
         if name in self._direct_write:  # hook to allow creating internal variables directly in self
             return super().__setattr__(name, value)
@@ -85,7 +87,7 @@ class env:
 #        value = self._wrap(name, value)  # for "e.x << value" rebind syntax.
         self._env[name] = value  # make all other attrs else live inside _env
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str) -> Any:
         # Block invalid names in subscripting (which redirects here).
         if not name.isidentifier():
             raise ValueError(f"{repr(name)} is not a valid identifier")
@@ -94,7 +96,7 @@ class env:
             raise AttributeError(f"name {repr(name)} is not defined")
         return e[name]
 
-    def __delattr__(self, name):
+    def __delattr__(self, name: str) -> None:
         if not name.isidentifier():  # Can happen through __delitem__.
             raise ValueError(f"{repr(name)} is not a valid identifier")
         if self._finalized:
@@ -105,44 +107,44 @@ class env:
         del e[name]
 
     # membership test (in, not in)
-    def __contains__(self, k):
+    def __contains__(self, k: str) -> bool:
         return self._env.__contains__(k)
 
     # iteration
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
         return self._env.__iter__()
     # no __next__, iterating over dict.
 
     # Mapping
-    def items(self):
+    def items(self) -> ItemsView[str, Any]:
         """Like dict.items()."""
         return self._env.items()
-    def keys(self):
+    def keys(self) -> KeysView[str]:
         return self._env.keys()
-    def values(self):
+    def values(self) -> ValuesView[Any]:
         return self._env.values()
-    def get(self, k, default=None):
+    def get(self, k: str, default: Any = None) -> Any:
         return self[k] if k in self else default  # noqa: SIM401 -- this IS the .get() implementation
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return other == self._env
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self._env)
 
     # MutableMapping
-    def pop(self, k, *default):
+    def pop(self, k: str, *default: Any) -> Any:
         if self._finalized:
             raise TypeError(f"deleting bindings from a finalized environment not allowed; attempted to delete {repr(k)}")
         return self._env.pop(k, *default)
-    def popitem(self):
+    def popitem(self) -> tuple[str, Any]:
         if self._finalized:
             raise TypeError("deleting bindings from a finalized environment not allowed")
         return self._env.popitem()
-    def clear(self):
+    def clear(self) -> None:
         if self._finalized:
             raise TypeError("clearing a finalized environment not allowed")
         return self._env.clear()
-    def update(self, *mapping, **bindings):
+    def update(self, *mapping: Mapping, **bindings: Any) -> None:
         """See `dict.update` for the signature."""
         if mapping:
             if len(mapping) > 1:
@@ -153,26 +155,26 @@ class env:
         if self._finalized and any(k not in self for k in bindings):
             raise AttributeError("adding new bindings to a finalized environment is not allowed")
         return self._env.update(*mapping, **bindings)
-    def setdefault(self, k, *default):
+    def setdefault(self, k: str, *default: Any) -> Any:
         if self._finalized and k not in self:
             raise AttributeError(f"name {repr(k)} is not defined; adding new bindings to a finalized environment is not allowed")
         return self._env.setdefault(k, *default)
 
     # subscripting
-    def __getitem__(self, k):
+    def __getitem__(self, k: str) -> Any:
         return getattr(self, k)
 
-    def __setitem__(self, k, v):
+    def __setitem__(self, k: str, v: Any) -> None:
         setattr(self, k, v)
 
-    def __delitem__(self, k):
+    def __delitem__(self, k: str) -> None:
         delattr(self, k)
 
     # context manager
-    def __enter__(self):
+    def __enter__(self) -> "env":
         return self
 
-    def __exit__(self, exctype, excvalue, traceback):
+    def __exit__(self, exctype: type[BaseException] | None, excvalue: BaseException | None, traceback: TracebackType | None) -> None:
         self._env.clear()  # on context exit, clear even if we are a finalized env
 
     # pretty-printing
@@ -182,7 +184,7 @@ class env:
         return f"<env object at 0x{id(self):x}: {{{bindings_str}}}>"
 
     # other
-    def set(self, name, value):
+    def set(self, name: str, value: Any) -> Any:
         """Convenience method to allow assignment in expression contexts.
 
         Like Scheme's set! function. Only rebinding is allowed.
@@ -194,11 +196,11 @@ class env:
         return self._set(name, value)
 
     # for co-operation with the do[] macro: internal function with no already-defined check.
-    def _set(self, name, value):
+    def _set(self, name: str, value: Any) -> Any:
         setattr(self, name, value)
         return value  # for convenience
 
-    def __lshift__(self, arg):
+    def __lshift__(self, arg: tuple[str, Any]) -> "env":
         """Alternative syntax for assignment.
 
         ``e << ("x", 42)`` is otherwise the same as ``e.set("x", 42)``, except
@@ -210,7 +212,7 @@ class env:
         self.set(name, value)
         return self
 
-    def finalize(self):
+    def finalize(self) -> None:
         """Finalize environment.
 
         This stops the instance from accepting any more new bindings,

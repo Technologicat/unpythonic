@@ -33,13 +33,15 @@ If you want to roll your own monads, the parts for this module come from:
 __all__ = ["forall", "choice", "insist", "deny"]
 
 from collections import namedtuple
+from collections.abc import Callable, Container, Iterable, Iterator, Sized
+from typing import Any
 
 from .arity import arity_includes, UnknownArity
 from .llist import nil  # we need a sentinel, let's recycle the existing one
 
-Assignment = namedtuple("Assignment", "k v")
+Choice = namedtuple("Choice", "k v")
 
-def choice(**binding):
+def choice(**binding: Iterable) -> Choice:
     """Make a nondeterministic choice.
 
     Example::
@@ -50,12 +52,12 @@ def choice(**binding):
     if len(binding) != 1:
         raise ValueError(f"Expected exactly one name=iterable pair, got {len(binding)} with values {binding}")
     for k, v in binding.items():  # just one but we don't know its name
-        return Assignment(k, v)
+        return Choice(k, v)
 
 # Hacky code generator, because Python has ``eval`` but no syntactic macros.
 # For a cleaner solution based on AST transformation with macros,
 # see unpythonic.syntax.forall.
-def forall(*lines):
+def forall(*lines: Choice | Callable) -> tuple:
     """Nondeterministically evaluate lines.
 
     This is essentially a bastardized variant of Haskell's do-notation,
@@ -115,25 +117,27 @@ def forall(*lines):
     bind = " >> "
     seq = ".then"
 
-    class env:
-        def __init__(self):
-            self.names = set()
-        def assign(self, k, v):
+    class Scope:
+        def __init__(self) -> None:
+            self.names: set[str] = set()
+        def assign(self, k: str, v: Any) -> None:
+            """Assign value ``v`` to name ``k`` in this ``Scope``."""
             self.names.add(k)
             setattr(self, k, v)
-        # simulate lexical closure property for env attrs
-        #   - freevars: set of names that "fall in" from a surrounding lexical scope
-        def close_over(self, freevars):
+        def close_over(self, freevars: set[str]) -> None:
+            """Simulate lexical closure property for scope attrs.
+
+            ``freevars``: set of names that "fall in" from a surrounding scope.
+            """
             names_to_clear = {k for k in self.names if k not in freevars}
             for k in names_to_clear:
                 delattr(self, k)
             self.names = freevars.copy()
 
     # stuff used inside the eval
-    e = env()
-    def begin(*exprs):  # args eagerly evaluated by Python
-        # begin(e1, e2, ..., en):
-        #   perform side effects e1, e2, ..., e[n-1], return the value of en.
+    e = Scope()
+    def begin(*exprs: Any) -> Any:  # args eagerly evaluated by Python
+        """begin(e1, e2, ..., en): perform side effects e1, e2, ..., e[n-1], return the value of en."""
         return exprs[-1]
 
     allcode = ""
@@ -144,7 +148,7 @@ def forall(*lines):
         is_first = (j == 0)
         is_last = (j == len(lines) - 1)
 
-        if isinstance(item, Assignment):
+        if isinstance(item, Choice):
             name, body = item
         else:
             name, body = None, item
@@ -175,7 +179,7 @@ def forall(*lines):
             begin_is_open = False
 
         # monadic-bind or sequence to the next item, leaving only the appropriate
-        # names defined in the env (so that we get proper lexical scoping
+        # names defined in the scope (so that we get proper lexical scoping
         # even though we use an imperative stateful object to implement it)
         if not is_last:
             if name:
@@ -202,7 +206,7 @@ def forall(*lines):
 # --------------------------------------------------------------------------------
 # This low-level machinery is shared with the macro version, `unpythonic.syntax.forall`.
 
-def monadify(value, unpack=True):
+def monadify(value: Any, unpack: bool = True) -> "MonadicList":
     """Pack value into a monadic list if it is not already.
 
     If ``unpack=True``, an iterable ``value`` is unpacked into the created
@@ -219,7 +223,7 @@ def monadify(value, unpack=True):
 
 class MonadicList:  # TODO: This if anything is **the** place to use @typed.
     """A monadic list."""
-    def __init__(self, *elts):
+    def __init__(self, *elts: Any) -> None:
         """The unit operator. Lift value(s) into a MonadicList.
 
         *elts: a or [a]
@@ -232,7 +236,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         else:
             self.x = elts
 
-    def __rshift__(self, f):
+    def __rshift__(self, f: Callable) -> "MonadicList":
         """Monadic bind; standard notation ">>=" in Haskell.
 
         self: M a
@@ -249,7 +253,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         # done manually, essentially MonadicList.from_iterable(flatmap(lambda elt: f(elt), self.x))
         # return MonadicList.from_iterable(result for elt in self.x for result in f(elt))
 
-    def then(self, f):
+    def then(self, f: "MonadicList") -> "MonadicList":
         """Sequence, a.k.a. "then"; standard notation ">>" in Haskell.
 
         Like `bind`, but discarding the input `a`.
@@ -264,7 +268,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         return self >> (lambda _: f)
 
     @classmethod
-    def guard(cls, b):
+    def guard(cls, b: Any) -> "MonadicList":
         """Allow a branch of the computation to continue only if `b` is truthy.
 
         b: bool
@@ -288,22 +292,31 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
             return cls(True)  # MonadicList with one element; value not intended to be actually used.
         return cls()  # 0-element MonadicList; short-circuit this branch of the computation.
 
-    # make MonadicList iterable so that "for result in f(elt)" works (when f outputs a list monad)
-    def __iter__(self):
+    # Sequence ABC interface.
+    # The main point is to make MonadicList iterable so that "for result in f(elt)" works (when f outputs a list monad).
+    def __iter__(self) -> Iterator:
         return iter(self.x)
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.x)
-    def __getitem__(self, i):
+    def __getitem__(self, i: int) -> Any:
         return self.x[i]
+    def __reversed__(self) -> Iterator:
+        return reversed(self.x)
+    def __contains__(self, value: Any) -> bool:
+        return value in self.x
+    def index(self, value: Any) -> int:
+        return self.x.index(value)
+    def count(self, value: Any) -> int:
+        return self.x.count(value)
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         if other is self:
             return True
         if len(self) != len(other):
             return False
         return other == self.x
 
-    def __add__(self, other):
+    def __add__(self, other: "MonadicList") -> "MonadicList":
         """Concatenation of MonadicList, for convenience."""
         if not isinstance(other, MonadicList):
             raise TypeError(f"Expected a monadic list, got {type(other)} with value {repr(other)}")
@@ -315,7 +328,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         return f"{clsname}{self.x}"
 
     @classmethod
-    def from_iterable(cls, iterable):
+    def from_iterable(cls, iterable: Iterable) -> "MonadicList":
         """Convenience method: turn an iterable into a MonadicList.
 
         Eager; the input iterable will be iterated over in its entirety
@@ -326,13 +339,13 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         except TypeError:  # maybe a generator; try forcing it before giving up.
             return cls(*tuple(iterable))
 
-    def copy(self):
+    def copy(self) -> "MonadicList":
         """Return a copy of this MonadicList."""
         cls = self.__class__
         return cls(*self.x)
 
     @classmethod
-    def lift(cls, f):
+    def lift(cls, f: Callable) -> Callable:
         """Lift a regular function into a MonadicList-producing one.
 
         f: a -> b
@@ -340,7 +353,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         """
         return lambda x: cls(f(x))
 
-    def fmap(self, f):
+    def fmap(self, f: Callable) -> "MonadicList":
         """The map operator.
 
         self: M a
@@ -350,7 +363,7 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         cls = self.__class__
         return cls.from_iterable(f(elt) for elt in self.x)
 
-    def join(self):
+    def join(self) -> "MonadicList":
         """The join operator. Flatten nested self.
 
         x: M (M a)
@@ -363,9 +376,16 @@ class MonadicList:  # TODO: This if anything is **the** place to use @typed.
         return cls.from_iterable(elt for sublist in self.x for elt in sublist)
 
 insist = MonadicList.guard  # retroactively require expr to be True
-def deny(v):
+def deny(v: Any) -> Any:
     """Opposite of `insist`. End a branch of the computation if `v` is truthy."""
     return insist(not v)
+
+# register virtual base classes
+# Not registering as Sequence: mogrify (in unpythonic.collections) expects
+# Sequence constructors to accept a single iterable, but MonadicList uses *elts.
+for _abscls in (Container, Iterable, Sized):
+    _abscls.register(MonadicList)
+del _abscls
 
 # TODO: export these or not? insist and deny already cover the interesting usage.
 # anything with one item (except nil), actual value is not used

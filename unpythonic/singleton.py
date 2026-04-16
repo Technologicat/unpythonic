@@ -112,6 +112,7 @@ Note this is a true singleton, not a Borg; there is really only one instance.
 __all__ = ["Singleton"]
 
 import threading
+from typing import Any
 from weakref import WeakValueDictionary
 
 _instances = WeakValueDictionary()
@@ -124,7 +125,7 @@ _instances_update_lock = threading.RLock()
 # we override `__call__` **in the metaclass**, in order to override calls
 # of the class (i.e. constructor invocations).
 class ThereCanBeOnlyOne(type):
-    def __call__(cls, *args, **kwargs):
+    def __call__(cls, *args: Any, **kwargs: Any) -> "Singleton":
         # For consistency with single-thread behavior, don't let more than one
         # `__call__` run concurrently. This eliminates a race when many threads
         # try to instantiate the singleton, guaranteeing only one of them will
@@ -166,7 +167,7 @@ class Singleton(metaclass=ThereCanBeOnlyOne):
     """
     # We allow extra args so that __init__ can have them, but ignore them in the
     # super __new__ call, since our super is `object`, which takes no extra args.
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, *args: Any, **kwargs: Any) -> "Singleton":
         # What we want to do:
         #   if cls not in _instances:
         #       _instances[cls] = super().__new__(cls)

@@ -6,6 +6,7 @@ __all__ = ["dyn", "make_dynvar"]
 import threading
 from collections import ChainMap
 from collections.abc import Container, Sized, Iterable, Mapping
+from typing import Any
 
 from .singleton import Singleton
 
@@ -265,7 +266,7 @@ class _Dyn(Singleton):
         return f"<dyn object at 0x{id(self):x}: {{{bindings_str}}}>"
 dyn = _Dyn()
 
-def make_dynvar(**bindings):
+def make_dynvar(**bindings: Any) -> None:
     """Create a dynamic variable and set its default value.
 
     The default value is used when ``dyn`` is queried for the value outside the

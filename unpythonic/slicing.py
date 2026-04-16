@@ -3,13 +3,15 @@
 
 __all__ = ["islice", "fup"]
 
+from collections.abc import Iterable, Sequence
 from itertools import islice as islicef
+from typing import Any
 
 from .fup import fupdate
 from .it import first, lastn, butlastn
 from .misc import CountingIterator
 
-def islice(iterable):
+def islice(iterable: Iterable) -> Any:
     """Use itertools.islice with slice syntax, with some bonus features.
 
     Usage::
@@ -104,7 +106,7 @@ def islice(iterable):
 #             return first(islicef(iterable, k, k + 1))
 #     return islice1()
 
-def fup(seq):
+def fup(seq: Sequence) -> Any:
     """Functionally update a sequence.
 
     Usage::

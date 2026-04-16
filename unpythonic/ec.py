@@ -26,12 +26,17 @@ See Peter Seibel: Practical Common Lisp, chapter 20:
 
 __all__ = ["throw", "catch", "call_ec"]
 
+from collections.abc import Callable
 from functools import wraps
+from typing import Any, NoReturn, TypeVar
 
 from .regutil import register_decorator
 from .symbol import gensym
 
-def throw(value, tag=None, allow_catchall=True):
+F = TypeVar('F', bound=Callable)
+T = TypeVar('T')
+
+def throw(value: Any, tag: Any = None, allow_catchall: bool = True) -> NoReturn:
     """Escape to a dynamically surrounding ``@catch``.
 
     Essentially this just raises an ``Escape`` instance with the given arguments.
@@ -64,7 +69,7 @@ class Escape(BaseException):
 
     Constructor parameters: see ``throw()``.
     """
-    def __init__(self, value, tag=None, allow_catchall=True):
+    def __init__(self, value: Any, tag: Any = None, allow_catchall: bool = True) -> None:
         self.value = value
         self.tag = tag
         self.allow_catchall = allow_catchall
@@ -72,7 +77,7 @@ class Escape(BaseException):
         # Error message when uncaught
         self.args = ("Not within the dynamic extent of a @catch",)
 
-def catch(tags=None, catch_untagged=True):
+def catch(tags: Any = None, catch_untagged: bool = True) -> Callable[[F], F]:
     """Decorator. Mark function as exitable by ``throw(value)``.
 
     In Lisp terms, this essentially captures the escape continuation (ec)
@@ -182,14 +187,14 @@ def catch(tags=None, catch_untagged=True):
         else:  # single tag
             tags = set((tags,))
 
-    def shouldcatch(e):
+    def shouldcatch(e: Escape) -> bool:
         return ((tags is None and e.allow_catchall) or
                 (catch_untagged and e.tag is None) or
                 (tags is not None and e.tag is not None and e.tag in tags))
 
-    def decorator(f):
+    def decorator(f: F) -> F:
         @wraps(f)
-        def catchpoint(*args, **kwargs):
+        def catchpoint(*args: Any, **kwargs: Any) -> Any:
             try:
                 return f(*args, **kwargs)
             except Escape as e:
@@ -201,7 +206,7 @@ def catch(tags=None, catch_untagged=True):
     return decorator
 
 @register_decorator(priority=80)
-def call_ec(f):
+def call_ec(f: Callable[..., T]) -> T:
     """Decorator. Call with escape continuation (call/ec).
 
     Parameters:
@@ -262,7 +267,7 @@ def call_ec(f):
     # if it is raised.
     ec_valid = True
     # First-class ec like in Lisps. What's first-class in Python? Functions!
-    def ec(value):
+    def ec(value: Any) -> NoReturn:
         if not ec_valid:
             raise RuntimeError("Cannot escape after the dynamic extent of the call_ec invocation.")
         # Be catchable only by our own catch point.
@@ -270,7 +275,7 @@ def call_ec(f):
     try:
         # Set up a tagged catch point that catches only the ec we just set up.
         @catch(uid, catch_untagged=False)
-        def wrapper():
+        def wrapper() -> T:
             return f(ec)
         return wrapper()
     finally:

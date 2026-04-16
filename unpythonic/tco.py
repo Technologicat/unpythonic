@@ -127,17 +127,21 @@ slower than Python's ``for``.
 
 __all__ = ["jump", "trampolined"]
 
+from collections.abc import Callable
 from functools import wraps
 from sys import stderr
+from typing import Any, TypeVar
 
 from .regutil import register_decorator
 from .lazyutil import islazy, passthrough_lazy_args, maybe_force_args
 from .dynassign import dyn
 
+F = TypeVar('F', bound=Callable)
+
 # In principle, jump should have @passthrough_lazy_args, but for performance reasons
 # it doesn't. "force(target)" is slow, so strict code shouldn't have to do that.
 # This is handled by a special case in maybe_force_args.
-def jump(target, *args, **kwargs):
+def jump(target: Callable, *args: Any, **kwargs: Any) -> "_jump":
     """A jump (noun, not verb).
 
     Used in the syntax `return jump(f, ...)` to request the trampoline to
@@ -233,7 +237,7 @@ class _jump:
 # https://stackoverflow.com/questions/6394511/python-functools-wraps-equivalent-for-classes
 # https://stackoverflow.com/questions/25973376/functools-update-wrapper-doesnt-work-properly#25973438
 @register_decorator(priority=40, istco=True)
-def trampolined(function):
+def trampolined(function: F) -> F:
     """Decorator to make a function trampolined.
 
     Trampolined functions can use ``return jump(f, a, ..., kw=v, ...)``

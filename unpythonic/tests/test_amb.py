@@ -4,7 +4,7 @@ from ..syntax import macros, test, test_raises, the  # noqa: F401
 from ..test.fixtures import session, testset
 
 from ..amb import (forall, choice, insist, deny, ok, fail,
-                   Assignment, MonadicList, nil)
+                   Choice, MonadicList, nil)
 
 def runtests():
     with testset("MonadicList (internal utility)"):
@@ -114,11 +114,11 @@ def runtests():
     with testset("error cases"):
         test_raises[ValueError, choice(a=1, b=2)]  # choice() takes only one binding
 
-        # To trigger this corner case, we must manually create an `Assignment`
+        # To trigger this corner case, we must manually create an `Choice`
         # that has an invalid name - in normal use, `choice()` protects against
         # that by its syntax, since the name of a kwarg must be a valid identifier.
         invalid_name = "∀δ>0∃ε>0:f(x+δ)-f(x)<ε"
-        test_raises[ValueError, forall(Assignment(invalid_name, 42))]
+        test_raises[ValueError, forall(Choice(invalid_name, 42))]
 
         test_raises[TypeError, forall(lambda: 42)]  # callable body must be able to take in the environment
 

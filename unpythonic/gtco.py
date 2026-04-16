@@ -3,10 +3,14 @@
 
 __all__ = ["gtco", "gtrampolined"]
 
+from collections.abc import Callable, Generator
 from functools import wraps
 from inspect import isgenerator
+from typing import Any, TypeVar
 
-def gtco(generator):
+F = TypeVar('F', bound=Callable)
+
+def gtco(generator: Generator) -> Generator:
     """Low-level function: run a generator with TCO enabled.
 
     In the generator, use ``return`` to tail-chain to the next generator.
@@ -34,7 +38,7 @@ def gtco(generator):
             except TypeError:
                 return x  # passthrough
 
-def gtrampolined(gfunc):
+def gtrampolined(gfunc: F) -> F:
     """Decorator for generator functions (i.e. definitions of generators).
 
     Decorating the definition avoids the need to use ``gtco`` at call time.
@@ -49,16 +53,16 @@ def gtrampolined(gfunc):
         last(take(10000, ones()))  # no crash
     """
     @wraps(gfunc)
-    def trampolining_gfunc(*args, **kwargs):
+    def trampolining_gfunc(*args: Any, **kwargs: Any) -> "_TrampolinedGenerator":
         generator = gfunc(*args, **kwargs)
         return _TrampolinedGenerator(generator)  # inject a trampoline
     return trampolining_gfunc
 
 class _TrampolinedGenerator:
     """Wrapper to inject the gtco() call to the generator g returned by gfunc."""
-    def __init__(self, g):
+    def __init__(self, g: Generator) -> None:
         self.g = g
-    def __iter__(self):
+    def __iter__(self) -> Generator:
         return gtco(iter(self.g))  # start the trampoline
     # no __next__, because __iter__ redirects;
     # this wrapper is never actually iterated over.

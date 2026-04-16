@@ -6,14 +6,18 @@ or iterators created by factory functions."""
 
 __all__ = ["gmemoize", "imemoize", "fimemoize"]
 
+from collections.abc import Callable, Iterable
 from functools import wraps
 from threading import RLock
+from typing import TypeVar
 
 from .arity import resolve_bindings, tuplify_bindings
 from .regutil import register_decorator
 from .symbol import sym
 
-def gmemoize(gfunc):
+F = TypeVar('F', bound=Callable)
+
+def gmemoize(gfunc: F) -> F:
     """Decorator: produce memoized generator instances.
 
     Similar to ``itertools.tee``, but the whole sequence is kept in memory
@@ -155,7 +159,7 @@ class _MemoizedGenerator:
             raise value
         return value
 
-def imemoize(iterable):
+def imemoize(iterable: Iterable) -> Callable:
     """Memoize an iterable.
 
     Return a gfunc with no parameters which, when called, returns a generator
@@ -190,7 +194,7 @@ def imemoize(iterable):
     return iterable_as_gfunc
 
 @register_decorator(priority=10)
-def fimemoize(ifactory):
+def fimemoize(ifactory: F) -> F:
     """Like imemoize, but for cases where creating the iterable needs arguments.
 
     ``ifactory`` is a function, which takes any number of positional or keyword
