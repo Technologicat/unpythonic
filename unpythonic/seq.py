@@ -103,7 +103,7 @@ def lazy_begin0(*bodys: Callable[[], Any]) -> Any:
 
 # sequence one-input, one-output functions
 @passthrough_lazy_args
-def pipe1(value0: Any, *bodys: Callable) -> Any:
+def pipe1(value0: Any, *bodys: Callable[[Any], Any]) -> Any:
     """Perform a sequence of operations on an initial value.
 
     Bodys are applied left to right.
@@ -181,15 +181,15 @@ class piped1:
     def __init__(self, x: Any) -> None:
         """Set up a pipe and load the initial value x into it."""
         self._x = x
-    def __or__(self, f: Any) -> "piped1 | Any":
+    def __or__(self, f: Callable[[Any], Any] | sym) -> "piped1 | Any":
         """Pipe the value through the one-argument function f.
 
-        Return a ``piped`` object, for chainability.
+        Return a ``piped1`` object, for chainability.
 
         As the only exception, if ``f`` is the sentinel ``exitpipe``,
         return the current value (thus exiting the pipe).
 
-        A new ``piped`` object is created at each step of piping;
+        A new ``piped1`` object is created at each step of piping;
         the "update" is purely functional, nothing is overwritten.
 
         Examples::
@@ -210,19 +210,19 @@ class piped1:
 
 @passthrough_lazy_args
 class lazy_piped1:
-    """Like piped, but apply the functions later.
+    """Like piped1, but apply the functions later.
 
     This matters if the initial value is mutable:
 
-        - ``piped`` computes immediately and stores a copy of the new result
+        - ``piped1`` computes immediately and stores a copy of the new result
           at each step. Any updates to the initial value are not seen by
           the pipeline.
 
-        - ``lazy_piped`` just sets up a computation, and performs it when eventually
+        - ``lazy_piped1`` just sets up a computation, and performs it when eventually
           piped into ``exitpipe``. The computation always looks up the latest state
           of the initial value.
 
-    Another way to say this is that ``lazy_piped`` looks up the initial value
+    Another way to say this is that ``lazy_piped1`` looks up the initial value
     dynamically, at get time.
     """
     def __init__(self, x: Any, *, _funcs: tuple | None = None) -> None:
@@ -232,7 +232,7 @@ class lazy_piped1:
         """
         self._x = x
         self._funcs = force(_funcs or ())
-    def __or__(self, f: Any) -> "lazy_piped1 | Any":
+    def __or__(self, f: Callable[[Any], Any] | sym) -> "lazy_piped1 | Any":
         """Pipe the value into f; but just plan to do so, don't perform it yet.
 
         To run the stored computation, pipe into ``exitpipe``.
@@ -370,7 +370,8 @@ class piped:
     The only restriction is that the call and return signatures must match:
     each function must take those positional/named arguments the previous one
     returns. Use a `Values` object to denote multiple-return-values, and/or
-    named return values.
+    named return values (named return values are sent in to the next function
+    as named arguments).
     """
     def __init__(self, *xs: Any, **kws: Any) -> None:
         """Set up a pipe and load the initial values xs and kws into it.
@@ -378,12 +379,15 @@ class piped:
         The inputs are automatically packed into a `Values`.
         """
         self._xs = Values(*xs, **kws)
-    def __or__(self, f: Any) -> "piped | Any":
+    def __or__(self, f: Callable[..., Any] | sym) -> "piped | Any":
         """Pipe the values through the function f.
 
         If the data currently in the pipe is a `Values`, it is unpacked
         to the args and kwargs of `f`. Otherwise, we feed the data to `f`
         as a single positional argument.
+
+        As the only exception, if ``f`` is the sentinel ``exitpipe``,
+        return the current value (thus exiting the pipe).
 
         Example::
 
@@ -445,7 +449,7 @@ class lazy_piped:
         """
         self._xs = Values(*xs, **kws)
         self._funcs = force(_funcs or ())
-    def __or__(self, f: Any) -> "lazy_piped | Any":
+    def __or__(self, f: Callable[..., Any] | sym) -> "lazy_piped | Any":
         """Pipe the values into f; but just plan to do so, don't perform it yet.
 
         When f is `exitpipe`, perform the planned computation.

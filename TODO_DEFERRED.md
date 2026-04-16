@@ -1,6 +1,6 @@
 # Deferred Issues
 
-Next unused item code: D14
+Next unused item code: D15
 
 - **D5**: `dispatch.py` — moved to GitHub issue #99. Dispatch-layer improvements for parametric ABCs (warn/error on indistinguishable multimethods). Typecheck-layer part resolved.
 
@@ -39,6 +39,9 @@ Next unused item code: D14
   ```
 
   **When to actually do it**: only if tier 1 coverage turns out to miss something important (a regression hits prod that tier 1 would not have caught). The in-thread server + scripted client approach already exercises most of the protocol surface; tier 2 is primarily a safety net for terminal-semantics and signal-path bugs. Until one of those bites, tier 1 is the main win. (Added 2026-04-15, alongside the tier 1 bring-up.)
+
+
+- **D14: Flexible view variant**: An older, more flexible implementation of `view` exists somewhere in the ancient git history, supporting more advanced slicing at the cost of worse performance. Could be resurrected as an alternative for use cases where flexibility matters more than speed. Dig through the history to find it. (Noted 2026-04-16.)
 
 
 - **D13: Teaching-friendly monad abstractions**: Port the monad hacks from https://github.com/Technologicat/python-3-scicomp-intro/tree/master/examples (monads.py) into unpythonic. `MonadicList` already exists in `amb.py` as precedent; the teaching examples include additional monad abstractions that could be generally useful. Some overlap with OSlash, but unpythonic already duplicates stdlib/third-party functionality where it adds value in its own voice (conditions/restarts, fold/scan suite). (Noted 2026-04-16.)

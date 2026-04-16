@@ -11,8 +11,9 @@ from functools import wraps
 from itertools import repeat
 from abc import abstractmethod
 from collections import abc
-from collections.abc import (Callable, Container, Iterable, Hashable, Iterator, Sized,
-                             Sequence, Mapping, Set,
+from collections.abc import (Callable, Container, Iterable, Hashable,
+                             ItemsView, Iterator, KeysView, Sized,
+                             Sequence, Mapping, Set, ValuesView,
                              MutableSequence, MutableMapping, MutableSet,
                              MappingView)
 from inspect import isclass
@@ -44,6 +45,8 @@ def mogrify(func: Callable, container: Any) -> Any:
 
     Recurse on container, apply func to each atom. Containers can be nested,
     with an arbitrary combination of types.
+
+    If `container` is actually an atom (not a container), just apply func to it.
 
     Containers are detected by checking for instances of ``collections.abc``
     superclasses (also virtuals are ok).
@@ -82,7 +85,7 @@ def mogrify(func: Callable, container: Any) -> Any:
     Any **immutable** container encountered is transformed into a new copy,
     just like in ``map``.
     """
-    def doit(x):
+    def doit(x: Any) -> Any:
         if isinstance(x, Values):
             new_rets = doit(x.rets)
             new_kwrets = doit(x.kwrets)
@@ -225,9 +228,9 @@ class box:
 
         `b << 42` is the same as `b.set(42)`.
 
-        (Note that for `env`, the `<<` operator returns the *environment* so it
-        can be chained to make several assignments, but that doesn't make sense
-        for a `box`, so we just return the new value.)
+        Note that for `env`, the `<<` operator returns the *environment* so it
+        can be chained to make several assignments; but that doesn't make sense
+        for a `box`, so we just return the new value.
         """
         return self.set(x)
     def get(self) -> Any:
@@ -247,34 +250,34 @@ class ThreadLocalBox(box):
     the initial contents of the box in all threads. (Note what this implies if
     that `x` happens to be mutable.)
     """
-    def __init__(self, x=None):
+    def __init__(self, x: Any = None) -> None:
         self.storage = threading.local()
         self._default = x
-    def __repr__(self):  # pragma: no cover
+    def __repr__(self) -> str:  # pragma: no cover
         """**WARNING**: the repr shows only the content seen by the current thread."""
         return f"ThreadLocalBox({repr(self.get())})"
-    def __contains__(self, x):
+    def __contains__(self, x: Any) -> bool:
         return self.get() == x
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         return (x for x in (self.get(),))
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return other == self.get()
-    def set(self, x):
+    def set(self, x: Any) -> Any:
         self.storage.x = x
         return x
-    def __lshift__(self, x):
+    def __lshift__(self, x: Any) -> Any:
         return self.set(x)
-    def get(self):
+    def get(self) -> Any:
         if hasattr(self.storage, "x"):  # default overridden in this thread?
             return self.storage.x
         return self._default
-    def setdefault(self, x):
+    def setdefault(self, x: Any) -> None:
         """Change the default object."""
         self._default = x
-    def getdefault(self):
+    def getdefault(self) -> Any:
         """Get the default object."""
         return self._default
-    def clear(self):
+    def clear(self) -> None:
         """Remove the value in the box in this thread, thus unshadowing the default."""
         if hasattr(self.storage, "x"):
             del self.storage.x
@@ -428,7 +431,7 @@ class frozendict:
     """
     # Make the empty frozendict() a singleton, but allow invoking the constructor
     # multiple times, always returning the same instance.
-    def __new__(cls, *ms, **bindings):
+    def __new__(cls, *ms: Mapping, **bindings: Any) -> "frozendict":
         if not ms and not bindings:
             global _the_empty_frozendict
             if _the_empty_frozendict is None:
@@ -440,7 +443,7 @@ class frozendict:
     # https://github.com/Technologicat/unpythonic/issues/55
     # https://docs.python.org/3/library/pickle.html#object.__getnewargs_ex__
     # https://docs.python.org/3/library/pickle.html#object.__getnewargs__
-    def __getnewargs__(self):
+    def __getnewargs__(self) -> tuple:
         if self is not _the_empty_frozendict:
             # In our case it doesn't matter what the value is, as long as there is one,
             # because `__new__` uses the *presence* of any args to know the instance is
@@ -449,7 +452,7 @@ class frozendict:
             return ("nonempty",)
         return ()
 
-    def __init__(self, *ms, **bindings):
+    def __init__(self, *ms: Mapping, **bindings: Any) -> None:
         """Arguments:
 
                ms: mappings; optional
@@ -473,10 +476,10 @@ class frozendict:
         self._data.update(bindings)
 
     @wraps(dict.__repr__)
-    def __repr__(self):  # pragma: no cover
+    def __repr__(self) -> str:  # pragma: no cover
         return f"frozendict({self._data.__repr__()})"
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(frozenset(self.items()))
 
     # Provide any read-access parts of the dict API.
@@ -488,31 +491,31 @@ class frozendict:
     # https://docs.python.org/3/library/collections.abc.html
     # https://docs.python.org/3/reference/datamodel.html#emulating-container-types
     @wraps(dict.__getitem__)
-    def __getitem__(self, k):
+    def __getitem__(self, k: Hashable) -> Any:
         return self._data.__getitem__(k)
     @wraps(dict.__iter__)
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Hashable]:
         return self._data.__iter__()
     @wraps(dict.__len__)
-    def __len__(self):
+    def __len__(self) -> int:
         return self._data.__len__()
     @wraps(dict.__contains__)
-    def __contains__(self, k):
+    def __contains__(self, k: Hashable) -> bool:
         return self._data.__contains__(k)
     @wraps(dict.keys)
-    def keys(self):
+    def keys(self) -> KeysView:
         return self._data.keys()
     @wraps(dict.items)
-    def items(self):
+    def items(self) -> ItemsView:
         return self._data.items()
     @wraps(dict.values)
-    def values(self):
+    def values(self) -> ValuesView:
         return self._data.values()
     @wraps(dict.get)
-    def get(self, k, *d):
+    def get(self, k: Hashable, *d: Any) -> Any:
         return self._data.get(k, *d)
     @wraps(dict.__eq__)
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> bool:
         return other == self._data
 
 # Register virtual ABCs for our collections (like the builtins have).
@@ -549,32 +552,35 @@ class MutableSequenceView(SequenceView):
     classes that implement ``MutableSequenceView`` must account for this.
     """
     @abstractmethod
-    def __setitem__(self, k, v):
+    def __setitem__(self, k: int | slice, v: Any) -> None:
         pass  # pragma: no cover
     @abstractmethod
-    def reverse(self):
+    def reverse(self) -> None:
         pass  # pragma: no cover
 
 # -----------------------------------------------------------------------------
 
-class _StrReprEqMixin:
-    def _lowlevel_repr(self):  # pragma: no cover
+class _SequenceStrReprEqMixin:
+    """Mixin providing __str__, __repr__, and __eq__ for sequence-like views."""
+    def _lowlevel_repr(self) -> Sequence:  # pragma: no cover
         cls = type(getattrrec(self, "seq"))  # de-onionize
         ctor = tuple if hasattr(cls, "_make") else cls  # slice of namedtuple -> tuple
         return ctor(x for x in self)
-    def __str__(self):  # pragma: no cover
+    def __str__(self) -> str:  # pragma: no cover
         return str(self._lowlevel_repr())
-    def __repr__(self):  # pragma: no cover
+    def __repr__(self) -> str:  # pragma: no cover
         return f"{self.__class__.__name__}({self._lowlevel_repr()!r})"
 
-    def __eq__(self, other):
+    def __eq__(self, other: Sequence) -> bool:
         if other is self:
             return True
+        if not isinstance(other, Sequence):
+            raise TypeError(f"Cannot compare {type(self).__name__} with {type(other).__name__}")
         if len(self) != len(other):
             return False
         return all(v1 == v2 for v1, v2 in zip(self, other))
 
-class roview(SequenceView, _StrReprEqMixin):
+class roview(SequenceView, _SequenceStrReprEqMixin):
     """Read-only live view into a sequence.
 
     Supports slicing (also recursively, i.e. can be sliced again).
@@ -612,7 +618,7 @@ class roview(SequenceView, _StrReprEqMixin):
 
         http://stackoverflow.com/q/3485475/can-i-create-a-view-on-a-python-list
     """
-    def __init__(self, sequence, s=None):
+    def __init__(self, sequence: Sequence, s: slice | None = None) -> None:
         """If s is None, view the whole input. If s is a slice, view that slice.
 
         The slice can also be specified later by subscripting with a slice
@@ -621,35 +627,36 @@ class roview(SequenceView, _StrReprEqMixin):
         """
         if s is None:
             s = slice(None, None, None)
-        self.seq = sequence
-        self.slice = s
-        self._seql = None
+        self.seq: Sequence = sequence
+        self.slice: slice = s
+        self._seql: int | None = None
+        self._cache: tuple[Sequence, range] | None = None
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         data, r = self._update_cache()
-        def view_iterator():
+        def view_iterator() -> Iterator:
             for j in r:
                 yield data[j]
         return view_iterator()
-    def __len__(self):
+    def __len__(self) -> int:
         _, r = self._update_cache()
         return len(r)
 
-    def _update_cache(self):
+    def _update_cache(self) -> tuple[Sequence, range]:
         seql = len(self.seq)
         if seql != self._seql:
             self._seql = seql
             self._cache = self._range()
         return self._cache
-    def _range(self):  # return underlying sequence, current range of all elements of self in it
-        def buildr(seq):
+    def _range(self) -> tuple[Sequence, range]:  # return underlying sequence, current range of all elements of self in it
+        def buildr(seq: Sequence) -> tuple[Sequence, range]:
             if not isinstance(seq, (roview, view)):
                 return seq, range(len(seq))
             data, r = buildr(seq.seq)
             return data, r[seq.slice]
         return buildr(self)
 
-    def __getitem__(self, k):
+    def __getitem__(self, k: int | slice) -> Any:
         if isinstance(k, slice):
             if k == slice(None, None, None):  # v[:]
                 return self
@@ -704,7 +711,7 @@ class view(roview, MutableSequenceView):
         assert v == [1, 2, 3, 4, 5]
         assert lst == [42, 0, 1, 2, 3, 4, 5]
     """
-    def __init__(self, sequence, s=None):
+    def __init__(self, sequence: MutableSequence, s: slice | None = None) -> None:
         # some fandango because MutableSequenceView is not a MutableSequence for technical reasons.
         if isinstance(sequence, SequenceView):
             if not isinstance(sequence, MutableSequenceView):
@@ -712,7 +719,7 @@ class view(roview, MutableSequenceView):
         elif isinstance(sequence, Sequence) and not isinstance(sequence, MutableSequence):
             raise TypeError("cannot create writable view into a read-only sequence")
         super().__init__(sequence, s)
-    def __setitem__(self, k, v):
+    def __setitem__(self, k: int | slice, v: Any) -> None:
         data, r = self._update_cache()
         if isinstance(k, slice):
             # TODO: would be nicer if we could convert a range into a slice, then just data[rk] = v.
@@ -730,13 +737,13 @@ class view(roview, MutableSequenceView):
             if k >= n or k < -n:
                 raise IndexError("view assigment index out of range")
             data[r[k]] = v
-    def reverse(self):
+    def reverse(self) -> None:
         self[::-1] = [x for x in self]
 
 # -----------------------------------------------------------------------------
 
 # Inherit from Sequence, because we want the default implementations of e.g. count, index to be found in the MRO.
-class ShadowedSequence(Sequence, _StrReprEqMixin):
+class ShadowedSequence(Sequence, _SequenceStrReprEqMixin):
     """Sequence with some elements shadowed by those from another sequence.
 
     Or in other words, a functionally updated view of a sequence. Or somewhat
@@ -762,36 +769,36 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
         for ``v`` to implement only ``collections.abc.Iterator``, i.e. the
         ``__iter__`` and ``__next__`` methods only.
     """
-    def __init__(self, seq, ix=None, v=None):
+    def __init__(self, seq: Sequence, ix: int | slice | None = None, v: Any = None) -> None:
         if ix is not None and not isinstance(ix, (slice, int)):
             raise TypeError(f"ix: expected slice or int, got {type(ix)} with value {ix}")
         if not isinstance(seq, Sequence):
             raise TypeError(f"seq: expected a sequence, got {type(seq)} with value {seq}")
         if isinstance(ix, slice) and not isinstance(v, (Sequence, Iterable)):
             raise TypeError(f"v: when ix is a slice, v must be a sequence or an iterable; got {type(v)} with value {v}")
-        self.seq = seq
-        self.ix = ix
-        self.v = v
-        self._v_it = None
+        self.seq: Sequence = seq
+        self.ix: int | slice | None = ix
+        self.v: Any = v
+        self._v_it: CountingIterator | None = None
 
     # Provide __iter__ (even though implemented using len() and __getitem__())
     # so that our __getitem__ can raise IndexError when needed, without it
     # getting caught by the genexpr in unpythonic.fup.fupdate when it builds
     # the output sequence.
-    def __iter__(self):
+    def __iter__(self) -> Iterator:
         if self.ix is None:  # allow no-op ShadowedSequences since the repr suggests one could do that
             return iter(self.seq)
         n = len(self)
         getone = self._getone
-        def ShadowedSequenceIterator():
+        def ShadowedSequenceIterator() -> Iterator:
             for j in range(n):
                 yield getone(j)
         return ShadowedSequenceIterator()
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.seq)
 
-    def __getitem__(self, k):
+    def __getitem__(self, k: int | slice) -> Any:
         if self.ix is None:  # allow no-op ShadowedSequences since the repr suggests one could do that
             return self.seq[k]
         n = len(self)
@@ -806,7 +813,7 @@ class ShadowedSequence(Sequence, _StrReprEqMixin):
                 raise IndexError("ShadowedSequence index out of range")
             return self._getone(k)
 
-    def _getone(self, k):
+    def _getone(self, k: int) -> Any:
         ix = self.ix
         n = len(self)
         if in_slice(k, ix, n):
@@ -883,24 +890,24 @@ def index_in_slice(i: int, s: int | slice, length: int | None = None) -> int | N
 
 # efficiency: allow skipping the validation check for call sites
 # that have already checked with in_slice().
-def _index_in_slice(i, s, length=None, _validate=True):
+def _index_in_slice(i: int, s: int | slice, length: int | None = None, _validate: bool = True) -> int | None:
     if (not _validate) or in_slice(i, s, length):
         wrap = _make_negidx_converter(length)
         start, _, step = _canonize_slice(s, length, wrap)
         return (wrap(i) - start) // step
 
-def _make_negidx_converter(length):
+def _make_negidx_converter(length: int | None) -> Callable[[int | None], int | None]:
     if length is not None:
         if not isinstance(length, int):
             raise TypeError(f"length must be int, got {type(length)} with value {length}")
         if length <= 0:
             raise ValueError(f"length must be an int >= 1, got {length}")
-        def apply_conversion(k):
+        def apply_conversion(k: int) -> int:
             return k % length
     else:
-        def apply_conversion(k):
+        def apply_conversion(k: int) -> int:
             raise ValueError("Need length to interpret negative indices")
-    def convert(k):
+    def convert(k: int | None) -> int | None:
         if k is not None:
             if not isinstance(k, int):
                 # This is not triggered in the current code because the outer
@@ -914,9 +921,10 @@ def _make_negidx_converter(length):
             if length is not None and not -length <= k <= length:
                 raise IndexError(f"Should have -length <= k <= length, but length = {length}, and k = {k}")
             return apply_conversion(k) if k < 0 else k
+        return None  # passthrough for missing slice components
     return convert
 
-def _canonize_slice(s, length=None, wrap=None):  # convert negatives, inject defaults.
+def _canonize_slice(s: slice, length: int | None = None, wrap: Callable | None = None) -> tuple[int, int, int]:  # convert negatives, inject defaults.
     if not isinstance(s, slice):
         # Not triggered in the current code, because this is an internal function
         # and `in_slice` already checks; but let's be careful in case this is later
