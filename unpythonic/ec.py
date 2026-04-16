@@ -29,7 +29,7 @@ __all__ = ["throw", "catch", "call_ec"]
 from functools import wraps
 
 from .regutil import register_decorator
-# from .symbol import gensym
+from .symbol import gensym
 
 def throw(value, tag=None, allow_catchall=True):
     """Escape to a dynamically surrounding ``@catch``.
@@ -249,7 +249,9 @@ def call_ec(f):
     Similar usage is valid for named functions, too.
     """
     # Create a process-wide unique id to tag the ec:
-    anchor = object()  # gensym("anchor"), but object() is much faster, and we don't need a label, or pickle support.
+    # If this ever becomes a performance bottleneck, object() is faster
+    # (no UUID allocation) at the cost of losing debug readability.
+    anchor = gensym("anchor")
     uid = id(anchor)
     # Closure property important here. "ec" itself lives as long as someone
     # retains a reference to it. It's a first-class value; the callee could

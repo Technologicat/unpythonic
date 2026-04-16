@@ -12,7 +12,7 @@ from .fun import composer1i
 from .fold import foldr, foldl
 from .it import rev
 from .singleton import Singleton
-# from .symbol import gensym
+from .symbol import sym
 
 # explicit list better for tooling support
 _exports = ["cons", "nil",
@@ -254,7 +254,7 @@ class cons:
         if isinstance(other, cons):
             try:  # duck test linked lists
                 ia, ib = (LinkedListIterator(x) for x in (self, other))
-                fill = object()  # gensym("fill"), but object() is much faster, and we don't need a label, or pickle support.
+                fill = sym("_fill")
                 return all(a == b for a, b in zip_longest(ia, ib, fillvalue=fill))
             except TypeError:
                 return self.car == other.car and self.cdr == other.cdr

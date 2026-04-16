@@ -13,6 +13,7 @@ from ..collections import (box, ThreadLocalBox, Some, Shim, unbox,
                            in_slice, index_in_slice)
 from ..fold import foldr
 from ..gmemo import imemoize
+from ..symbol import sym
 from ..llist import cons, ll
 
 def runtests():
@@ -89,7 +90,7 @@ def runtests():
         test[the[b3] == the[b2]]  # boxes are considered equal if their contents are
 
         # pretty API: unbox(b) is the same as reading b.x
-        cat = object()
+        cat = sym("cat")
         b4 = box(cat)
         test[b4 is not cat]  # the box is not the cat
         test[unbox(b4) is cat]  # but when you look inside the box, you find the cat
@@ -98,7 +99,7 @@ def runtests():
 
         # b.set(newvalue) is the same as assigning b.x = newvalue
         # (but like env.set, it's an expression, so you can use it anywhere)
-        dog = object()
+        dog = sym("dog")
         b4.set(dog)
         test[unbox(b4) is dog]
 

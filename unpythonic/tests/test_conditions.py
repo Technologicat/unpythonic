@@ -27,6 +27,7 @@ from ..conditions import (signal, find_restart, invoke, invoker, use_value,
 from ..excutil import raisef
 from ..misc import slurp
 from ..collections import box, unbox
+from ..symbol import sym
 from ..it import subset
 
 import threading
@@ -44,7 +45,7 @@ def runtests():
             # condition, the return value of the restart chosen (by a handler
             # defined in higher-level code) becomes the result of the block.
             def lowlevel():
-                _drop = object()  # gensym/nonce
+                _drop = sym("_drop")
                 out = []
                 for k in range(10):
                     with restarts(use_value=(lambda x: x),
