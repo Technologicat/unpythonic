@@ -3,13 +3,17 @@
 
 __all__ = ["let", "letrec", "dlet", "dletrec", "blet", "bletrec"]
 
+from collections.abc import Callable
 from functools import wraps
+from typing import Any, TypeVar
 
 from .arity import arity_includes, UnknownArity
 from .env import env as _envcls
 from .funutil import call
 
-def let(bindings, body):
+F = TypeVar('F', bound=Callable)
+
+def let(bindings: tuple[tuple[str, Any], ...], body: Callable) -> Any:
     """``let`` expression.
 
     In ``let``, the bindings are independent (do not see each other); only
@@ -86,7 +90,7 @@ def let(bindings, body):
     """
     return _let(bindings, body)
 
-def letrec(bindings, body):
+def letrec(bindings: tuple[tuple[str, Any], ...], body: Callable) -> Any:
     """``letrec`` expression.
 
     Like ``let``, but bindings can see each other. To make a binding use the
@@ -160,7 +164,7 @@ def letrec(bindings, body):
     """
     return _let(bindings, body, mode="letrec")
 
-def dlet(bindings):
+def dlet(bindings: tuple[tuple[str, Any], ...]) -> Callable[[F], F]:
     """``let`` decorator.
 
     For let-over-def; think *let over lambda* in Lisp::
@@ -185,7 +189,7 @@ def dlet(bindings):
     """
     return _dlet(bindings)
 
-def dletrec(bindings):
+def dletrec(bindings: tuple[tuple[str, Any], ...]) -> Callable[[F], F]:
     """``letrec`` decorator.
 
     Like ``dlet``, but with ``letrec`` instead of ``let``::
@@ -198,7 +202,7 @@ def dletrec(bindings):
     """
     return _dlet(bindings, mode="letrec")
 
-def blet(bindings):
+def blet(bindings: tuple[tuple[str, Any], ...]) -> Callable[[Callable], Any]:
     """``let`` block.
 
     This chains ``@dlet`` and ``@call``::
@@ -210,7 +214,7 @@ def blet(bindings):
     """
     return _blet(bindings)
 
-def bletrec(bindings):
+def bletrec(bindings: tuple[tuple[str, Any], ...]) -> Callable[[Callable], Any]:
     """``letrec`` block.
 
     This chains ``@dletrec`` and ``@call``."""
@@ -218,7 +222,7 @@ def bletrec(bindings):
 
 # Core idea based on StackOverflow answer by divs1210 (2017),
 # used under the MIT license.  https://stackoverflow.com/a/44737147
-def _let(bindings, body, *, env=None, mode="let"):
+def _let(bindings: tuple[tuple[str, Any], ...], body: Callable | None, *, env: _envcls | None = None, mode: str = "let") -> Any:
     assert mode in ("let", "letrec")
 
     env = env or _envcls()
@@ -250,19 +254,19 @@ def _let(bindings, body, *, env=None, mode="let"):
     return _let(more, body, env=env, mode=mode)  # loop
 
 # _envname is for co-operation with the dlet macro.
-def _dlet(bindings, mode="let", _envname="env"):  # let and letrec decorator factory
-    def deco(body):
+def _dlet(bindings: tuple[tuple[str, Any], ...], mode: str = "let", _envname: str = "env") -> Callable[[F], F]:  # let and letrec decorator factory
+    def deco(body: F) -> F:
         env = _let(bindings, body=None, mode=mode)  # set up env, don't run yet
         @wraps(body)
-        def withenv(*args, **kwargs):
+        def withenv(*args: Any, **kwargs: Any) -> Any:
             kwargs_with_env = kwargs.copy()
             kwargs_with_env[_envname] = env
             return body(*args, **kwargs_with_env)
         return withenv
     return deco
 
-def _blet(bindings, mode="let", _envname="env"):
+def _blet(bindings: tuple[tuple[str, Any], ...], mode: str = "let", _envname: str = "env") -> Callable[[Callable], Any]:
     dlet_deco = _dlet(bindings, mode, _envname)
-    def deco(body):
+    def deco(body: Callable) -> Any:
         return call(dlet_deco(body))
     return deco

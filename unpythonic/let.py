@@ -3,13 +3,17 @@
 
 __all__ = ["let", "letrec", "dlet", "dletrec", "blet", "bletrec"]
 
+from collections.abc import Callable
 from functools import wraps
+from typing import Any, TypeVar
 
 from .arity import arity_includes, UnknownArity
 from .env import env as _envcls
 from .funutil import call
 
-def let(body, **bindings):
+F = TypeVar('F', bound=Callable)
+
+def let(body: Callable, **bindings: Any) -> Any:
     """``let`` expression.
 
     In ``let``, the bindings are independent (do not see each other); only
@@ -80,7 +84,7 @@ def let(body, **bindings):
     """
     return _let("let", body, **bindings)
 
-def letrec(body, **bindings):
+def letrec(body: Callable, **bindings: Any) -> Any:
     """``letrec`` expression.
 
     Like ``let``, but bindings can see each other. To make a binding use the
@@ -156,7 +160,7 @@ def letrec(body, **bindings):
     """
     return _let("letrec", body, **bindings)
 
-def dlet(**bindings):
+def dlet(**bindings: Any) -> Callable[[F], F]:
     """``let`` decorator.
 
     For let-over-def; think *let over lambda* in Lisp::
@@ -181,7 +185,7 @@ def dlet(**bindings):
     """
     return _dlet("let", **bindings)
 
-def dletrec(**bindings):
+def dletrec(**bindings: Any) -> Callable[[F], F]:
     """``letrec`` decorator.
 
     Like ``dlet``, but with ``letrec`` instead of ``let``::
@@ -194,7 +198,7 @@ def dletrec(**bindings):
     """
     return _dlet("letrec", **bindings)
 
-def blet(**bindings):
+def blet(**bindings: Any) -> Callable[[Callable], Any]:
     """``let`` block.
 
     This chains ``@dlet`` and ``@call``::
@@ -206,13 +210,13 @@ def blet(**bindings):
     """
     return _blet("let", **bindings)
 
-def bletrec(**bindings):
+def bletrec(**bindings: Any) -> Callable[[Callable], Any]:
     """``letrec`` block.
 
     This chains ``@dletrec`` and ``@call``."""
     return _blet("letrec", **bindings)
 
-def _let(mode, body, **bindings):
+def _let(mode: str, body: Callable | None, **bindings: Any) -> Any:
     assert mode in ("let", "letrec")
     # Important for Python 3.6+, which preserves ordering of kwargs (PEP 468):
     #
@@ -254,21 +258,21 @@ def _let(mode, body, **bindings):
 
 # decorator factory: almost as fun as macros?
 # _envname is for co-operation with the dlet macro.
-def _dlet(mode, _envname="env", **bindings):
-    def deco(body):
+def _dlet(mode: str, _envname: str = "env", **bindings: Any) -> Callable[[F], F]:
+    def deco(body: F) -> F:
         # evaluate env only once, when the function def runs
         # (to preserve state between calls to the decorated function)
         env = _let(mode, body=None, **bindings)
         @wraps(body)
-        def withenv(*args, **kwargs):
+        def withenv(*args: Any, **kwargs: Any) -> Any:
             kwargs_with_env = kwargs.copy()
             kwargs_with_env[_envname] = env
             return body(*args, **kwargs_with_env)
         return withenv
     return deco
 
-def _blet(mode, _envname="env", **bindings):
+def _blet(mode: str, _envname: str = "env", **bindings: Any) -> Callable[[Callable], Any]:
     dlet_deco = _dlet(mode, _envname, **bindings)
-    def deco(body):
+    def deco(body: Callable) -> Any:
         return call(dlet_deco(body))
     return deco
