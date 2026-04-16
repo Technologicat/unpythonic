@@ -226,7 +226,9 @@ def runtests():
         test[the[si_prefix(1024**3, binary=True)] == "1.00 Gi"]
         test[the[si_prefix(1024**4, binary=True)] == "1.00 Ti"]
         test[the[si_prefix(-1536, binary=True)] == "-1.50 Ki"]
-        test[the[si_prefix(0.5, binary=True)] == "0.50"]
+        test[the[si_prefix(0.5, binary=True)] == "512.00 mi"]
+        test[the[si_prefix(0.5 / 1024, binary=True)] == "512.00 µi"]
+        test[the[si_prefix(1 / 1024, binary=True)] == "1.00 mi"]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

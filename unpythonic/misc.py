@@ -369,8 +369,8 @@ def si_prefix(number: int | float, precision: int = 2, binary: bool = False) -> 
     ``precision``: decimal places (default 2).
     ``binary``: if ``True``, use IEC binary prefixes (Ki, Mi, Gi, ...)
                 with base 1024 instead of SI decimal prefixes with
-                base 1000.  Sub-unity (negative-power) prefixes are
-                not available in binary mode.
+                base 1000.  Sub-unity binary prefixes (mi, µi, ni, ...)
+                follow the same convention.
 
     Negative numbers and zero are handled correctly.
 
@@ -388,11 +388,12 @@ def si_prefix(number: int | float, precision: int = 2, binary: bool = False) -> 
         si_prefix(42)                      # "42.00"
         si_prefix(1536, binary=True)       # "1.50 Ki"
         si_prefix(2_621_440, binary=True)  # "2.50 Mi"
+        si_prefix(0.5, binary=True)        # "512.00 mi"
     """
     if binary:
         base = 1024
-        large = ('', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi')
-        small = ()
+        large = ('', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi', 'Ri', 'Qi')
+        small = ('mi', 'µi', 'ni', 'pi', 'fi', 'ai', 'zi', 'yi', 'ri', 'qi')
     else:
         base = 1000
         large = ('', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y', 'R', 'Q')
@@ -411,7 +412,7 @@ def si_prefix(number: int | float, precision: int = 2, binary: bool = False) -> 
             magnitude /= base
         value = sign * magnitude
         return f"{value:.{precision}f} {large[-1]}"
-    elif small:
+    else:
         for prefix in small:
             magnitude *= base
             if magnitude >= 1:
@@ -419,6 +420,3 @@ def si_prefix(number: int | float, precision: int = 2, binary: bool = False) -> 
                 return f"{value:.{precision}f} {prefix}"
         value = sign * magnitude
         return f"{value:.{precision}f} {small[-1]}"
-    else:
-        # No sub-unity prefixes (binary mode); format as-is.
-        return f"{sign * magnitude:.{precision}f}"
