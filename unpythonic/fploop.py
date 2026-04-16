@@ -26,7 +26,9 @@ FP loops don't have to be pure::
 
 __all__ = ["looped", "looped_over", "breakably_looped", "breakably_looped_over"]
 
+from collections.abc import Callable, Iterable
 from functools import partial
+from typing import Any
 
 from .ec import call_ec
 from .arity import arity_includes, UnknownArity
@@ -34,7 +36,7 @@ from .tco import trampolined, _jump
 from .regutil import register_decorator
 
 @register_decorator(priority=50, istco=True)
-def looped(body):
+def looped(body: Callable) -> Any:
     """Decorator to make a functional loop and run it immediately.
 
     This essentially chains @trampolined and @call, with some extra magic.
@@ -113,7 +115,7 @@ def looped(body):
     """
     # The magic parameter that, when called, inserts itself into the
     # positional args of the jump target.
-    def loop(*args, **kwargs):
+    def loop(*args: Any, **kwargs: Any) -> _jump:
         # Pass the original non-trampolined body; it is sufficient
         # to have one trampoline at the top level.
         return _jump(body, (loop,) + args, kwargs)  # already packed args, inst directly.
@@ -126,7 +128,7 @@ def looped(body):
     return tb(loop)  # like @call, run the (now trampolined) body.
 
 @register_decorator(priority=50, istco=True)
-def breakably_looped(body):
+def breakably_looped(body: Callable) -> Any:
     """Functionally loop over an iterable.
 
     Like ``@looped``, but the client now gets two positionally passed magic parameters:
@@ -163,8 +165,8 @@ def breakably_looped(body):
         print(result)
 """
     @call_ec
-    def result(brk):
-        def loop(*args, **kwargs):
+    def result(brk: Callable) -> Any:
+        def loop(*args: Any, **kwargs: Any) -> _jump:
             return _jump(body, (loop, brk) + args, kwargs)  # already packed args, inst directly.
         try:
             if not arity_includes(body, 2):
@@ -176,7 +178,7 @@ def breakably_looped(body):
     return result
 
 @register_decorator(priority=50, istco=True)
-def looped_over(iterable, acc=None):  # decorator factory
+def looped_over(iterable: Iterable, acc: Any = None) -> Callable[[Callable], Any]:  # decorator factory
     """Functionally loop over an iterable.
 
     Like ``@looped``, but the client now gets three positionally passed magic parameters:
@@ -243,12 +245,12 @@ def looped_over(iterable, acc=None):  # decorator factory
         assert s == 45
     """
     # Decorator that plays the role of @call, with "iterable" bound by closure.
-    def run(body):
+    def run(body: Callable) -> Any:
         it = iter(iterable)
         oldacc = acc  # keep track of the last seen value for acc
         # The magic parameter that, when called, inserts the implicit parameters
         # into the positional args of the jump target. Runs between iterations.
-        def loop(*args, **kwargs):
+        def loop(*args: Any, **kwargs: Any) -> Any:
             nonlocal oldacc
             newacc = args[0] if len(args) else oldacc
             oldacc = newacc
@@ -272,7 +274,7 @@ def looped_over(iterable, acc=None):  # decorator factory
     return run
 
 @register_decorator(priority=50, istco=True)
-def breakably_looped_over(iterable, acc=None):  # decorator factory
+def breakably_looped_over(iterable: Iterable, acc: Any = None) -> Callable[[Callable], Any]:  # decorator factory
     """Functionally loop over an iterable.
 
     Like ``@looped_over``, but with *continue* and *break* functionality.
@@ -313,12 +315,12 @@ def breakably_looped_over(iterable, acc=None):  # decorator factory
             return loop(acc + x)
         assert s == 35
     """
-    def run(body):
+    def run(body: Callable) -> Any:
         it = iter(iterable)
         @call_ec
-        def result(brk):
+        def result(brk: Callable) -> Any:
             oldacc = acc
-            def loop(*args, **kwargs):
+            def loop(*args: Any, **kwargs: Any) -> Any:
                 nonlocal oldacc
                 newacc = args[0] if len(args) else oldacc
                 oldacc = newacc
