@@ -18,18 +18,23 @@ __all__ = ["scanl", "scanr", "scanl1", "scanr1",
            "prod",
            "running_minmax", "minmax"]
 
+from collections.abc import Callable, Iterable, Iterator
 from functools import partial
 from itertools import zip_longest
 from operator import mul
+from typing import Any, TypeVar
 #from collections import deque
 
 from .funutil import Values
 #from .it import first, last, rev
 from .it import last, rev
+from .symbol import sym
+
+T = TypeVar('T')
 
 # Require at least one iterable to make this work seamlessly with curry. We take
 # this approach with any new function families the standard library doesn't provide.
-def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
+def scanl(proc: Callable[..., T], init: T, iterable0: Iterable, *iterables: Iterable, longest: bool = False, fillvalue: Any = None) -> Iterator[T]:
     """Scan (a.k.a. accumulate).
 
     Like ``itertools.accumulate``, but supports multiple input iterables.
@@ -69,7 +74,7 @@ def scanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
         acc = proc(*(xs + (acc,)))
         yield acc
 
-def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
+def scanr(proc: Callable[..., T], init: T, iterable0: Iterable, *iterables: Iterable, longest: bool = False, fillvalue: Any = None) -> Iterator[T]:
     """Dual of scanl; scan from the right.
 
     Example::
@@ -160,7 +165,7 @@ def scanr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
 #        yield from subgen            # sustain the chain
 #    return _scanr_recurser()
 
-def scanl1(proc, iterable, init=None):
+def scanl1(proc: Callable[..., T], iterable: Iterable[T], init: T | None = None) -> Iterator[T]:
     """scanl for a single iterable, with optional init.
 
     If ``init is None``, use the first element from the iterable.
@@ -181,20 +186,20 @@ def scanl1(proc, iterable, init=None):
         try:
             init = next(it)
         except StopIteration:
-            def empty_iterable():
+            def empty_iterable() -> Iterator[T]:
                 yield from ()
             return empty_iterable()
     return scanl(proc, init, it)
 
-_uselast = object()  # sentinel
-def scanr1(proc, iterable, init=None):
+_uselast = sym("_uselast")  # sentinel
+def scanr1(proc: Callable[..., T], iterable: Iterable[T], init: T | None = None) -> Iterator[T]:
     """Dual of scanl1.
 
     If ``init is None``, use the last element from the iterable.
     """
     return scanr(proc, _uselast if init is None else init, iterable)
 
-def foldl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
+def foldl(proc: Callable[..., T], init: T, iterable0: Iterable, *iterables: Iterable, longest: bool = False, fillvalue: Any = None) -> T | None:
     """Racket-like foldl that supports multiple input iterables.
 
     At least one iterable (``iterable0``) is required. More are optional.
@@ -211,14 +216,14 @@ def foldl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     return last(scanl(proc, init, iterable0, *iterables,
                       longest=longest, fillvalue=fillvalue))
 
-def foldr(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
+def foldr(proc: Callable[..., T], init: T, iterable0: Iterable, *iterables: Iterable, longest: bool = False, fillvalue: Any = None) -> T | None:
     """Dual of foldl; fold from the right."""
     # if using the haskelly result ordering in scanr, then first(...);
     # if ordering results as they are computed, then last(...)
     return last(scanr(proc, init, iterable0, *iterables,
                       longest=longest, fillvalue=fillvalue))
 
-def reducel(proc, iterable, init=None):
+def reducel(proc: Callable[..., T], iterable: Iterable[T], init: T | None = None) -> T | None:
     """Foldl for a single iterable, with optional init.
 
     If ``init is None``, use the first element from the iterable.
@@ -226,7 +231,7 @@ def reducel(proc, iterable, init=None):
     Like ``functools.reduce``, but uses ``proc(elt, acc)`` like Racket."""
     return last(scanl1(proc, iterable, init))
 
-def reducer(proc, iterable, init=None):
+def reducer(proc: Callable[..., T], iterable: Iterable[T], init: T | None = None) -> T | None:
     """Dual of reducel.
 
     If ``init is None``, use the last element from the iterable.
@@ -235,7 +240,7 @@ def reducer(proc, iterable, init=None):
     # if ordering results as they are computed, then last(...)
     return last(scanr1(proc, iterable, init))
 
-def rscanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
+def rscanl(proc: Callable[..., T], init: T, iterable0: Iterable, *iterables: Iterable, longest: bool = False, fillvalue: Any = None) -> Iterator[T]:
     """Reverse each input, then scanl.
 
     For multiple input iterables, the notion of *corresponding elements*
@@ -246,11 +251,11 @@ def rscanl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     return scanl(proc, init, rev(iterable0), *(rev(s) for s in iterables),
                  longest=longest, fillvalue=fillvalue)
 
-def rscanl1(proc, iterable, init=None):
+def rscanl1(proc: Callable[..., T], iterable: Iterable[T], init: T | None = None) -> Iterator[T]:
     """Reverse the input, then scanl1."""
     return scanl1(proc, rev(iterable), init)
 
-def rfoldl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
+def rfoldl(proc: Callable[..., T], init: T, iterable0: Iterable, *iterables: Iterable, longest: bool = False, fillvalue: Any = None) -> T | None:
     """Reverse each input, then foldl.
 
     For multiple input iterables, the notion of *corresponding elements*
@@ -261,11 +266,11 @@ def rfoldl(proc, init, iterable0, *iterables, longest=False, fillvalue=None):
     return foldl(proc, init, rev(iterable0), *(rev(s) for s in iterables),
                  longest=longest, fillvalue=fillvalue)
 
-def rreducel(proc, iterable, init=None):
+def rreducel(proc: Callable[..., T], iterable: Iterable[T], init: T | None = None) -> T | None:
     """Reverse the input, then reducel."""
     return reducel(proc, rev(iterable), init)
 
-def unfold1(proc, init):
+def unfold1(proc: Callable[[T], tuple[Any, T] | None], init: T) -> Iterator:
     """Generate a sequence corecursively. The counterpart of foldl.
 
     Returns a generator.
@@ -298,7 +303,7 @@ def unfold1(proc, init):
         value, state = result
         yield value
 
-def unfold(proc, *inits, **kwinits):
+def unfold(proc: Callable[..., Values | None], *inits: Any, **kwinits: Any) -> Iterator:
     """Like unfold1, but for n-in-(1+n)-out proc.
 
     The current state is unpacked to the argument list of ``proc``.
@@ -359,14 +364,14 @@ def unfold(proc, *inits, **kwinits):
 #         return args
 #     return mapr(identity, *iterables)
 
-def prod(iterable, start=1):
+def prod(iterable: Iterable[int | float], start: int | float = 1) -> int | float:
     """Like the builtin sum, but compute the product.
 
     This is a fold operation.
     """
     return reducel(mul, iterable, init=start)
 
-def running_minmax(iterable):
+def running_minmax(iterable: Iterable[T]) -> Iterator[tuple[T, T]]:
     """Return a generator extracting a running `(min, max)` from `iterable`.
 
     The iterable is iterated just once.
@@ -383,10 +388,10 @@ def running_minmax(iterable):
     try:
         first = next(it)
     except StopIteration:  # behave like `unpack` and `window` on empty input
-        def empty_iterable():
+        def empty_iterable() -> Iterator[tuple[T, T]]:
             yield from ()
         return empty_iterable()
-    def mm(elt, acc):
+    def mm(elt: T, acc: tuple[T, T]) -> tuple[T, T]:
         a, b = acc
         if elt < a:
             a = elt
@@ -395,7 +400,7 @@ def running_minmax(iterable):
         return a, b
     return scanl(mm, (first, first), it)
 
-def minmax(iterable):
+def minmax(iterable: Iterable[T]) -> tuple[T, T] | tuple[None, None]:
     """Extract `(min, max)` from `iterable`, iterating it just once.
 
     If `iterable` is empty, return `(None, None)`.
