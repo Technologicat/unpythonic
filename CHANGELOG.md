@@ -1,6 +1,6 @@
 # Changelog
 
-**2.0.1** (in progress):
+**2.1.0** (in progress):
 
 **New**:
 
