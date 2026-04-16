@@ -216,6 +216,18 @@ def runtests():
         test[the[si_prefix(1500, precision=4)] == "1.5000 k"]
         test[the[si_prefix(42, precision=1)] == "42.0"]
 
+        # Binary (IEC) mode
+        test[the[si_prefix(0, binary=True)] == "0.00"]
+        test[the[si_prefix(500, binary=True)] == "500.00"]
+        test[the[si_prefix(1024, binary=True)] == "1.00 Ki"]
+        test[the[si_prefix(1536, binary=True)] == "1.50 Ki"]
+        test[the[si_prefix(1024**2, binary=True)] == "1.00 Mi"]
+        test[the[si_prefix(2.5 * 1024**2, binary=True)] == "2.50 Mi"]
+        test[the[si_prefix(1024**3, binary=True)] == "1.00 Gi"]
+        test[the[si_prefix(1024**4, binary=True)] == "1.00 Ti"]
+        test[the[si_prefix(-1536, binary=True)] == "-1.50 Ki"]
+        test[the[si_prefix(0.5, binary=True)] == "0.50"]
+
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

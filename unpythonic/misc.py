@@ -359,51 +359,66 @@ class UnionFilter(logging.Filter):
 # --------------------------------------------------------------------------------
 # Number formatting
 
-def si_prefix(number: int | float, precision: int = 2) -> str:
-    """Format a number with an SI decimal prefix (powers of 1000).
+def si_prefix(number: int | float, precision: int = 2, binary: bool = False) -> str:
+    """Format a number with an SI decimal or IEC binary prefix.
 
     Returns a string like ``"1.50 k"``, ``"23.40 M"``, ``"500.00 m"``
-    (milli), or ``"42.00"`` (no prefix for magnitudes in [1, 1000)).
+    (milli), or ``"42.00"`` (no prefix for magnitudes in [1, base)).
 
     ``number``: the value to format (``int`` or ``float``).
     ``precision``: decimal places (default 2).
+    ``binary``: if ``True``, use IEC binary prefixes (Ki, Mi, Gi, ...)
+                with base 1024 instead of SI decimal prefixes with
+                base 1000.  Sub-unity (negative-power) prefixes are
+                not available in binary mode.
 
     Negative numbers and zero are handled correctly.
 
-    Both positive prefixes (k through Q) and negative prefixes
-    (m through q) are supported.  The micro prefix is ``µ``
-    (U+00B5 MICRO SIGN).
+    In decimal mode (the default), both positive prefixes (k through Q)
+    and negative prefixes (m through q) are supported.  The micro prefix
+    is ``µ`` (U+00B5 MICRO SIGN).
 
     Examples::
 
-        si_prefix(1500)        # "1.50 k"
-        si_prefix(2_500_000)   # "2.50 M"
-        si_prefix(0.0015)      # "1.50 m"
-        si_prefix(0.0000025)   # "2.50 µ"
-        si_prefix(-1500)       # "-1.50 k"
-        si_prefix(42)          # "42.00"
+        si_prefix(1500)                    # "1.50 k"
+        si_prefix(2_500_000)               # "2.50 M"
+        si_prefix(0.0015)                  # "1.50 m"
+        si_prefix(0.0000025)               # "2.50 µ"
+        si_prefix(-1500)                   # "-1.50 k"
+        si_prefix(42)                      # "42.00"
+        si_prefix(1536, binary=True)       # "1.50 Ki"
+        si_prefix(2_621_440, binary=True)  # "2.50 Mi"
     """
-    _large = ('', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y', 'R', 'Q')
-    _small = ('m', 'µ', 'n', 'p', 'f', 'a', 'z', 'y', 'r', 'q')
+    if binary:
+        base = 1024
+        large = ('', 'Ki', 'Mi', 'Gi', 'Ti', 'Pi', 'Ei', 'Zi', 'Yi')
+        small = ()
+    else:
+        base = 1000
+        large = ('', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y', 'R', 'Q')
+        small = ('m', 'µ', 'n', 'p', 'f', 'a', 'z', 'y', 'r', 'q')
     if number == 0:
         return f"{0:.{precision}f}"
     sign = -1 if number < 0 else 1
     magnitude = abs(number)
     if magnitude >= 1:
-        for prefix in _large:
-            if magnitude < 1000:
+        for prefix in large:
+            if magnitude < base:
                 value = sign * magnitude
                 if prefix:
                     return f"{value:.{precision}f} {prefix}"
                 return f"{value:.{precision}f}"
-            magnitude /= 1000
+            magnitude /= base
         value = sign * magnitude
-        return f"{value:.{precision}f} {_large[-1]}"
-    else:
-        for prefix in _small:
-            magnitude *= 1000
+        return f"{value:.{precision}f} {large[-1]}"
+    elif small:
+        for prefix in small:
+            magnitude *= base
             if magnitude >= 1:
                 value = sign * magnitude
                 return f"{value:.{precision}f} {prefix}"
         value = sign * magnitude
-        return f"{value:.{precision}f} {_small[-1]}"
+        return f"{value:.{precision}f} {small[-1]}"
+    else:
+        # No sub-unity prefixes (binary mode); format as-is.
+        return f"{sign * magnitude:.{precision}f}"
