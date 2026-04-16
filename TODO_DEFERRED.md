@@ -5,7 +5,14 @@ Next unused item code: D15
 - **D5**: `dispatch.py` — moved to GitHub issue #99. Dispatch-layer improvements for parametric ABCs (warn/error on indistinguishable multimethods). Typecheck-layer part resolved.
 
 
-- **D8: Audit typing: abstract parameter types, concrete return types**: Parameters should use abstract types from `collections.abc` (`Mapping`, `Sequence`, `Iterable`) for widest-possible-accepted semantics. Return types should use concrete lowercase builtins (`tuple[int, int]`, `list[int]`, `dict[str, int]`) — PEP 585, Python 3.9+. The capitalized `typing` forms (`Dict`, `List`, `Tuple`) are deprecated aliases for the builtins and offer no extra width — avoid them. Audit existing type hints across the codebase for consistency. (Discovered during raven-cherrypick compare mode planning, 2026-03-30.)
+- **D8: Type annotations — remaining hard-tier modules**: As of v2.1.0, 29 of 34 pure-Python modules are annotated. Five remain — all hard tier, genuinely resistant to static typing:
+  - `conditions.py` (18 exports) — complex control flow, thread-local handler/restart stacks, dynamic dispatch through the condition system.
+  - `dispatch.py` (7 exports) — runtime multiple dispatch, `typing` module introspection, multimethod resolution.
+  - `mathseq.py` (29 exports) — optional dependencies (mpmath/SymPy), dynamic numeric types.
+  - `typecheck.py` (1 export) — deeply introspective runtime type checking; the function *is* the type system.
+  - `arity.py` (10 exports) — `inspect`-heavy signature analysis; medium difficulty, just didn't get reached.
+
+  Also within already-annotated modules, some functions were deliberately left unannotated: `curry`, `compose*` family, `flatten*` family (dynamic arity, `Values` unpacking, recursive type flattening). Convention established: `F = TypeVar('F', bound=Callable)` for callables, `T = TypeVar('T')` for data values; `fillvalue` parameters use `Any` (sentinel may differ from element type). D8's original audit concern (abstract params, concrete returns, no deprecated `typing` forms) should be checked against the annotations added. (Updated 2026-04-16.)
 
 
 - **D10: Tier 2 REPL tests (subprocess + pty) for `unpythonic.net` client/server**: Tier 1 coverage for `unpythonic.net.client` and `unpythonic.net.server` uses a server-in-thread + in-process client pattern (see `unpythonic/net/tests/`) with scripted input via a private `_input` seam on `client._connect(..., _input=fake_input)` and captured stdout/stderr via `io.StringIO`. Fast, single-process, no subprocess boundary needed — the server speaks TCP to `127.0.0.1` and the client loop runs in the same test process. **We might never need tier 2.**
