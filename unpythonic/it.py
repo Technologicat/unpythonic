@@ -31,13 +31,17 @@ __all__ = ["rev", "map", "map_longest",
            "allsame"]
 
 from builtins import map as stdlib_map
+from collections.abc import Callable, Iterable, Iterator
 from operator import itemgetter
 from itertools import tee, islice, zip_longest, starmap, chain, filterfalse, groupby, takewhile
 from collections import deque
+from typing import Any, TypeVar
 
 from .funutil import Values
 
-def rev(iterable):
+T = TypeVar('T')
+
+def rev(iterable: Iterable[T]) -> Iterable[T]:
     """Reverse an iterable.
 
     If a sequence, the return value is ``reversed(iterable)``.
@@ -57,7 +61,7 @@ def rev(iterable):
     except TypeError:
         return reversed(tuple(iterable))
 
-def map(function, iterable0, *iterables):
+def map(function: Callable[..., T], iterable0: Iterable, *iterables: Iterable) -> Iterator[T]:
     """Curry-friendly map.
 
     Thin wrapper around Python's builtin ``map``, making it mandatory to
@@ -75,7 +79,7 @@ def map(function, iterable0, *iterables):
 
 # When completing an existing set of functions (map, zip, zip_longest),
 # consistency wins over curry-friendliness.
-def map_longest(func, *iterables, fillvalue=None):
+def map_longest(func: Callable[..., T], *iterables: Iterable, fillvalue: Any = None) -> Iterator[T]:
     """Like map, but terminate on the longest input.
 
     In the input to ``func``, missing elements (after end of shorter inputs)
@@ -87,7 +91,7 @@ def map_longest(func, *iterables, fillvalue=None):
     # with the terminology used at the call site.
     yield from starmap(func, zip_longest(*iterables, fillvalue=fillvalue))
 
-def rmap(func, *iterables):
+def rmap(func: Callable[..., T], *iterables: Iterable) -> Iterator[T]:
     """Like map, but from the right.
 
     For multiple inputs with different lengths, ``rmap`` syncs the **right** ends.
@@ -112,7 +116,7 @@ def rmap(func, *iterables):
     """
     yield from map(func, *(rev(s) for s in iterables))
 
-def rzip(*iterables):
+def rzip(*iterables: Iterable[T]) -> Iterator[tuple[T, ...]]:
     """Like zip, but from the right.
 
     For multiple inputs with different lengths, ``rzip`` syncs the **right** ends.
@@ -135,15 +139,15 @@ def rzip(*iterables):
     """
     yield from zip(*(rev(s) for s in iterables))
 
-def rmap_longest(func, *iterables, fillvalue=None):
+def rmap_longest(func: Callable[..., T], *iterables: Iterable, fillvalue: Any = None) -> Iterator[T]:
     """Like rmap, but terminate on the longest input."""
     yield from map_longest(func, *(rev(s) for s in iterables), fillvalue=fillvalue)
 
-def rzip_longest(*iterables, fillvalue=None):
+def rzip_longest(*iterables: Iterable, fillvalue: Any = None) -> Iterator[tuple]:
     """Like rzip, but terminate on the longest input."""
     yield from zip_longest(*(rev(s) for s in iterables), fillvalue=fillvalue)
 
-def mapr(proc, *iterables):
+def mapr(proc: Callable[..., T], *iterables: Iterable) -> Iterator[T]:
     """Like map, but from the right.
 
     For multiple inputs with different lengths, ``mapr`` syncs the **left** ends.
@@ -151,7 +155,7 @@ def mapr(proc, *iterables):
     """
     yield from rev(map(proc, *iterables))
 
-def zipr(*iterables):
+def zipr(*iterables: Iterable[T]) -> Iterator[tuple[T, ...]]:
     """Like zip, but from the right.
 
     For multiple inputs with different lengths, ``zipr`` syncs the **left** ends.
@@ -159,11 +163,11 @@ def zipr(*iterables):
     """
     yield from rev(zip(*iterables))
 
-def mapr_longest(proc, *iterables, fillvalue=None):
+def mapr_longest(proc: Callable[..., T], *iterables: Iterable, fillvalue: Any = None) -> Iterator[T]:
     """Like mapr, but terminate on the longest input."""
     yield from rev(map_longest(proc, *iterables, fillvalue=fillvalue))
 
-def zipr_longest(*iterables, fillvalue=None):
+def zipr_longest(*iterables: Iterable, fillvalue: Any = None) -> Iterator[tuple]:
     """Like zipr, but terminate on the longest input."""
     yield from rev(zip_longest(*iterables, fillvalue=fillvalue))
 
@@ -187,7 +191,7 @@ def zipr_longest(*iterables, fillvalue=None):
 #    return _mapr(identity, iterable0, *iterables,
 #                 longest=longest, fillvalue=fillvalue)
 
-def flatmap(f, iterable0, *iterables):
+def flatmap(f: Callable[..., Iterable[T]], iterable0: Iterable, *iterables: Iterable) -> Iterator[T]:
     """Map, then concatenate results.
 
     At least one iterable (``iterable0``) is required. More are optional.
@@ -222,7 +226,7 @@ def flatmap(f, iterable0, *iterables):
 #    for xs in map(f, iterable0, *iterables):
 #        yield from xs
 
-def uniqify(iterable, *, key=None):
+def uniqify(iterable: Iterable[T], *, key: Callable[[T], Any] | None = None) -> Iterator[T]:
     """Skip duplicates in iterable.
 
     Returns a generator that yields unique items from iterable, preserving
@@ -247,7 +251,7 @@ def uniqify(iterable, *, key=None):
                 seen_add(k)
                 yield e
 
-def uniq(iterable, *, key=None):
+def uniq(iterable: Iterable[T], *, key: Callable[[T], Any] | None = None) -> Iterator[T]:
     """Like uniqify, but for consecutive duplicates only.
 
     Named after the *nix utility.
@@ -257,7 +261,7 @@ def uniq(iterable, *, key=None):
     # the outer map retrieves the item from the subiterator in (key, subiterator).
     yield from map(next, map(itemgetter(1), groupby(iterable, key)))
 
-def take(n, iterable):
+def take(n: int, iterable: Iterable[T]) -> Iterator[T]:
     """Return an iterator that yields the first n items of iterable, then stops.
 
     Stops earlier if ``iterable`` has fewer than ``n`` items.
@@ -270,7 +274,7 @@ def take(n, iterable):
         raise ValueError(f"expected n >= 0, got {n}")
     return islice(iter(iterable), n)
 
-def drop(n, iterable):
+def drop(n: int | None, iterable: Iterable[T]) -> Iterator[T]:
     """Skip the first n elements of iterable, then yield the rest.
 
     If ``n`` is ``None``, consume the iterable until it runs out.
@@ -289,7 +293,7 @@ def drop(n, iterable):
     next(islice(it, n, n), None)  # advance it to empty slice starting at n
     return it
 
-def split_at(n, iterable):
+def split_at(n: int, iterable: Iterable[T]) -> tuple[Iterator[T], Iterator[T]]:
     """Split iterable at position n.
 
     Returns a pair of iterators ``(first_part, second_part)``.
@@ -313,7 +317,7 @@ def split_at(n, iterable):
     ia, ib = tee(iter(iterable))
     return take(n, ia), drop(n, ib)
 
-def unpack(n, iterable, *, k=None, fillvalue=None):
+def unpack(n: int, iterable: Iterable[T], *, k: int | None = None, fillvalue: Any = None) -> tuple:  # TODO: use TypeVarTuple for the return type once floor bumps to Python 3.11+
     """From iterable, return the first n elements, and the kth tail.
 
     Lazy generalization of sequence unpacking, works also for infinite iterables.
@@ -361,7 +365,7 @@ def unpack(n, iterable, *, k=None, fillvalue=None):
             out.append(next(it))
         except StopIteration:  # had fewer than n items remaining
             out += [fillvalue] * (n - len(out))
-            def empty_iterable():
+            def empty_iterable() -> Iterator[T]:
                 yield from ()
             tl = empty_iterable()
             break
@@ -373,14 +377,14 @@ def unpack(n, iterable, *, k=None, fillvalue=None):
     out.append(tl)
     return tuple(out)
 
-def tail(iterable):
+def tail(iterable: Iterable[T]) -> Iterator[T]:
     """Return an iterator pointing to the tail of iterable.
 
     Same as ```drop(1, iterable)```.
     """
     return drop(1, iterable)
 
-def butlast(iterable):
+def butlast(iterable: Iterable[T]) -> Iterator[T]:
     """Yield all items from iterable, except the last one (if iterable is finite).
 
     Return a generator.
@@ -390,7 +394,7 @@ def butlast(iterable):
     """
     return butlastn(1, iterable)
 
-def butlastn(n, iterable):
+def butlastn(n: int, iterable: Iterable[T]) -> Iterator[T]:
     """Yield all items from iterable, except the last n (if iterable is finite).
 
     Return a generator.
@@ -412,15 +416,15 @@ def butlastn(n, iterable):
         except StopIteration:
             return
 
-def first(iterable, *, default=None):
+def first(iterable: Iterable[T], *, default: T | None = None) -> T | None:
     """Like nth, but return the first item."""
     return nth(0, iterable, default=default)
 
-def second(iterable, *, default=None):
+def second(iterable: Iterable[T], *, default: T | None = None) -> T | None:
     """Like nth, but return the second item."""
     return nth(1, iterable, default=default)
 
-def nth(n, iterable, *, default=None):
+def nth(n: int, iterable: Iterable[T], *, default: T | None = None) -> T | None:
     """Return the item at position n from an iterable.
 
     The ``default`` is returned if there are fewer than ``n + 1`` items.
@@ -435,7 +439,7 @@ def nth(n, iterable, *, default=None):
     except StopIteration:
         return default
 
-def last(iterable, *, default=None):
+def last(iterable: Iterable[T], *, default: T | None = None) -> T | None:
     """Return the last item from an iterable.
 
     We consume the iterable until it runs out of items, then return the
@@ -448,7 +452,7 @@ def last(iterable, *, default=None):
     d = deque(iterable, maxlen=1)  # C speed
     return d.pop() if d else default
 
-def lastn(n, iterable):
+def lastn(n: int, iterable: Iterable[T]) -> Iterator[T]:
     """Yield the last n items from an iterable.
 
     We consume the iterable until it runs out of items, then return a generator
@@ -462,7 +466,7 @@ def lastn(n, iterable):
     d = deque(iterable, maxlen=n)  # C speed
     yield from d
 
-def scons(x, iterable):
+def scons(x: T, iterable: Iterable[T]) -> Iterator[T]:
     """Prepend one element to the start of an iterable, return new iterable.
 
     Same as ``itertools.chain((x,), iterable)``. The point is sometimes it is
@@ -473,7 +477,7 @@ def scons(x, iterable):
     """
     return chain((x,), iterable)
 
-def pad(n, fillvalue, iterable):
+def pad(n: int, fillvalue: Any, iterable: Iterable[T]) -> Iterator[Any]:
     """Pad iterable with copies of fillvalue so its length is at least ``n``.
 
     Examples::
@@ -558,13 +562,13 @@ def flatten_in(iterable, pred=None):
         else:
             yield e
 
-def iterate1(f, x):
+def iterate1(f: Callable[[T], T], x: T) -> Iterator[T]:
     """Return an infinite generator yielding x, f(x), f(f(x)), ..."""
     while True:
         yield x
         x = f(x)
 
-def iterate(f, *args, **kwargs):
+def iterate(f: Callable[..., Values], *args: Any, **kwargs: Any) -> Iterator[Values]:
     """Multiple-argument version of iterate1.
 
     The initial ``args`` and ``kwargs`` are packed into a ``Values`` object,
@@ -585,7 +589,7 @@ def iterate(f, *args, **kwargs):
         if not isinstance(x, Values):
             raise TypeError(f"Expected a `Values`, got {type(x)} with value {repr(x)}")
 
-def partition(pred, iterable):
+def partition(pred: Callable[[T], bool], iterable: Iterable[T]) -> tuple[Iterator[T], Iterator[T]]:
     """Partition an iterable to entries satifying and not satisfying a predicate.
 
     Return two generators, ``(false-items, true-items)``, where each generator
@@ -611,7 +615,7 @@ def partition(pred, iterable):
     t1, t2 = tee(iterable)
     return filterfalse(pred, t1), filter(pred, t2)
 
-def inn(x, iterable):
+def inn(x: T, iterable: Iterable[T]) -> bool:
     """Contains-check (``x in iterable``) with automatic termination.
 
     ``iterable`` may be infinite.
@@ -678,7 +682,7 @@ def inn(x, iterable):
     pred = (lambda elt: elt <= x) if d > 0 else (lambda elt: elt >= x)
     return x in takewhile(pred, it)
 
-def iindex(x, iterable):
+def iindex(x: T, iterable: Iterable[T]) -> int:
     """Like list.index, but for a general iterable.
 
     Note that just like ``x in iterable``, this will not terminate if ``iterable``
@@ -693,7 +697,7 @@ def iindex(x, iterable):
             return j
     raise ValueError(f"{x} is not in iterable")
 
-def find(predicate, iterable, default=None):
+def find(predicate: Callable[[T], bool], iterable: Iterable[T], default: T | None = None) -> T | None:
     """Return the first item matching `predicate` in `iterable`, or `default` if no match.
 
     If you need all matching items, just use the builtin `filter` or a comprehension;
@@ -701,7 +705,7 @@ def find(predicate, iterable, default=None):
     """
     return next(filter(predicate, iterable), default)
 
-def window(n, iterable):
+def window(n: int, iterable: Iterable[T]) -> Iterator[tuple[T, ...]]:
     """Sliding length-n window iterator for a general iterable.
 
     Acts like ``zip(s, s[1:], ..., s[n-1:])`` for a sequence ``s``, but the input
@@ -722,10 +726,10 @@ def window(n, iterable):
         try:
             xs.append(next(it))
         except StopIteration:
-            def empty_iterable():
+            def empty_iterable() -> Iterator[T]:
                 yield from ()
             return empty_iterable()
-    def windowed():
+    def windowed() -> Iterator[tuple[T, ...]]:
         while True:
             yield tuple(xs)
             xs.popleft()
@@ -735,7 +739,7 @@ def window(n, iterable):
                 return
     return windowed()
 
-def chunked(n, iterable):
+def chunked(n: int, iterable: Iterable[T]) -> Iterator[Iterator[T]]:
     """Split an iterable into constant-length chunks.
 
     Conceptually, whereas ``window`` slides its stencil through which the
@@ -761,7 +765,7 @@ def chunked(n, iterable):
     if n < 2:
         raise ValueError(f"expected n >= 2, got {n}")
     it = iter(iterable)
-    def chunker():
+    def chunker() -> Iterator[Iterator[T]]:
         try:
             while True:
                 cit = islice(it, n)
@@ -771,7 +775,7 @@ def chunked(n, iterable):
             return
     return chunker()
 
-def within(tol, iterable):
+def within(tol: float, iterable: Iterable[T]) -> Iterator[T]:
     """Yield items from iterable until successive items are close enough.
 
     Items are yielded until `abs(a - b) <= tol` for successive items
@@ -791,7 +795,7 @@ def within(tol, iterable):
             yield b
             return
 
-def interleave(*iterables):
+def interleave(*iterables: Iterable[T]) -> Iterator[T]:
     """Interleave items from several iterables. Generator.
 
     Example::
@@ -803,7 +807,7 @@ def interleave(*iterables):
     class ShortestInputEnded(Exception):
         pass
     iters = [iter(it) for it in iterables]
-    def roundrobin():
+    def roundrobin() -> Iterator[T]:
         for it in iters:
             try:
                 x = next(it)
@@ -816,7 +820,7 @@ def interleave(*iterables):
     except ShortestInputEnded:
         return
 
-def subset(part, whole):
+def subset(part: Iterable, whole: Iterable) -> bool:
     """Test whether `part` is a subset of `whole`.
 
     Both must be iterable. Note consumable iterables will be consumed
@@ -831,7 +835,7 @@ def subset(part, whole):
     """
     return all(elt in whole for elt in part)
 
-def powerset(iterable):
+def powerset(iterable: Iterable[T]) -> Iterator[tuple[T, ...]]:
     """Yield the powerset of a general iterable.
 
     The powerset is the set of all subsets of items taken from the iterable.
@@ -916,7 +920,7 @@ def powerset(iterable):
         yield from t
         bag.extend(t)
 
-def allsame(iterable):
+def allsame(iterable: Iterable) -> bool:
     """Return whether all elements of an iterable are the same.
 
     The test uses `!=` to compare, and short-circuits at the

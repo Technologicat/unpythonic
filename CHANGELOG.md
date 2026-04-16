@@ -1,6 +1,6 @@
 # Changelog
 
-**2.1.0** (in progress):
+**2.1.0** (in progress) — *"Cat-hedral"* edition:
 
 **New**:
 

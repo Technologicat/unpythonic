@@ -7,7 +7,8 @@ Some features modelled after Racket's builtins for handling procedures.
 Memoize is typical FP (Racket has it in mischief), and flip comes from Haskell.
 """
 
-__all__ = ["memoize", "curry", "iscurried",
+__all__ = ["memoize",
+           "partial", "curry", "iscurried",
            "flip", "rotate",
            "apply", "identity", "const",
            "notf", "andf", "orf",
@@ -18,10 +19,14 @@ __all__ = ["memoize", "curry", "iscurried",
            "withself"]
 
 from collections import namedtuple
+from collections.abc import Callable
 from functools import wraps, partial as functools_partial
 from inspect import signature
 from threading import RLock
-from typing import get_type_hints
+from typing import Any, TypeVar, get_type_hints
+
+F = TypeVar('F', bound=Callable)
+T = TypeVar('T')
 
 from .arity import (_resolve_bindings, tuplify_bindings, _bind)
 from .fold import reducel
@@ -51,7 +56,7 @@ from .lazyutil import passthrough_lazy_args, islazy, force, maybe_force_args
 _success = sym("_success")
 _fail = sym("_fail")
 @register_decorator(priority=10)
-def memoize(f):
+def memoize(f: F) -> F:
     """Decorator: memoize the function f.
 
     All of the args and kwargs of ``f`` must be hashable.
@@ -107,7 +112,7 @@ def memoize(f):
 # latest application winning. We must resist the temptation to override that behavior here,
 # because there are other places in the stdlib, particularly `inspect._signature_get_partial`
 # (as of Python 3.8), that expect the standard semantics.
-def partial(func, *args, **kwargs):
+def partial(func: Callable, *args: Any, **kwargs: Any) -> Callable:
     """Type-checking `functools.partial`.
 
     This is a wrapper that type-checks the arguments against the type annotations
@@ -188,7 +193,7 @@ def partial(func, *args, **kwargs):
 
 make_dynvar(curry_context=[])
 
-def iscurried(f):
+def iscurried(f: Any) -> bool:
     """Return whether f is a curried function."""
     return hasattr(f, "_is_curried_function")
 
@@ -577,7 +582,7 @@ def _decide_curry_action(f, args, kwargs):
 
 # --------------------------------------------------------------------------------
 
-def flip(f):
+def flip(f: Callable[..., T]) -> Callable[..., T]:
     """Decorator: flip (reverse) the positional arguments of f."""
     @wraps(f)
     def flipped(*args, **kwargs):
@@ -586,7 +591,7 @@ def flip(f):
         flipped = passthrough_lazy_args(flipped)
     return flipped
 
-def rotate(k):
+def rotate(k: int) -> Callable[[Callable[..., T]], Callable[..., T]]:
     """Decorator (factory): cycle positional arg slots of f to the right by k places.
 
     Negative values cycle to the left.
@@ -620,7 +625,7 @@ def rotate(k):
 # --------------------------------------------------------------------------------
 
 @passthrough_lazy_args
-def apply(f, arg0, *more, **kwargs):
+def apply(f: Callable[..., T], arg0: Any, *more: Any, **kwargs: Any) -> T:
     """Scheme/Racket-like apply.
 
     Not really needed since Python has *, but included for completeness.
@@ -647,7 +652,7 @@ def apply(f, arg0, *more, **kwargs):
 
 # Not marking this as lazy-aware works better with continuations (since this
 # is the default cont, and return values should be values, not lazy[])
-def identity(*args, **kwargs):
+def identity(*args: Any, **kwargs: Any) -> Any:
     """Identity function.
 
     Accepts any args and kwargs, and returns them.
@@ -676,7 +681,7 @@ def identity(*args, **kwargs):
 
 # In lazify, return values are always just values, so we have to force args
 # to compute the return value; as a shortcut, just don't mark this as lazy.
-def const(*args, **kwargs):
+def const(*args: Any, **kwargs: Any) -> Callable[..., Any]:
     """Constant function.
 
     Returns a function that accepts any arguments (also kwargs)
@@ -711,13 +716,15 @@ def const(*args, **kwargs):
 
 # --------------------------------------------------------------------------------
 
-def notf(f):  # Racket: negate
+def notf(f: Callable[..., Any]) -> Callable[..., bool]:  # Racket: negate
     """Return a function that returns the logical not of the result of f.
 
     Examples::
 
         assert notf(lambda x: 2*x)(3) is False
         assert notf(lambda x: 2*x)(0) is True
+
+    In Racket, this is known as `negate`.
     """
     def negated(*args, **kwargs):
         return not maybe_force_args(f, *args, **kwargs)
@@ -725,7 +732,7 @@ def notf(f):  # Racket: negate
         negated = passthrough_lazy_args(negated)
     return negated
 
-def andf(*fs):  # Racket: conjoin
+def andf(*fs: Callable[..., Any]) -> Callable[..., Any]:  # Racket: conjoin
     """Return a function that conjoins calls to fs with "and".
 
     Each function in ``fs`` is called with the same ``args`` and ``kwargs``,
@@ -739,6 +746,8 @@ def andf(*fs):  # Racket: conjoin
 
         assert andf(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(42) is True
         assert andf(lambda x: isinstance(x, int), lambda x: x % 2 == 0)(43) is False
+
+    In Racket, this is known as `conjoin`.
     """
     @passthrough_lazy_args
     def conjoined(*args, **kwargs):
@@ -750,7 +759,7 @@ def andf(*fs):  # Racket: conjoin
         return b
     return conjoined
 
-def orf(*fs):  # Racket: disjoin
+def orf(*fs: Callable[..., Any]) -> Callable[..., Any]:  # Racket: disjoin
     """Return a function that disjoins calls to fs with "or".
 
     Each function in ``fs`` is called with the same ``args`` and ``kwargs``,
@@ -766,6 +775,8 @@ def orf(*fs):  # Racket: disjoin
         assert orf(isstr, iseven)(42) is True
         assert orf(isstr, iseven)("foo") is True
         assert orf(isstr, iseven)(None) is False  # neither condition holds
+
+    In Racket, this is known as `disjoin`.
     """
     @passthrough_lazy_args
     def disjoined(*args, **kwargs):
@@ -973,7 +984,7 @@ def composelci(iterable):
 # --------------------------------------------------------------------------------
 
 # Helpers to insert one-in-one-out functions into multi-arg compose chains
-def tokth(k, f):
+def tokth(k: int, f: Callable) -> Callable[..., "Values"]:
     """Return a function to apply f to args[k], pass the rest through.
 
     The output is a `Values`. Named arguments are passed through as-is.
@@ -1000,7 +1011,7 @@ def tokth(k, f):
         apply_f_to_kth_arg = passthrough_lazy_args(apply_f_to_kth_arg)
     return apply_f_to_kth_arg
 
-def to1st(f):
+def to1st(f: Callable) -> Callable[..., "Values"]:
     """Return a function to apply f to first item in args, pass the rest through.
 
     Example::
@@ -1013,15 +1024,15 @@ def to1st(f):
     """
     return tokth(0, f)  # this is just a partial() but we want to provide a docstring.
 
-def to2nd(f):
+def to2nd(f: Callable) -> Callable[..., "Values"]:
     """Return a function to apply f to second item in args, pass the rest through."""
     return tokth(1, f)
 
-def tolast(f):
+def tolast(f: Callable) -> Callable[..., "Values"]:
     """Return a function to apply f to last item in args, pass the rest through."""
     return tokth(-1, f)
 
-def to(*specs):
+def to(*specs: tuple[int, Callable]) -> Callable[..., "Values"]:
     """Return a function to apply f1, ..., fn to items in args, pass the rest through.
 
     The specs are processed sequentially in the given order (allowing also
@@ -1042,7 +1053,7 @@ def to(*specs):
 # --------------------------------------------------------------------------------
 
 @register_decorator(priority=80)
-def withself(f):
+def withself(f: Callable) -> Callable:
     """Decorator. Allow a lambda to refer to itself.
 
     This is essentially the Y combinator trick packaged as a decorator.
