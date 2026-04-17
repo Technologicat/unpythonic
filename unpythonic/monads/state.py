@@ -1,20 +1,67 @@
 # -*- coding: utf-8 -*-
 """The State monad — threading a state value through a pure computation.
 
-Mind-bending at first. Where the container-style monads (``Identity``,
-``Maybe``, ``List``, etc.) wrap a *value*, a ``State`` wraps a *computation*:
-a function ``s -> (a, s)`` that takes an input state, produces a data value,
-and returns a new state.
+**Warning**: mind-bending material.
 
-The state itself only becomes bound when the composed chain is ``.run(s0)``
-with an initial state — until then, we're building a recipe. Composition
-threads the state implicitly, so the user code in the middle of the chain
-sees only data values, not state.
+In Python, in the same vein as ``unfold()``, we don't really *need* the
+State monad for its basic uses — generators already handle implicit
+state nicely (though they use genuine destructive imperative updates,
+whereas this doesn't). But it's worth studying, because in the process
+we see a different way of thinking about monads.
+
+Where the container-style monads (``Identity``, ``Maybe``, ``List``, etc.)
+wrap a *value*, a ``State`` wraps a *computation*: a function
+``s -> (a, s)`` that takes an input state, produces a data value, and
+returns a new state. The main idea is **monads as computation** rather
+than monads as containers.
+
+**How it's used** — two alternating phases:
+
+1. State processor ``s -> (a, s)``: old state in; a data value and new
+   state out.
+2. The code at the use site: do something with the data value ``a``,
+   then tell phase 1 which state processor to run next.
+
+The state ``s`` only becomes bound when the composed chain starts
+running — and we start the chain only after we're done composing it.
+In the call to ``.run(s0)``, we give the chain the initial state it
+will start in; then the monad does the plumbing required to pass the
+state across the state-processor calls, in a functional (FP) manner.
+Just like in an FP loop, there is no mutation, but in effect, the state
+changes (via fresh instances). Until the chain runs, everything is, so
+to speak, just hypothetical — planning what we'll do once we get our
+hands on an initial state value. This is an important difference from
+the data-container monads.
+
+**On the three-chainee puzzle** (one of the most difficult points to
+grasp at first): at first glance, it would seem the state processor in
+the middle of a chain ``A >> B >> C`` runs twice — once as the second
+operation of the first State instance, and again as the first operation
+of the second State instance. But actually that's wrong. Binding is
+essentially function composition, and we return the composed function.
+Hence ``A >> B`` becomes a new composed state processor — call it ``D``
+— and the chain is transformed into ``D >> C``. At this point, *nothing
+has actually run yet*; we are just planning what to do by building
+composed functions. Now the second bind composes a new state processor
+out of ``D`` and ``C``. When we eventually ``.run`` the chain, running
+``D`` internally runs both ``A`` and ``B``, so each of ``A``, ``B``,
+``C`` runs exactly once — as they should.
+
+The monad is, in effect, *shunting the state value around the code that
+is only interested in the data*, and delivering the state only where
+it's actually needed — into the actual state processors.
+
+**Type invariant**: in Haskell, the type of the state value stays the
+same in a chain, whereas the type of the data value may change. Python
+doesn't enforce that, but readers familiar with the typed version will
+expect it.
 
 Based on:
-  - https://en.wikibooks.org/wiki/Haskell/Understanding_monads/State
-  - https://wiki.haskell.org/State_Monad
-  - https://wiki.haskell.org/Monads_as_computation
+
+- http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/
+- https://wiki.haskell.org/Monads_as_computation
+- https://en.wikibooks.org/wiki/Haskell/Understanding_monads/State
+- https://wiki.haskell.org/State_Monad
 
 Does **not** inherit from ``LiftableMonad`` — ``lift f = a -> M b`` doesn't
 have a useful shape for State (the lifted function would need to choose
@@ -88,11 +135,35 @@ class State(Monad):
         because direct composition is much clearer here than going through
         the ``(M a)``-wrapping round trip. See the module docstring
         references for a detailed derivation.
+
+        Here ``f`` is expected to be ``a -> State(s -> (b, s))``: it takes
+        a *data value* (not a state value!) and returns a state processor.
+        What's this crazy kind of function? Somewhat similarly to "lambda
+        as a code block" in Lisp, it's not really a function in the usual
+        sense (though formally it is one) — it's the code block that the
+        chain binds into. It's a thing to be performed *between* two
+        processings of the state. So it makes sense that it takes the data
+        value (the ``a`` part of the result of the current state
+        processor), does something with it, and then tells us what to do
+        next — i.e. provides a new state processor.
+
+        The beauty: the user-level code block *doesn't even see* the state
+        value. It only gets the data value of the result, just as if
+        computing with plain functions that need no state. The monad
+        shunts the state value around, delivering it only where it's
+        actually needed — into the actual state processors.
+
+        See also the ``wrap`` / ``unwrap`` comments at
+        https://en.wikibooks.org/wiki/Haskell/Understanding_monads/State
         """
         def composed(s: Any) -> tuple:
-            value, s_prime = self.run(s)  # current processor yields (value, new state)
-            next_processor = f(value)     # user code chooses the next processor
-            return next_processor.run(s_prime)
+            value, s_prime = self.run(s)  # apply current processor
+            # Take the contained data value from inside the monad (= the
+            # data result of our wrapped computation) and send it to the
+            # user's code block. The block gives us a new State monad,
+            # which wraps the next state processor to run.
+            next_processor = f(value)
+            return next_processor.run(s_prime)  # then apply the new processor
         return State(composed)
 
     @classmethod

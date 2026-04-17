@@ -1,17 +1,28 @@
 # -*- coding: utf-8 -*-
 """The Reader monad — a read-only shared environment.
 
+**Mind-bending parts inside.**
+
+Something between a container and a computation. On the one hand,
+``Reader e a`` is essentially just the function type ``e -> a`` with a
+monad API wrapped around it; on the other, like ``State``, the
+environment only becomes bound when we ``.run`` the Reader — until
+then, everything is just planning.
+
 A ``Reader e a`` wraps a function ``e -> a``, where ``e`` is some
 environment (configuration, dependency-injection context, etc.). Binding
 threads a single environment ``e`` through the chain; each sub-computation
-can ``ask()`` for the environment and do something with it.
+can ``.ask()`` for the environment and do something with it.
 
 Does **not** inherit from ``LiftableMonad`` — the teaching code leaves
 ``Reader.lift`` unimplemented, and there's no canonical shape for it.
 
 Based on:
-  - https://wiki.haskell.org/Monads_as_containers
-  - https://www.mjoldfield.com/atelier/2014/08/monads-reader.html
+
+- https://wiki.haskell.org/Monads_as_containers
+- https://www.mjoldfield.com/atelier/2014/08/monads-reader.html
+- https://blog.ssanj.net/posts/2014-09-23-A-Simple-Reader-Monad-Example.html
+- https://stackoverflow.com/questions/14178889/what-is-the-purpose-of-the-reader-monad
 """
 
 __all__ = ["Reader"]
@@ -24,6 +35,16 @@ from .abc import Monad
 
 class Reader(Monad):
     """The Reader monad. Wraps a function ``e -> a``.
+
+    **What bind does**: taking a computation that may read from the
+    environment before producing a value of type ``a``, and a function
+    from values of type ``a`` to computations that may read from the
+    environment before returning a value of type ``b``, and composing
+    these — yielding a computation that may read from the (shared)
+    environment before returning a value of type ``b``.
+
+    Uses the default ``Monad.__rshift__`` (``fmap . join``); no override
+    needed, the generic definition fits Reader perfectly.
 
     Usage::
 
@@ -41,7 +62,10 @@ class Reader(Monad):
     """
 
     def __init__(self, f: Callable) -> None:
-        """Wrap a reader function ``f: e -> a``."""
+        """Wrap a reader function ``f: e -> a``.
+
+        Essentially, ``Reader e a = (e -> a)``, with a thin monad wrapper.
+        """
         if not callable(f):
             raise TypeError(f"Expected a callable e -> a, got {f!r}")
         self.r = f

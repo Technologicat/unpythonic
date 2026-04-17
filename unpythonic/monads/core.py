@@ -1,19 +1,33 @@
 # -*- coding: utf-8 -*-
 """Monadic helpers that don't belong to any single monad.
 
-`liftm` and its arity variants `liftm2`, `liftm3` turn a regular
+``liftm`` and its arity variants ``liftm2``, ``liftm3`` turn a regular
 multi-argument function into a monadic one. See Haskell ``Control.Monad``
-for the originals (which go up to ``liftM8``). These three cover the common
-cases; if more are ever needed, the pattern is obvious.
+for the originals (which go up to ``liftM8``). These three cover the
+common cases; if more are ever needed, the pattern is obvious.
 
-Note the distinction between ``lift`` (on `LiftableMonad`) and ``liftm``
-here:
+Note the slight but important distinction between ``lift`` (on
+``LiftableMonad``) and ``liftm`` here::
 
-- ``lift:  f: (a -> b)        ->  lifted: (a -> M b)``
-- ``liftm: f: (a -> r)        ->  lifted: (M a -> M r)``
+    lift:    f: (a -> b)            ->  lifted: (a -> M b)
+    liftm:   f: (a -> r)            ->  lifted: (M a -> M r)
+    liftm2:  f: ((a, b) -> r)       ->  lifted: ((M a, M b) -> M r)
+    liftm3:  f: ((a, b, c) -> r)    ->  lifted: ((M a, M b, M c) -> M r)
 
-The ``lift`` output expects the caller to bind; the ``liftm`` output takes
-monadic input and binds internally.
+(Type signatures: each letter stands for a type such as int, str, ....
+For example, ``f: (a -> r)`` means ``f`` is a function that takes a
+single input parameter of type ``a`` and returns a value of type ``r``.
+``M a`` roughly means "monad containing data of type ``a``".)
+
+Why the ``M`` in the input of ``liftm``'s result? Because in ``liftm``
+the *lifted* function binds, whereas ``lift`` expects the use site to
+do that.
+
+Don't worry if this doesn't make sense at first — return to these
+details once you've played with a few monad examples. The important
+practical distinction: ``liftm`` takes monadic input and binds
+internally; ``lift`` takes a plain value, wraps it, and hands you
+something you then bind.
 """
 
 __all__ = ["liftm", "liftm2", "liftm3"]

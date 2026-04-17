@@ -8,6 +8,14 @@ handy in its own right when you want to thread "maybe a value, maybe
 nothing" through a pipeline without crufting up the happy path with
 explicit None checks.
 
+**Future improvement**: a proper Maybe in Haskell is an ADT (algebraic
+data type) with two data constructors, ``Just x`` and ``Nothing``. We
+could use mcpyrate (syntactic macros) together with ``@generic``
+(multiple-dispatch) to approximate that shape — case classes ``Just``
+and ``Nothing`` sharing a ``Maybe`` supertype, with pattern matching.
+Not done here; the in-band encoding below is the direct port of the
+teaching code.
+
 **Conventions** (no user-facing ``Just``/``Nothing`` wrapper classes —
 just ``Maybe(value)``):
 
