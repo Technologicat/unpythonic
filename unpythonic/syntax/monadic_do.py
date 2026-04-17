@@ -6,37 +6,33 @@ Syntax::
     with monadic_do[M] as result:
         [x := mx,
          y := my(x),
-         M.guard(...)] in M.unit(x + y)
+         M.guard(...),
+         M.unit(x + y)]
 
-Expands to::
+The body is a single list literal. Each item corresponds to one line of
+a Haskell do-block. The **last item** is the final monadic expression
+(any expression of type ``M a``, matching Haskell's last-line-of-do).
+All **earlier items** are binds:
+
+- ``name := mexpr`` — monadic bind: the unwrapped value is bound to
+  ``name`` for subsequent lines.
+- ``name << mexpr`` — legacy alternative for ``:=`` (same shapes
+  ``letdoutil`` recognizes for ``let[]``).
+- a bare ``mexpr`` — sequencing-only (Haskell's ``do { mx; ... }``): the
+  result is threaded but discarded. The short-circuit behavior of the
+  monad still applies (``Maybe(nil)``, ``Left``, empty ``List`` all
+  cancel the rest of the chain).
+
+Expands to a nested lambda-bind chain::
 
     result = mx >> (lambda x: my(x) >> (lambda _: M.guard(...) >> (lambda _: M.unit(x + y))))
 
-The bindings list on the left of ``in`` uses the same ``:=`` / ``<<``
-binding syntax that ``let`` uses, parsed by ``letdoutil.canonize_bindings``.
-
-- A ``name := mexpr`` entry introduces a monadic bind: the ``name`` is
-  bound to the unwrapped value for subsequent lines.
-- A bare ``mexpr`` entry (no ``:=``) is a sequencing-only line — matches
-  Haskell do-notation's bare-expression form, used e.g. for ``guard``:
-  the result is threaded through the chain but discarded, so the whole
-  shape short-circuits for monads that do (Maybe's ``Nothing``, List's
-  empty, Either's ``Left``, etc.).
-
-The RHS of ``in`` is simply the final monadic expression — same
-semantics as Haskell, where the last line of a ``do`` block is any
-monadic value (``return (...)``, a direct constructor call, or a call
-to a monad-producing function). No specific form required.
-
-Empty bindings shorthand is supported: ``[] in M.unit(x)`` expands to
-just ``result = M.unit(x)``.
-
 **Placement in the xmas tree**: always the innermost ``with``. Its body
-shape (a single ``[bindings] in final_expr`` statement) forbids
-lexically wrapping other ``with`` blocks inside it, and outer two-pass
-macros (``lazify``, ``continuations``, ``tco``, ``autocurry``, etc.)
-expand inner macros between their two passes, which means they will
-correctly see and edit the expanded bind chain.
+shape (a single list-literal statement) forbids lexically wrapping other
+``with`` blocks inside it, and outer two-pass macros (``lazify``,
+``continuations``, ``tco``, ``autocurry``, etc.) expand inner macros
+between their two passes, which means they will correctly see and edit
+the expanded bind chain.
 
 **Always in its own nested ``with``** — unlike the other xmas-tree
 macros which chain in one ``with`` for brevity, ``monadic_do[M] as result``
@@ -46,7 +42,7 @@ with that combo is syntactically fragile.
 
 __all__ = ["monadic_do"]
 
-from ast import Compare, In, List, Name, NamedExpr, BinOp, LShift, Expr, Assign, Store, arg, expr
+from ast import List, Name, NamedExpr, BinOp, LShift, Expr, Assign, Store, arg, expr
 
 from mcpyrate.quotes import macros, q, a, n  # noqa: F401
 
@@ -91,47 +87,37 @@ def _monadic_do(block_body: list, monad_type: expr, result_name: str) -> list:
     # Expand inner macros first (outside-in), just like `forall` and `autoref` do.
     block_body = dyn._macro_expander.visit_recursively(block_body)
 
-    # Body must be exactly one statement, an Expr wrapping a Compare(In).
+    # Body must be exactly one statement, an Expr wrapping a List literal.
     if len(block_body) != 1:
         raise SyntaxError(
-            f"monadic_do body must be a single statement of the form "
-            f"`[bindings] in final_expr`, got {len(block_body)} statements"
+            f"monadic_do body must be a single list-literal statement, got {len(block_body)} statements"
         )  # pragma: no cover
     stmt = block_body[0]
-    if type(stmt) is not Expr:
+    if type(stmt) is not Expr or type(stmt.value) is not List:
         raise SyntaxError(
-            "monadic_do body must be a single expression statement "
-            "`[bindings] in final_expr`"
-        )  # pragma: no cover
-    compare = stmt.value
-    if not (type(compare) is Compare and
-            len(compare.ops) == 1 and
-            type(compare.ops[0]) is In):
-        raise SyntaxError(
-            "monadic_do body must have the form `[bindings] in final_expr`"
+            "monadic_do body must be a single list literal `[bind, ..., final_expr]`"
         )  # pragma: no cover
 
-    bindings_node = compare.left
-    final_expr = compare.comparators[0]
-
-    # Bindings: must be a List literal.
-    if type(bindings_node) is not List:
+    items = stmt.value.elts
+    if not items:
         raise SyntaxError(
-            "monadic_do bindings must be a list literal `[x := mx, ...]`"
+            "monadic_do body list must have at least one item (the final monadic expression)"
         )  # pragma: no cover
 
-    # Wrap bare expressions as `_ := expr` so they look like sequencing-only
-    # bindings to `canonize_bindings`. This mirrors Haskell's do-notation
-    # where a bare expression line is sequence-only (>>, not >>=).
-    normalized_elts = [
+    # Split: all but the last are binds; the last is the final monadic expression.
+    *binding_items, final_expr = items
+
+    # Normalize bare expressions in the binds as synthetic `_ := expr` so they
+    # look like sequencing-only bindings to `canonize_bindings`. Matches Haskell's
+    # do-notation where a bare expression line is sequence-only (>>, not >>=).
+    normalized = [
         item if _is_binding_form(item) else NamedExpr(target=Name(id="_", ctx=Store()), value=item)
-        for item in bindings_node.elts
+        for item in binding_items
     ]
 
-    # Parse via letdoutil — accepts := and << for each binding, and []/() for the list shape
-    # (we already unpacked the outer List).
-    if normalized_elts:
-        canonical = canonize_bindings(normalized_elts)  # [Tuple(elts=[Name(k), v]), ...]
+    # Parse via letdoutil — accepts := and <<.
+    if normalized:
+        canonical = canonize_bindings(normalized)  # [Tuple(elts=[Name(k), v]), ...]
         pairs = [(t.elts[0].id, t.elts[1]) for t in canonical]
     else:
         pairs = []

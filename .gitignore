@@ -13,3 +13,19 @@ pdm.lock
 *.egg-info
 *.mypy_cache
 .python-version
+
+# Coverage artifacts
+.coverage
+coverage.xml
+htmlcov/
+
+# Secrets — should never be committed
+codecov-token
+*.token
+.env
+
+# Scratch / local-only files
+coverage-notes.md
+test_system_notes.txt
+contidea.py
+unpythonic/tests/mwe.py

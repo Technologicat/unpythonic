@@ -26,21 +26,24 @@ def runtests():
         with continuations:
             with monadic_do[Maybe] as result:
                 [x := Maybe(10),
-                 y := Maybe(x + 1)] in Maybe(x + y)
+                 y := Maybe(x + 1),
+                 Maybe(x + y)]
         test[result == Maybe(21)]
 
     with testset("must: autocurry + monadic_do"):
         with autocurry:
             with monadic_do[Maybe] as result:
                 [x := Maybe(5),
-                 y := Maybe(x + 1)] in Maybe(x * y)
+                 y := Maybe(x + 1),
+                 Maybe(x * y)]
         test[result == Maybe(30)]
 
     with testset("must: lazify + monadic_do (basic)"):
         with lazify:
             with monadic_do[Maybe] as result:
                 [x := Maybe(10),
-                 y := Maybe(x + 1)] in Maybe(x + y)
+                 y := Maybe(x + 1),
+                 Maybe(x + y)]
         test[result == Maybe(21)]
 
     with testset("must: lazify + monadic_do (short-circuit preserves non-forcing)"):
@@ -54,7 +57,8 @@ def runtests():
         with lazify:
             with monadic_do[Maybe] as result:
                 [x := Maybe(nil),
-                 y := observable_builder()] in Maybe(x + y)
+                 y := observable_builder(),
+                 Maybe(x + y)]
         test[result == Maybe(nil)]
         test[side_effects == []]  # observable_builder never invoked
 
@@ -67,7 +71,8 @@ def runtests():
         with lazify:
             with monadic_do[Either] as result2:
                 [x := Left("bail"),
-                 y := bump_and_build()] in Right(x + y)
+                 y := bump_and_build(),
+                 Right(x + y)]
         test[result2 == Left("bail")]
         test[counter[0] == 0]
 
@@ -75,28 +80,32 @@ def runtests():
         with tco:
             with monadic_do[Maybe] as result:
                 [x := Maybe(7),
-                 y := Maybe(x + 1)] in Maybe(x + y)
+                 y := Maybe(x + 1),
+                 Maybe(x + y)]
         test[result == Maybe(15)]
 
     with testset("smoke: multilambda + monadic_do"):
         with multilambda:
             with monadic_do[Maybe] as result:
                 [x := Maybe(3),
-                 y := Maybe(x * 2)] in Maybe(x + y)
+                 y := Maybe(x * 2),
+                 Maybe(x + y)]
         test[result == Maybe(9)]
 
     with testset("smoke: quicklambda + monadic_do"):
         with quicklambda:
             with monadic_do[Maybe] as result:
                 [x := Maybe(3),
-                 y := Maybe(x * 2)] in Maybe(x + y)
+                 y := Maybe(x * 2),
+                 Maybe(x + y)]
         test[result == Maybe(9)]
 
     with testset("smoke: namedlambda + monadic_do"):
         with namedlambda:
             with monadic_do[Maybe] as result:
                 [x := Maybe(3),
-                 y := Maybe(x * 2)] in Maybe(x + y)
+                 y := Maybe(x * 2),
+                 Maybe(x + y)]
         test[result == Maybe(9)]
 
     with testset("smoke: autoreturn + monadic_do"):
@@ -107,14 +116,16 @@ def runtests():
         def compute():
             with autoreturn:
                 with monadic_do[Maybe] as result:
-                    [x := Maybe(4)] in Maybe(x + 6)
+                    [x := Maybe(4),
+                    Maybe(x + 6)]
                 return result
         test[compute() == Maybe(10)]
 
     with testset("smoke: envify + monadic_do"):
         with envify:
             with monadic_do[Maybe] as result:
-                [x := Maybe(5)] in Maybe(x + 1)
+                [x := Maybe(5),
+                Maybe(x + 1)]
         test[result == Maybe(6)]
 
     with testset("smoke: autoref + monadic_do"):
@@ -122,7 +133,8 @@ def runtests():
         the_env = _env(base=100)
         with autoref[the_env]:
             with monadic_do[Maybe] as result:
-                [x := Maybe(5)] in Maybe(x + base)  # noqa: F821, via autoref
+                [x := Maybe(5),
+                 Maybe(x + base)]  # noqa: F821 -- `base` comes in via autoref
         test[result == Maybe(105)]
 
 
