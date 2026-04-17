@@ -11,7 +11,6 @@ __all__ = ["getfunc",
            "resolve_bindings", "resolve_bindings_partial", "tuplify_bindings",
            "UnknownArity"]
 
-from collections import OrderedDict
 from collections.abc import Callable
 import copy
 from inspect import signature, Parameter, Signature, ismethod, BoundArguments, _empty
@@ -434,15 +433,15 @@ def tuplify_bindings(bound_arguments: BoundArguments) -> tuple[tuple[str, Any], 
     `bound_arguments` is an `inspect.BoundArguments` object.
 
     In our return value, `bound_arguments.arguments` itself, as well as the value of
-    the `**kwargs` parameter contained in it, if any, are converted from `OrderedDict`
-    to `tuple` using `tuple(od.items())`.
+    the `**kwargs` parameter contained in it, if any, are converted from `dict`
+    to `tuple` using `tuple(d.items())`.
 
     The result is hashable, if all the passed arguments are.
 
     See `resolve_bindings` for an example.
     """
-    def tuplify(ordereddict: OrderedDict[str, Any]) -> tuple[tuple[str, Any], ...]:
-        return tuple(ordereddict.items())
+    def tuplify(d: dict[str, Any]) -> tuple[tuple[str, Any], ...]:
+        return tuple(d.items())
 
     # Tuplify the **kwargs dict.
     #
@@ -465,28 +464,32 @@ def tuplify_bindings(bound_arguments: BoundArguments) -> tuple[tuple[str, Any], 
 
     return tuplify(thearguments)
 
-# This is `inspect.Signature.bind` from Python 3.8.5, modified for our purposes so we can determine
+# This is `inspect.Signature._bind` from Python 3.14, modified for our purposes so we can determine
 # unbound *and extra* arguments (both positional and by-name) without raising a `TypeError`.
 # We need this for kwargs support in `curry`, because we want to pass through unmatched args and kwargs
 # (which otherwise trigger a `TypeError`).
 #
 # This is only for `curry`; all other code uses the standard implementation.
 #
-# Used under the PSF license. Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
-# 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020 Python Software Foundation; All Rights Reserved
-def _bind(thesignature: Signature, args: tuple[Any, ...], kwargs: dict[str, Any], *, partial: bool) -> tuple[BoundArguments, tuple[Parameter, ...], tuple[tuple[Any, ...], OrderedDict[str, Any]]]:
+# Lines where we diverge from stdlib are marked with `[unpythonic]`.
+# Commented-out code shows the original stdlib behavior at each such point.
+#
+# Used under the PSF license. Copyright (c) 2001-2025 Python Software Foundation; All Rights Reserved
+def _bind(thesignature: Signature, args: tuple[Any, ...], kwargs: dict[str, Any], *, partial: bool) -> tuple[BoundArguments, tuple[Parameter, ...], tuple[tuple[Any, ...], dict[str, Any]]]:
     """Private method. Don't use directly."""
 
-    arguments = OrderedDict()
+    arguments = {}
 
     parameters = iter(thesignature.parameters.values())
     parameters_ex = ()
     arg_vals = iter(args)
 
-    # These are added for `unpythonic`.
-    unbound_parameters = []
-    extra_args = []
-    extra_kwargs = OrderedDict()
+    pos_only_param_in_kwargs = []
+
+    # [unpythonic] These collect what stdlib would reject with TypeError.
+    unbound_parameters: list[Parameter] = []
+    extra_args: list[Any] = []
+    extra_kwargs: dict[str, Any] = {}
     kwargs = copy.copy(kwargs)  # the caller might need the original later
 
     while True:
@@ -509,10 +512,13 @@ def _bind(thesignature: Signature, args: tuple[Any, ...], kwargs: dict[str, Any]
                     break
                 elif param.name in kwargs:
                     if param.kind == Parameter.POSITIONAL_ONLY:
-                        msg = '{arg!r} parameter is positional only, ' \
-                              'but was passed as a keyword'
-                        msg = msg.format(arg=param.name)
-                        raise TypeError(msg) from None
+                        if param.default is _empty:
+                            msg = f'missing a required positional-only argument: {param.name!r}'
+                            raise TypeError(msg)
+                        # Raise a TypeError once we are sure there is no
+                        # **kwargs param later.
+                        pos_only_param_in_kwargs.append(param)
+                        continue
                     parameters_ex = (param,)
                     break
                 elif (param.kind == Parameter.VAR_KEYWORD or
@@ -529,8 +535,13 @@ def _bind(thesignature: Signature, args: tuple[Any, ...], kwargs: dict[str, Any]
                         parameters_ex = (param,)
                         break
                     else:
-                        # msg = 'missing a required argument: {arg!r}'
-                        # msg = msg.format(arg=param.name)
+                        # [unpythonic] Collect instead of raising:
+                        # if param.kind == Parameter.KEYWORD_ONLY:
+                        #     argtype = ' keyword-only'
+                        # else:
+                        #     argtype = ''
+                        # msg = 'missing a required{argtype} argument: {arg!r}'
+                        # msg = msg.format(arg=param.name, argtype=argtype)
                         # raise TypeError(msg) from None
                         unbound_parameters.append(param)
         else:
@@ -538,12 +549,14 @@ def _bind(thesignature: Signature, args: tuple[Any, ...], kwargs: dict[str, Any]
             try:
                 param = next(parameters)
             except StopIteration:
+                # [unpythonic] Collect instead of raising:
                 # raise TypeError('too many positional arguments') from None
                 extra_args.append(arg_val)
             else:
                 if param.kind in (Parameter.VAR_KEYWORD, Parameter.KEYWORD_ONLY):
                     # Looks like we have no parameter for this positional
                     # argument
+                    # [unpythonic] Collect instead of raising:
                     # raise TypeError(
                     #     'too many positional arguments') from None
                     extra_args.append(arg_val)
@@ -589,26 +602,30 @@ def _bind(thesignature: Signature, args: tuple[Any, ...], kwargs: dict[str, Any]
             # arguments.
             if (not partial and param.kind != Parameter.VAR_POSITIONAL and
                                                 param.default is _empty):
+                # [unpythonic] Collect instead of raising:
                 # raise TypeError('missing a required argument: {arg!r}'.
                 #                 format(arg=param_name)) from None
                 unbound_parameters.append(param)
 
         else:
-            if param.kind == Parameter.POSITIONAL_ONLY:
-                # This should never happen in case of a properly built
-                # Signature object (but let's have this check here
-                # to ensure correct behaviour just in case)
-                raise TypeError('{arg!r} parameter is positional only, '
-                                'but was passed as a keyword'.
-                                format(arg=param.name))
-
             arguments[param_name] = arg_val
 
     if kwargs:
         if kwargs_param is not None:
             # Process our '**kwargs'-like parameter
             arguments[kwargs_param.name] = kwargs
+        elif pos_only_param_in_kwargs:
+            raise TypeError(
+                'got some positional-only arguments passed as '
+                'keyword arguments: {arg!r}'.format(
+                    arg=', '.join(
+                        param.name
+                        for param in pos_only_param_in_kwargs
+                    ),
+                ),
+            )
         else:
+            # [unpythonic] Collect instead of raising:
             # raise TypeError(
             #     'got an unexpected keyword argument {arg!r}'.format(
             #         arg=next(iter(kwargs))))
