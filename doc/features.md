@@ -2556,7 +2556,7 @@ We provide the [Cauchy product](https://en.wikipedia.org/wiki/Cauchy_product), a
 
 We also provide `gmathify`, a decorator to mathify a gfunc, so that it will `imathify()` the generator instances it makes. Combo with `imemoize` for great justice, e.g. `a = gmathify(imemoize(myiterable))`, and then `a()` to instantiate a memoized-and-mathified copy.
 
-To apply a custom function termwise to an iterable, use `slift1` (unary) or `slift2` (binary). These lift a scalar operation into one that works on iterables, returning a lazy `imathify`'d generator. All the built-in `s`-prefixed operators (`sadd`, `sabs`, ...) are defined using this mechanism. Extra arguments are baked into each call: e.g. `slift1(round, 2)` gives termwise `round(x, 2)`.
+To apply a custom function termwise to an iterable, use `slift1` (unary) or `slift2` (binary). These lift a scalar operation into one that works on iterables, returning a lazy imathified generator. All the built-in `s`-prefixed operators (`sadd`, `sabs`, ...) are defined using this mechanism. Extra arguments are baked into each call: e.g. `slift1(round, 2)` gives termwise `round(x, 2)`.
 
 ```python
 from unpythonic import slift1, slift2, s, take

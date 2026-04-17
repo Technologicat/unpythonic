@@ -20,7 +20,7 @@
   - `Sliced` has abstract `__getitem__`.
   - `FupTarget` has abstract `__getitem__` returning `Fuppable`.
   - `Fuppable` has abstract `__lshift__`.
-- `slift1`, `slift2`: lift scalar unary/binary operations to work termwise on iterables, returning `imathify`'d lazy generators. Accept optional extra arguments baked into each call (e.g. `slift1(round, 2)`). These are the mechanism behind all built-in `s`-prefixed operators, now exposed for user-defined functions.
+- `slift1`, `slift2`: lift scalar unary/binary operations to work termwise on iterables, returning imathified lazy generators. Accept optional extra arguments baked into each call (e.g. `slift1(round, 2)`). These are the mechanism behind all built-in `s`-prefixed operators, now exposed for user-defined functions.
 - `ConditionProtocol`: `typing.Protocol` capturing the call signature shared by error-handling protocols (`signal`, `error`, `cerror`, `warn`). Useful for annotating custom protocols.
 
 **Changed**:

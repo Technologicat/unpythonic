@@ -172,7 +172,7 @@ def runtests():
         test_raises[ValueError, cauchyprod(s(1, 3, 5, ...), s(2, 4, 6, ...), require="invalid_value")]
 
     with testset("imathify, gmathify (infix syntax for arithmetic)"):
-        # Sequences returned by `s` are `imathify`'d implicitly.
+        # Sequences returned by `s` are imathified implicitly.
         test[tuple(take(5, s(1, 3, 5, ...) + s(2, 4, 6, ...))) == (3, 7, 11, 15, 19)]
         test[tuple(take(5, 1 + s(1, 3, ...))) == (2, 4, 6, 8, 10)]
         test[tuple(take(5, 1 - s(1, 3, ...))) == (0, -2, -4, -6, -8)]
