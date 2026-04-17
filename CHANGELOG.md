@@ -1,6 +1,6 @@
 # Changelog
 
-**2.1.0** (in progress) — *"Cat-hedral"* edition:
+**2.1.0** (17 April 2026) — *"Cat-hedral"* edition:
 
 **New**:
 
