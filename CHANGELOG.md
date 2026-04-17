@@ -1,5 +1,12 @@
 # Changelog
 
+**2.1.1** (in progress):
+
+*No user-visible changes yet.*
+
+
+---
+
 **2.1.0** (17 April 2026) — *"Cat-hedral"* edition:
 
 **New**:

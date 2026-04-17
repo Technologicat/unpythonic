@@ -7,7 +7,7 @@ If you have ``mcpyrate`` installed, see also ``unpythonic.syntax``
 for a trip down the rabbit hole.
 """
 
-__version__ = '2.1.0'
+__version__ = '2.1.1-dev'
 
 from .amb import *  # noqa: F401, F403
 from .arity import *  # noqa: F401, F403
