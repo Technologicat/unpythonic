@@ -57,14 +57,16 @@ __all__ = ["signal", "error",
            "available_restarts", "available_handlers",
            "restarts", "with_restarts",
            "handlers",
-           "ControlError",
+           "ControlError", "ConditionProtocol",
            "resignal_in", "resignal"]
 
 import threading
 from collections import deque, namedtuple
+from collections.abc import Callable, Generator
 from functools import partial
 from operator import itemgetter
 import contextlib
+from typing import Any, NoReturn, Protocol, TypeVar
 import warnings
 
 from .collections import box, unbox
@@ -72,8 +74,21 @@ from .arity import arity_includes, UnknownArity
 from .excutil import equip_with_traceback
 from .misc import namelambda, safeissubclass
 
+# TODO: When floor bumps to 3.12, use inline `[T]` syntax on `with_restarts`
+# and `resignal_in` (PEP 695), and `type _ExcMapping = ...` for the mapping
+# type repeated in `_resignal_handler`, `resignal_in`, and `resignal`.
+T = TypeVar('T')
+
+class ConditionProtocol(Protocol):
+    """The call signature shared by error-handling protocols (`signal`, `error`, `cerror`, `warn`).
+
+    A custom protocol is any callable satisfying this interface.
+    """
+    def __call__(self, condition: BaseException | type[BaseException],
+                 *, cause: BaseException | type[BaseException] | None = ...) -> Any: ...
+
 _stacks = threading.local()
-def _ensure_stacks():  # per-thread init
+def _ensure_stacks() -> None:  # per-thread init
     for x in ("restarts", "handlers"):
         if not hasattr(_stacks, x):
             setattr(_stacks, x, deque())
@@ -88,7 +103,7 @@ class ControlError(Exception):
     when no handler handles the signal.
     """
 
-def signal(condition, *, cause=None, protocol=None):
+def signal(condition: BaseException | type[BaseException], *, cause: BaseException | type[BaseException] | None = None, protocol: ConditionProtocol | None = None) -> BaseException:
     """Signal a condition.
 
     Signaling a condition works similarly to raising an exception (pass an
@@ -181,7 +196,7 @@ def signal(condition, *, cause=None, protocol=None):
     protocol = protocol or signal
     condition = _prepare_signal_instance(condition, cause=cause, protocol=protocol, stacklevel=3)
 
-    def accepts_arg(f):
+    def accepts_arg(f: Callable[..., Any]) -> bool:
         try:
             if arity_includes(f, 1):
                 return True
@@ -199,7 +214,7 @@ def signal(condition, *, cause=None, protocol=None):
     # `error()` uses this return value; this allows us to provide a unified format for tracebacks.
     return condition
 
-def _prepare_signal_instance(condition, *, cause, protocol, stacklevel):
+def _prepare_signal_instance(condition: BaseException | type[BaseException], *, cause: BaseException | type[BaseException] | None, protocol: ConditionProtocol, stacklevel: int) -> BaseException:
     """Canonize a condition, and populate its technical data."""
     # Consistency with behavior of exceptions in Python:
     #   Even if a class is raised, as in `raise StopIteration`, the `raise` statement
@@ -207,7 +222,7 @@ def _prepare_signal_instance(condition, *, cause, protocol, stacklevel):
     #   special handling for the "class raised" case.
     #     https://docs.python.org/3/reference/simple_stmts.html#the-raise-statement
     #     https://stackoverflow.com/questions/19768515/is-there-a-difference-between-raising-exception-class-and-exception-instance/19768732
-    def canonize(exc, err_reason):
+    def canonize(exc: BaseException | type[BaseException] | None, err_reason: str) -> BaseException | None:
         if exc is None:
             return None
         if isinstance(exc, BaseException):  # "signal(SomeError())"
@@ -229,7 +244,7 @@ def _prepare_signal_instance(condition, *, cause, protocol, stacklevel):
 
     return condition
 
-def invoke(name_or_restart, *args, **kwargs):
+def invoke(name_or_restart: "str | BoundRestart", *args: Any, **kwargs: Any) -> NoReturn:
     """Invoke a restart currently in scope. Known as `INVOKE-RESTART` in Common Lisp.
 
     `name_or_restart` can be the name of a restart, or a restart object returned
@@ -329,7 +344,7 @@ constant args/kwargs, to instantiate a handler that sends that specific
 set of constant args/kwargs.
 """
 
-def invoker(restart_name, *args, **kwargs):
+def invoker(restart_name: str, *args: Any, **kwargs: Any) -> Callable[..., NoReturn]:
     """Create a handler that just invokes the named restart.
 
     The args and kwargs are "frozen" into the created handler by closure, and
@@ -417,13 +432,13 @@ def invoker(restart_name, *args, **kwargs):
     return the_invoker
 
 class _Stacked:  # boilerplate
-    def __init__(self, bindings):
+    def __init__(self, bindings: Any) -> None:
         _ensure_stacks()
         self.e = bindings
-    def __enter__(self):
+    def __enter__(self) -> "_Stacked":
         self.dq.appendleft(self.e)
         return self
-    def __exit__(self, exctype, excvalue, traceback):
+    def __exit__(self, exctype: type[BaseException] | None, excvalue: BaseException | None, traceback: Any) -> None:
         self.dq.popleft()
 
 class Restarts(_Stacked):
@@ -431,7 +446,7 @@ class Restarts(_Stacked):
     # because `with restarts` tells apart instances by their `id`.
     # The `with restarts` form packs the arguments once, then we pass
     # through that dictionary instance as-is.
-    def __init__(self, bindings):
+    def __init__(self, bindings: dict[str, Callable[..., Any]]) -> None:
         """bindings: dictionary of name (str) -> callable"""
         for n, c in bindings.items():
             if not (isinstance(n, str) and callable(c)):
@@ -485,7 +500,7 @@ class handlers(_Stacked):
     """
     # This thin wrapper around `_Stacked` is all we need to provide
     # the `with handlers` form.
-    def __init__(self, *bindings):
+    def __init__(self, *bindings: tuple[type[BaseException] | tuple[type[BaseException], ...], Callable[..., Any]]) -> None:
         """binding: (cls, callable)"""
         for t, c in bindings:
             if not (((isinstance(t, tuple) and all(safeissubclass(x, BaseException) for x in t)) or
@@ -496,14 +511,14 @@ class handlers(_Stacked):
         self.dq = _stacks.handlers
 
 class InvokeRestart(BaseException):
-    def __init__(self, restart, *args, **kwargs):  # e is the context
+    def __init__(self, restart: "BoundRestart", *args: Any, **kwargs: Any) -> None:
         self.restart, self.a, self.kw = restart, args, kwargs
         # message when uncaught
         self.args = ("unpythonic.conditions: internal error: uncaught InvokeRestart",)
-    def __call__(self):
+    def __call__(self) -> Any:
         return self.restart.function(*self.a, **self.kw)
 
-def _find_handlers(cls):  # 0..n (though 0 is an error, handled at the calling end)
+def _find_handlers(cls: type[BaseException]) -> Generator[Callable[..., Any], None, None]:  # 0..n (though 0 is an error, handled at the calling end)
     _ensure_stacks()
     for e in _stacks.handlers:
         for t, handler in e:  # t: tuple or type
@@ -515,7 +530,7 @@ def _find_handlers(cls):  # 0..n (though 0 is an error, handled at the calling e
                     yield handler
 
 BoundRestart = namedtuple("BoundRestart", ["name", "function", "context"])
-def find_restart(name):  # exactly 1 (most recently bound wins)
+def find_restart(name: str) -> "BoundRestart | None":  # exactly 1 (most recently bound wins)
     """Look up a restart. Known as `FIND-RESTART` in Common Lisp.
 
     If the named restart is currently in (dynamic) scope, return an opaque
@@ -532,8 +547,9 @@ def find_restart(name):  # exactly 1 (most recently bound wins)
     for e in _stacks.restarts:
         if name in e:
             return BoundRestart(name, e[name], e)
+    return None  # no matching restart found
 
-def available_restarts():
+def available_restarts() -> list[tuple[str, Callable[..., Any]]]:
     """Return a sorted list of restarts currently in scope.
 
     Name shadowing is respected; for each unique name, the return value
@@ -553,7 +569,7 @@ def available_restarts():
                 out.append((name, restart))
     return list(sorted(out, key=itemgetter(0)))
 
-def available_handlers():
+def available_handlers() -> list[tuple[type[BaseException], Callable[..., Any]]]:
     """Like available_restarts, but for handlers.
 
     As in `available_restarts`, shadowing is respected. In this case the most
@@ -576,7 +592,7 @@ def available_handlers():
     return list(sorted(out, key=lambda x: x[0].__name__))
 
 @contextlib.contextmanager
-def restarts(**bindings):
+def restarts(**bindings: Callable[..., Any]) -> Generator[box, None, None]:
     """Provide restarts. Known as `RESTART-CASE` in Common Lisp.
 
     Roughly, restarts can be thought of as canned error recovery strategies.
@@ -677,7 +693,7 @@ def restarts(**bindings):
             else:
                 raise  # unwind this level of call stack, propagate outwards
 
-def with_restarts(**bindings):
+def with_restarts(**bindings: Callable[..., Any]) -> Callable[[Callable[[], T]], T]:
     """Alternate syntax. Use restarts with a `def` code block instead of a `with`.
 
     The def'd name is replaced by the unboxed result, so you can return a value
@@ -712,7 +728,7 @@ def with_restarts(**bindings):
     If you'd like to use a `with` statement instead of a parametric decorator
     and a `def`, see the `restarts` form.
     """
-    def call_with_restarts(f):
+    def call_with_restarts(f: Callable[[], T]) -> T:
         """Call `f`, while providing the restarts stored in this closure.
 
         Invoking such a restart terminates `f`, and instead of its normal
@@ -726,7 +742,7 @@ def with_restarts(**bindings):
 # Common Lisp standard error handling protocols, building on the `signal` function.
 # Pythonified to add the `cause` argument.
 
-def error(condition, *, cause=None):
+def error(condition: BaseException | type[BaseException], *, cause: BaseException | type[BaseException] | None = None) -> NoReturn:
     """Like `signal`, but raise `ControlError` if the condition is not handled.
 
     Note **raise**, not **signal**. Keep in mind the original Common Lisp
@@ -745,7 +761,7 @@ def error(condition, *, cause=None):
     """
     _error(condition, cause=cause, protocol=error)
 
-def cerror(condition, *, cause=None):
+def cerror(condition: BaseException | type[BaseException], *, cause: BaseException | type[BaseException] | None = None) -> None:
     """Like `error`, but allow a handler to instruct the caller to ignore the error.
 
     `cerror` internally establishes a restart named `proceed`, which can be
@@ -781,7 +797,7 @@ def cerror(condition, *, cause=None):
     with restarts(proceed=(lambda: None)):  # just for control, no return value
         _error(condition, cause=cause, protocol=cerror)
 
-def _error(condition, *, cause, protocol):
+def _error(condition: BaseException | type[BaseException], *, cause: BaseException | type[BaseException] | None, protocol: ConditionProtocol) -> NoReturn:
     # The return value is canonized to an instance (even if `condition` was an exception *type*),
     # and importantly, it has a nice-looking traceback that points to this line here.
     # If the signal goes unhandled, Python's exception system will want to show that traceback
@@ -795,7 +811,7 @@ def _error(condition, *, cause, protocol):
     # TODO: And do we want to raise ControlError, or the original condition?
     raise ControlError("Unhandled error condition") from condition
 
-def warn(condition, *, cause=None):
+def warn(condition: BaseException | type[BaseException], *, cause: BaseException | type[BaseException] | None = None) -> None:
     """Like `signal`, but emit a warning if the condition is not handled.
 
     For emitting the warning, we use Python's standard `warnings.warn` mechanism.
@@ -859,7 +875,7 @@ muffle.__doc__ = "Invoke the 'muffle' restart. Restart function for use with `wa
 
 # Library to application signal type auto-conversion
 
-def _resignal_handler(mapping, condition):
+def _resignal_handler(mapping: dict[type[BaseException] | tuple[type[BaseException], ...], type[BaseException] | BaseException], condition: BaseException) -> None:
     """Remap a condition instance to another condition type.
 
     `mapping`: dict-like, `{LibraryExc0: ApplicationExc0, ...}`
@@ -892,7 +908,7 @@ def _resignal_handler(mapping, condition):
             resignaler(ApplicationExc, cause=condition)
     # cancel and delegate to the next outer handler
 
-def resignal_in(body, mapping):
+def resignal_in(body: Callable[[], T], mapping: dict[type[BaseException] | tuple[type[BaseException], ...], type[BaseException] | BaseException]) -> T:
     """Remap condition types in an expression.
 
     Like `unpythonic.excutil.reraise_in` (which see), but for conditions.
@@ -928,7 +944,7 @@ def resignal_in(body, mapping):
         return body()
 
 @contextlib.contextmanager
-def resignal(mapping):
+def resignal(mapping: dict[type[BaseException] | tuple[type[BaseException], ...], type[BaseException] | BaseException]) -> Generator[None, None, None]:
     """Remap condition types. Context manager.
 
     Like `unpythonic.excutil.reraise` (which see), but for conditions.
