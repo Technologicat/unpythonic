@@ -33,11 +33,6 @@ shape (a single list-literal statement) forbids lexically wrapping other
 ``continuations``, ``tco``, ``autocurry``, etc.) expand inner macros
 between their two passes, which means they will correctly see and edit
 the expanded bind chain.
-
-**Always in its own nested ``with``** — unlike the other xmas-tree
-macros which chain in one ``with`` for brevity, ``monadic_do[M] as result``
-has both a macro argument and an as-binding, and same-``with`` chaining
-with that combo is syntactically fragile.
 """
 
 __all__ = ["monadic_do"]

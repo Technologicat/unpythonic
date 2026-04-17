@@ -141,7 +141,7 @@ The "innermost" position is both *forced* (by body shape) and *correct* (edit or
 
 - **Correct**: two-pass macros (`lazify`, `tco`, `continuations`, `autocurry`, `envify`, `namedlambda`, `autoref`) do their first pass, then explicitly expand inner macros via `dyn._macro_expander.visit_recursively(body)`, then their second pass. `monadic_do` (one-pass outside-in) fires during the outer macro's `visit_recursively`, producing the bind chain. The outer macro's second pass then edits the expanded chain — exactly the order we want (autocurry curries the calls, lazify force-wraps references, tco optimizes tails, CPS transforms for continuations). One-pass outside-in surface-syntax macros (`prefix`, `autoreturn`, `quicklambda`, `multilambda`) normalize their body before descending, so `monadic_do` sees normal Python when it fires.
 
-**Always in its own nested `with`** — unlike the other xmas-tree macros which chain in one `with` for brevity, `monadic_do(M) as result` has both an argument and an `as` binding, making same-`with` chaining syntactically awkward. Call this out explicitly in the macro's docstring.
+Usage is just the ordinary nested-`with` style that all block macros typically use — no special "must be own `with`" rule needed.
 
 **Dialects**: the same analysis applies transparently. Dialects (e.g., Lispython) wrap a module in block macros at parse-assembly time; `monadic_do` sits innermost within whatever the dialect adds. No dialect-specific integration testing is prioritized — the generic integration tests cover the same underlying macros.
 
