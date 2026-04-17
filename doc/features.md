@@ -64,7 +64,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
   - [`fupdate`](#fupdate): the low-level workhorse.
 - [`view`: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment.
 - [`mogrify`: update a mutable container in-place](#mogrify-update-a-mutable-container-in-place)
-- [`s`, `imathify`, `gmathify`: lazy mathematical sequences with infix arithmetic](#s-imathify-gmathify-lazy-mathematical-sequences-with-infix-arithmetic)
+- [`s`, `imathify`, `gmathify`, `slift1`, `slift2`: lazy mathematical sequences with infix arithmetic](#s-imathify-gmathify-slift1-slift2-lazy-mathematical-sequences-with-infix-arithmetic)
 - [`sym`, `gensym`, `Singleton`: symbols and singletons](#sym-gensym-Singleton-symbols-and-singletons)
 
 [**Control flow tools**](#control-flow-tools)
@@ -2538,7 +2538,7 @@ For convenience, we support some special cases:
     Note that since `cons` is immutable, anyway, if you know you have a long linked list where you need to update the values, just iterate over it and produce a new copy - that will work as intended.
 
 
-### `s`, `imathify`, `gmathify`: lazy mathematical sequences with infix arithmetic
+### `s`, `imathify`, `gmathify`, `slift1`, `slift2`: lazy mathematical sequences with infix arithmetic
 
 **Changed in v0.15.0.** *The deprecated names have been removed.*
 
@@ -2555,6 +2555,19 @@ The function versions of the arithmetic operations (also provided, à la the `op
 We provide the [Cauchy product](https://en.wikipedia.org/wiki/Cauchy_product), and its generalization, the diagonal combination-reduction, for two (possibly infinite) iterables. Note `cauchyprod` **does not sum the series**; given the input sequences `a` and `b`, the call `cauchyprod(a, b)` computes the elements of the output sequence `c`.
 
 We also provide `gmathify`, a decorator to mathify a gfunc, so that it will `imathify()` the generator instances it makes. Combo with `imemoize` for great justice, e.g. `a = gmathify(imemoize(myiterable))`, and then `a()` to instantiate a memoized-and-mathified copy.
+
+To apply a custom function termwise to an iterable, use `slift1` (unary) or `slift2` (binary). These lift a scalar operation into one that works on iterables, returning a lazy `imathify`'d generator. All the built-in `s`-prefixed operators (`sadd`, `sabs`, ...) are defined using this mechanism. Extra arguments are baked into each call: e.g. `slift1(round, 2)` gives termwise `round(x, 2)`.
+
+```python
+from unpythonic import slift1, slift2, s, take
+from math import sin, atan2
+
+ssin = slift1(sin)
+assert tuple(take(3, ssin(s(1, 2, 3)))) == (sin(1), sin(2), sin(3))
+
+satan2 = slift2(atan2)
+assert tuple(take(3, satan2(s(1, 2, 3), s(4, 5, 6)))) == (atan2(1, 4), atan2(2, 5), atan2(3, 6))
+```
 
 Finally, we provide ready-made generators that yield some common sequences (currently, the Fibonacci numbers, the triangular numbers, and the prime numbers). The prime generator is an FP-ized sieve of Eratosthenes.
 

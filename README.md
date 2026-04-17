@@ -430,13 +430,17 @@ assert a(0) is NoReturn
 </details>  
 <details><summary>Build number sequences by example. Slice general iterables.</summary>
 
-[[docs for `s`](doc/features.md#s-m-mg-lazy-mathematical-sequences-with-infix-arithmetic)] [[docs for `islice`](doc/features.md#islice-slice-syntax-support-for-itertoolsislice)]
+[[docs for `s`](doc/features.md#s-imathify-gmathify-slift1-slift2-lazy-mathematical-sequences-with-infix-arithmetic)] [[docs for `islice`](doc/features.md#islice-slice-syntax-support-for-itertoolsislice)]
 
 ```python
-from unpythonic import s, islice
+from unpythonic import s, slift1, islice
+from math import sin
 
 seq = s(1, 2, 4, ...)
 assert tuple(islice(seq)[:10]) == (1, 2, 4, 8, 16, 32, 64, 128, 256, 512)
+
+ssin = slift1(sin)       # lift scalar function to work termwise on iterables
+assert tuple(islice(ssin(s(1, 2, ...)))[:3]) == (sin(1), sin(2), sin(3))
 ```
 </details>  
 <details><summary>Memoize functions and generators.</summary>
