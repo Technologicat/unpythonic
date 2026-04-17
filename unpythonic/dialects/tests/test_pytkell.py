@@ -9,7 +9,7 @@ from ...test.fixtures import session, testset
 
 from ...syntax import macros, continuations, call_cc, tco  # noqa: F401, F811
 from ...syntax import macros, monadic_do  # noqa: F401, F811
-from ...monads import Maybe, Writer
+from ...monads import Maybe, Writer, List
 from ...funutil import Values
 from ...misc import timer
 
@@ -256,11 +256,17 @@ def runtests():
              b := maybe_sqrt(a)] in bad << Maybe(b)
         test[bad == Maybe(nil)]  # noqa: F821 -- `nil` is in the Pytkell dialect
 
-        # List-monad Pythagorean triples under Pytkell's auto-lazify is deferred:
-        # `lazify`'s deep-force via `mogrify` doesn't reliably unwrap the nested
-        # generator expressions that `List`'s internal `from_iterable` produces
-        # during bind. Use `monadic_do[List]` outside Pytkell, or materialize
-        # intermediate results explicitly. See TODO_DEFERRED entry.
+        # List — classical Pythagorean triples.
+        def r(lo, hi):
+            return List.from_iterable(range(lo, hi))
+
+        with monadic_do[List] as pt:
+            [z := r(1, 21),
+             x := r(1, z + 1),
+             y := r(x, z + 1),
+             _ := List.guard(x * x + y * y == z * z)] in pt << List((x, y, z))
+        test[tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
+                                   (8, 15, 17), (9, 12, 15), (12, 16, 20))]
 
         # Writer — logged computation.
         with monadic_do[Writer] as w:
