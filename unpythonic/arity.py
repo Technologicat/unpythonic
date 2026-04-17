@@ -12,10 +12,15 @@ __all__ = ["getfunc",
            "UnknownArity"]
 
 from collections import OrderedDict
+from collections.abc import Callable
 import copy
-from inspect import signature, Parameter, ismethod, BoundArguments, _empty
+from inspect import signature, Parameter, Signature, ismethod, BoundArguments, _empty
 import itertools
 import operator
+from typing import Any, Literal
+
+# TODO: When floor bumps to 3.12, use `type _FuncKind = ...` (PEP 695).
+_FuncKind = Literal["function", "instancemethod", "classmethod", "staticmethod"]
 
 class UnknownArity(ValueError):
     """Raised when the arity of a function cannot be inspected."""
@@ -30,7 +35,7 @@ class UnknownArity(ValueError):
 #
 # Note this doesn't cover methods such as list.append, or any other parts
 # of the standard library.
-_infty = float("+inf")
+_infty: float = float("+inf")
 _builtin_arities = {  # inspectable, but reporting incorrectly
                     bool: (1, 1),       # bool(x)
                     bytes: (0, 3),      # see help(bytes)
@@ -157,7 +162,7 @@ _builtin_arities = {  # inspectable, but reporting incorrectly
                     operator.itruediv: (2, 2),
                     operator.ixor: (2, 2)}
 
-def getfunc(f):  # public as of v0.14.3+
+def getfunc(f: Callable[..., Any] | staticmethod | classmethod) -> tuple[Callable[..., Any], _FuncKind]:  # public as of v0.14.3+
     """Given a function or method, return the underlying function.
 
     Return value is a tuple ``(function, kind)``, where ``kind`` is one of
@@ -202,7 +207,7 @@ def getfunc(f):  # public as of v0.14.3+
             raw_function = f
     return (raw_function, kind)
 
-def arities(f):
+def arities(f: Callable[..., Any]) -> tuple[int | float, int | float]:
     """Inspect f's minimum and maximum positional arity.
 
     This uses inspect.signature; note that the signature of builtin functions
@@ -276,7 +281,7 @@ def arities(f):
     except (TypeError, ValueError) as e:  # likely an uninspectable method of a builtin
         raise UnknownArity(*e.args)
 
-def required_kwargs(f):
+def required_kwargs(f: Callable[..., Any]) -> set[str]:
     """Return a set containing the names of required name-only arguments of `f`.
 
     *Required* means the parameter has no default.
@@ -288,7 +293,7 @@ def required_kwargs(f):
     """
     return _kwargs(f, optionals=False)
 
-def optional_kwargs(f):
+def optional_kwargs(f: Callable[..., Any]) -> set[str]:
     """Return a set containing the names of optional name-only arguments of `f`.
 
     *Optional* means the parameter has a default.
@@ -300,13 +305,13 @@ def optional_kwargs(f):
     """
     return _kwargs(f, optionals=True)
 
-def _kwargs(f, optionals=True):
+def _kwargs(f: Callable[..., Any], optionals: bool = True) -> set[str]:
     f, _ = getfunc(f)
 
     # Integration with the multiple-dispatch system (multimethods).
     from .dispatch import isgeneric, list_methods  # circular import
     if isgeneric(f):
-        thekwargs = {}
+        thekwargs: set[str] = set()
         for (thecallable, type_signature) in list_methods(f):
             thekwargs.update(_kwargs(thecallable, optionals=optionals))
         return thekwargs
@@ -321,7 +326,7 @@ def _kwargs(f, optionals=True):
     except (TypeError, ValueError) as e:
         raise UnknownArity(*e.args)
 
-def kwargs(f):
+def kwargs(f: Callable[..., Any]) -> tuple[set[str], set[str]]:
     """Like Racket's (procedure-keywords).
 
     Return two sets: the first contains the `required_kwargs` of ``f``,
@@ -331,7 +336,7 @@ def kwargs(f):
     """
     return (required_kwargs(f), optional_kwargs(f))
 
-def arity_includes(f, n):
+def arity_includes(f: Callable[..., Any], n: int) -> bool:
     """Check whether f's positional arity includes n.
 
     I.e., return whether ``f()`` can be called with ``n`` positional arguments.
@@ -339,14 +344,14 @@ def arity_includes(f, n):
     lower, upper = arities(f)
     return lower <= n <= upper
 
-def resolve_bindings_partial(f, *args, **kwargs):
+def resolve_bindings_partial(f: Callable[..., Any], *args: Any, **kwargs: Any) -> BoundArguments:
     """Like `resolve_bindings`, but use `inspect.Signature.bind_partial`.
 
     That is, it is acceptable for some parameters of `f` not to have a binding.
     """
     return _resolve_bindings(f, args, kwargs, _partial=True)
 
-def resolve_bindings(f, *args, **kwargs):
+def resolve_bindings(f: Callable[..., Any], *args: Any, **kwargs: Any) -> BoundArguments:
     """Resolve parameter bindings established by `f` when called with the given args and kwargs.
 
     This is an inspection tool, which does not actually call `f`. This is useful for memoizers
@@ -411,7 +416,7 @@ def resolve_bindings(f, *args, **kwargs):
     """
     return _resolve_bindings(f, args, kwargs, _partial=False)
 
-def _resolve_bindings(f, args, kwargs, *, _partial):
+def _resolve_bindings(f: Callable[..., Any], args: tuple[Any, ...], kwargs: dict[str, Any], *, _partial: bool) -> BoundArguments:
     thesignature = signature(f)
     if _partial:
         bound_arguments = thesignature.bind_partial(*args, **kwargs)
@@ -420,7 +425,7 @@ def _resolve_bindings(f, args, kwargs, *, _partial):
     bound_arguments.apply_defaults()
     return bound_arguments
 
-def tuplify_bindings(bound_arguments):
+def tuplify_bindings(bound_arguments: BoundArguments) -> tuple[tuple[str, Any], ...]:
     """Convert the return value of `resolve_bindings` into a hashable form.
 
     This is useful for memoizers and similar use cases, which need to use a
@@ -436,7 +441,7 @@ def tuplify_bindings(bound_arguments):
 
     See `resolve_bindings` for an example.
     """
-    def tuplify(ordereddict):
+    def tuplify(ordereddict: OrderedDict[str, Any]) -> tuple[tuple[str, Any], ...]:
         return tuple(ordereddict.items())
 
     # Tuplify the **kwargs dict.
@@ -469,7 +474,7 @@ def tuplify_bindings(bound_arguments):
 #
 # Used under the PSF license. Copyright (c) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010,
 # 2011, 2012, 2013, 2014, 2015, 2016, 2017, 2018, 2019, 2020 Python Software Foundation; All Rights Reserved
-def _bind(thesignature, args, kwargs, *, partial):
+def _bind(thesignature: Signature, args: tuple[Any, ...], kwargs: dict[str, Any], *, partial: bool) -> tuple[BoundArguments, tuple[Parameter, ...], tuple[tuple[Any, ...], OrderedDict[str, Any]]]:
     """Private method. Don't use directly."""
 
     arguments = OrderedDict()
