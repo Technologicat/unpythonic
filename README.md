@@ -731,25 +731,26 @@ with lazify:
 from unpythonic.syntax import macros, monadic_do
 from unpythonic.monads import Maybe, List
 
-# Maybe — do-notation threads Just-values (denoted `Maybe(value)`); any Nothing (`unpythonic.nil`) short-circuits.
+# Maybe — do-notation threads present values (`Maybe(value)`); any absence (`Maybe(nil)`) short-circuits.
 with monadic_do[Maybe] as result:
     [x := Maybe(10),
-     y := Maybe(x + 1)] in result << Maybe(x + y)
+     y := Maybe(x + 1)] in Maybe(x + y)
 assert result == Maybe(21)
 
-# List — Pythagorean triples via the list monad
+# List — Pythagorean triples via the list monad. Bare `List.guard(...)`
+# is a sequencing-only bind; result discarded. Matches Haskell's `guard`.
 def r(lo, hi):
     return List.from_iterable(range(lo, hi))
 with monadic_do[List] as pt:
     [z := r(1, 21),
      x := r(1, z + 1),
      y := r(x, z + 1),
-     _ := List.guard(x*x + y*y == z*z)] in pt << List((x, y, z))
+     List.guard(x*x + y*y == z*z)] in List((x, y, z))
 assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                              (8, 15, 17), (9, 12, 15), (12, 16, 20))
 ```
 
-Body shape is a single `[bindings] in result << final_expr` statement: bindings on the left of `in`, the "send to box" exit pattern on the right. `:=` is the primary bind arrow (parsed by the same `letdoutil` machinery as the modern `let[]` syntax); `<<` also works.
+Body shape is a single `[bindings] in final_expr` statement: monadic binds on the left of `in` (`name := mexpr` or bare `mexpr` for sequencing), the final monadic expression on the right (any expression of the right type, like the last line of a Haskell `do`). The `as result` on the `with` names the target.
 </details>  
 <details><summary>Genuine multi-shot continuations (call/cc).</summary>
 

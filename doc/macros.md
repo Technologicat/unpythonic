@@ -1816,7 +1816,12 @@ For code using **conditions and restarts**: there is no special integration betw
 
 Monadic do-notation over any of the monads in [`unpythonic.monads`](features.md#monads) (or, for that matter, any object that implements `__rshift__` as monadic bind).
 
-The body of `with monadic_do[M] as result:` must be a single statement of the form `[bindings] in result << final_expr`. Each binding is a `name := mexpr` pair; `name << mexpr` is accepted as a deprecated alternative (the same shapes `letdoutil` understands for `let[]`). The `result << final_expr` on the RHS of `in` is where the final monadic value lands; this is the "send to box" exit idiom unpythonic uses elsewhere (e.g., the condition/restart subsystem), sidestepping the stmt/expr distinction without hijacking `return`.
+The body of `with monadic_do[M] as result:` must be a single statement of the form `[bindings] in final_expr`. Each binding is one of:
+
+- `name := mexpr` — **monadic bind**: unwrap the monadic value and bind it to `name` for subsequent lines. Also accepts the legacy `name << mexpr` form that `letdoutil` understands for `let[]`.
+- a bare `mexpr` — **sequencing-only** (Haskell's `do { mx; ... }`): the monadic value is threaded through the chain but its unwrapped value is discarded. Used e.g. for `guard`-style filter lines.
+
+The RHS of `in` is the final monadic expression — any expression of the right monad type, same semantics as Haskell's last-line-of-do (can be a constructor call, a call to a monad-producing function, anything of type `M a`). The `as result` on the `with` tells the macro where to land the computed value.
 
 ```python
 from unpythonic.syntax import macros, monadic_do
@@ -1826,28 +1831,30 @@ from unpythonic.llist import nil
 # Maybe — happy path
 with monadic_do[Maybe] as result:
     [x := Maybe(10),
-     y := Maybe(x + 1)] in result << Maybe(x + y)
+     y := Maybe(x + 1)] in Maybe(x + y)
 assert result == Maybe(21)
 
 # Maybe — short-circuit. The `y := ...` line is never evaluated.
 with monadic_do[Maybe] as result:
     [x := Maybe(nil),
-     y := Maybe(x + 1)] in result << Maybe(x + y)
+     y := Maybe(x + 1)] in Maybe(x + y)
 assert result == Maybe(nil)
 
-# List — Pythagorean triples
+# List — Pythagorean triples. The bare `List.guard(...)` line is a
+# sequencing-only bind; its result is discarded. Matches Haskell's
+# `guard` in do-notation exactly.
 def r(lo, hi):
     return List.from_iterable(range(lo, hi))
 with monadic_do[List] as pt:
     [z := r(1, 21),
      x := r(1, z + 1),
      y := r(x, z + 1),
-     _ := List.guard(x*x + y*y == z*z)] in pt << List((x, y, z))
+     List.guard(x*x + y*y == z*z)] in List((x, y, z))
 assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                              (8, 15, 17), (9, 12, 15), (12, 16, 20))
 ```
 
-Sequencing-only lines (Haskell `do { mx; ...; }` — a bind whose result is discarded) are spelled `_ := mexpr`. The throwaway `_` makes the intent visible. Empty bindings are allowed: `[] in result << M.unit(x)` reduces to `result = M.unit(x)`.
+Empty bindings are allowed: `[] in M.unit(x)` reduces to `result = M.unit(x)`.
 
 Expands to a nested lambda-bind chain:
 
@@ -1855,7 +1862,9 @@ Expands to a nested lambda-bind chain:
 result = mx >> (lambda x: my(x) >> (lambda y: final_expr))
 ```
 
-**Placement in the xmas tree**: `monadic_do` is always the **innermost** `with`. Its body-shape constraint (a single `[bindings] in result << expr` statement) forbids lexically wrapping other `with` blocks inside. Outer two-pass macros (`lazify`, `continuations`, `tco`, `autocurry`, etc.) expand inner macros between their passes, so they will see and edit the expanded bind chain in the right order.
+Sequencing-only lines (bare `mexpr`) are rewritten to `_ := mexpr` internally and participate in the same chain; their unwrapped value is bound to `_` and ignored.
+
+**Placement in the xmas tree**: `monadic_do` is always the **innermost** `with`. Its body-shape constraint (a single `[bindings] in final_expr` statement) forbids lexically wrapping other `with` blocks inside. Outer two-pass macros (`lazify`, `continuations`, `tco`, `autocurry`, etc.) expand inner macros between their passes, so they will see and edit the expanded bind chain in the right order.
 
 ```python
 with lazify:

@@ -248,12 +248,12 @@ def runtests():
 
         with monadic_do[Maybe] as root4:
             [a := maybe_sqrt(16),
-             b := maybe_sqrt(a)] in root4 << Maybe(b)
+             b := maybe_sqrt(a)] in Maybe(b)
         test[root4 == Maybe(2.0)]
 
         with monadic_do[Maybe] as bad:
             [a := maybe_sqrt(-1),
-             b := maybe_sqrt(a)] in bad << Maybe(b)
+             b := maybe_sqrt(a)] in Maybe(b)
         test[bad == Maybe(nil)]  # noqa: F821 -- `nil` is in the Pytkell dialect
 
         # List — classical Pythagorean triples.
@@ -264,14 +264,14 @@ def runtests():
             [z := r(1, 21),
              x := r(1, z + 1),
              y := r(x, z + 1),
-             _ := List.guard(x * x + y * y == z * z)] in pt << List((x, y, z))
+             List.guard(x * x + y * y == z * z)] in List((x, y, z))
         test[tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                                    (8, 15, 17), (9, 12, 15), (12, 16, 20))]
 
         # Writer — logged computation.
         with monadic_do[Writer] as w:
             [a := Writer(10, "start; "),
-             b := Writer(a + 1, "+1; ")] in w << Writer(b * 2, "doubled; ")
+             b := Writer(a + 1, "+1; ")] in Writer(b * 2, "doubled; ")
         value, log = w.data
         test[value == 22]
         test[log == "start; +1; doubled; "]
