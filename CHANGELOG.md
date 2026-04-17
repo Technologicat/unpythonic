@@ -20,6 +20,8 @@
   - `Sliced` has abstract `__getitem__`.
   - `FupTarget` has abstract `__getitem__` returning `Fuppable`.
   - `Fuppable` has abstract `__lshift__`.
+- `slift1`, `slift2`: lift scalar unary/binary operations to work termwise on iterables, returning `imathify`'d lazy generators. Accept optional extra arguments baked into each call (e.g. `slift1(round, 2)`). These are the mechanism behind all built-in `s`-prefixed operators, now exposed for user-defined functions.
+- `ConditionProtocol`: `typing.Protocol` capturing the call signature shared by error-handling protocols (`signal`, `error`, `cerror`, `warn`). Useful for annotating custom protocols.
 
 **Changed**:
 
@@ -39,6 +41,7 @@
   - macOS ships `readline` backed by `libedit`, which speaks a different `parse_and_bind` dialect than GNU readline — the client now detects `platform.system() == "Darwin"` and issues the libedit form there.
 - `unpythonic.misc.timer` and `unpythonic.timeutil.ETAEstimator`: switched from `time.monotonic()` to `time.perf_counter()`.
   - Latent Windows-only bug: `monotonic` is backed by a ~16 ms tick counter on Windows, so microsecond-scale `with timer() as t: ...` blocks recorded `t.dt = 0.0` and downstream divisions raised `ZeroDivisionError`. `perf_counter` has the highest available resolution on every platform. POSIX unaffected.
+- `unpythonic.arity._kwargs`: generic dispatch path used `dict` instead of `set` for accumulating kwargs names. Latent bug — only triggers if a `@generic` function has keyword-only arguments.
 - `unpythonic.test.runner`: module discovery no longer crashes on MS Windows with `re.error: bad escape`.
   - The runner used `re.sub(os.path.sep, ...)` — `os.path.sep` is a lone backslash on Windows, an invalid regex pattern. Fixed by using `str.replace`. Affects any project reusing `unpythonic.test.runner`.
 
@@ -54,9 +57,9 @@
 - `unpythonic.net.client`: `import readline` moved from module top into `connect()`, with a three-tier fallback (`readline` → `pyreadline3` → graceful degradation).
   - POSIX behaviour unchanged; the module is now importable on Windows.
 - `unpythonic.net.tests.fixtures.nettest`: binds on port 0 (kernel-assigned), removed a `sleep(0.05)` race-condition bandage, and re-raises worker-thread exceptions instead of swallowing them.
-- Type annotations added to public API signatures (and private helpers/closures) across 29 modules.
-  - Full list of newly type-annotated modules: `regutil`, `symbol`, `assignonce`, `numutil`, `misc`, `excutil`, `fup`, `fix`, `environ`, `fun`, `it`, `fold`, `funutil`, `lazyutil`, `ec`, `singleton`, `env`, `gtco`, `amb`, `tco`, `slicing`, `dynassign`, `gmemo`, `llist`, `fploop`, `let`, `lispylet`, `seq`, `collections`.
-  - Remaining unannotated: `conditions`, `dispatch`, `mathseq`, `typecheck`, `arity` (hard tier — deeply dynamic or inspect-heavy).
+- Type annotations added to public API signatures (and private helpers/closures) across 32 modules.
+  - Full list of newly type-annotated modules: `regutil`, `symbol`, `assignonce`, `numutil`, `misc`, `excutil`, `fup`, `fix`, `environ`, `fun`, `it`, `fold`, `funutil`, `lazyutil`, `ec`, `singleton`, `env`, `gtco`, `amb`, `tco`, `slicing`, `dynassign`, `gmemo`, `llist`, `fploop`, `let`, `lispylet`, `seq`, `collections`, `arity`, `conditions`, `mathseq`.
+  - Remaining unannotated: `dispatch`, `typecheck` (hard tier — deeply dynamic).
   - Convention: `F = TypeVar('F', bound=Callable)` for callable parameters, `T = TypeVar('T')` for data values.
 - `amb` cleanups.
   - `Assignment` renamed to `Choice`.
@@ -67,6 +70,8 @@
   - `__eq__` now requires `Sequence` and raises `TypeError` for incompatible types (latent bug: previously crashed on non-`Sized` input).
   - `roview._cache` attribute now declared in `__init__`.
   - `_make_negidx_converter.convert` now has explicit `return None` for passthrough path.
+- `arity._bind`: rebased from Python 3.8.5 `inspect.Signature._bind` to Python 3.14. Adds deferred positional-only-in-kwargs handling, updated error messages. Divergence points marked with `[unpythonic]` for easy auditing. `OrderedDict` → `dict` throughout (ordered since 3.7).
+- `mathseq`: `hasattr(x, "__iter__")` → `isinstance(x, Iterable)` (3 sites). `imathify` registered as virtual subclass of `Iterable`. Internal `primitive_*` operator aliases renamed to `atom_*`. `spow`/`sround` varargs (`*mod`, `*ndigits`) changed to `int | None = None`.
 - Bare `object()` sentinels replaced with `sym`/`gensym` for debug readability.
   - Affected: `ec.py` (`gensym("anchor")`), `llist.py` (`gensym("fill")`, module-level), `fold.py` (`sym("_uselast")`), `test_conditions.py`, `test_collections.py`.
 
