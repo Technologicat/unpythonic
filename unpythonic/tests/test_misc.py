@@ -228,7 +228,16 @@ def runtests():
         test[the[si_prefix(-1536, binary=True)] == "-1.50 Ki"]
         test[the[si_prefix(0.5, binary=True)] == "512.00 mi"]
         test[the[si_prefix(0.5 / 1024, binary=True)] == "512.00 µi"]
-        test[the[si_prefix(1 / 1024, binary=True)] == "1.00 mi"]
+        test[the[si_prefix(1 / 1024, binary=True)] == "1.00 mi"]  # mibi
+        test[the[si_prefix(1 / 1024**2, binary=True)] == "1.00 µi"]  # microbi
+        test[the[si_prefix(1 / 1024**3, binary=True)] == "1.00 ni"]  # nino
+        test[the[si_prefix(1 / 1024**4, binary=True)] == "1.00 pi"]  # pithon
+        test[the[si_prefix(1 / 1024**5, binary=True)] == "1.00 fi"]
+        test[the[si_prefix(1 / 1024**6, binary=True)] == "1.00 ai"]  # AI
+        test[the[si_prefix(1 / 1024**7, binary=True)] == "1.00 zi"]
+        test[the[si_prefix(1 / 1024**8, binary=True)] == "1.00 yi"]
+        test[the[si_prefix(1 / 1024**9, binary=True)] == "1.00 ri"]
+        test[the[si_prefix(1 / 1024**10, binary=True)] == "1.00 qi"]  # chi
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
