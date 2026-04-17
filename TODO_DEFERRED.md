@@ -1,18 +1,15 @@
 # Deferred Issues
 
-Next unused item code: D15
+Next unused item code: D16
 
 - **D5**: `dispatch.py` — moved to GitHub issue #99. Dispatch-layer improvements for parametric ABCs (warn/error on indistinguishable multimethods). Typecheck-layer part resolved.
 
 
-- **D8: Type annotations — remaining hard-tier modules**: As of v2.1.0, 29 of 34 pure-Python modules are annotated. Five remain — all hard tier, genuinely resistant to static typing:
-  - `conditions.py` (18 exports) — complex control flow, thread-local handler/restart stacks, dynamic dispatch through the condition system.
+- **D8: Type annotations — remaining hard-tier modules**: As of v2.1.0, 32 of 34 pure-Python modules are annotated. Two remain — genuinely resistant to static typing:
   - `dispatch.py` (7 exports) — runtime multiple dispatch, `typing` module introspection, multimethod resolution.
-  - `mathseq.py` (29 exports) — optional dependencies (mpmath/SymPy), dynamic numeric types.
   - `typecheck.py` (1 export) — deeply introspective runtime type checking; the function *is* the type system.
-  - `arity.py` (10 exports) — `inspect`-heavy signature analysis; medium difficulty, just didn't get reached.
 
-  Also within already-annotated modules, some functions were deliberately left unannotated: `curry`, `compose*` family, `flatten*` family (dynamic arity, `Values` unpacking, recursive type flattening). Convention established: `F = TypeVar('F', bound=Callable)` for callables, `T = TypeVar('T')` for data values; `fillvalue` parameters use `Any` (sentinel may differ from element type). D8's original audit concern (abstract params, concrete returns, no deprecated `typing` forms) should be checked against the annotations added. (Updated 2026-04-16.)
+  Also within already-annotated modules, some functions were deliberately left unannotated: `curry`, `compose*` family, `flatten*` family (dynamic arity, `Values` unpacking, recursive type flattening). Convention established: `F = TypeVar('F', bound=Callable)` for callables, `T = TypeVar('T')` for data values; `fillvalue` parameters use `Any` (sentinel may differ from element type). D8's original audit concern (abstract params, concrete returns, no deprecated `typing` forms) should be checked against the annotations added. PEP 695 TODOs left in `arity.py` and `conditions.py` for when floor bumps to 3.12. (Updated 2026-04-17.)
 
 
 - **D10: Tier 2 REPL tests (subprocess + pty) for `unpythonic.net` client/server**: Tier 1 coverage for `unpythonic.net.client` and `unpythonic.net.server` uses a server-in-thread + in-process client pattern (see `unpythonic/net/tests/`) with scripted input via a private `_input` seam on `client._connect(..., _input=fake_input)` and captured stdout/stderr via `io.StringIO`. Fast, single-process, no subprocess boundary needed — the server speaks TCP to `127.0.0.1` and the client loop runs in the same test process. **We might never need tier 2.**
@@ -52,5 +49,8 @@ Next unused item code: D15
 
 
 - **D13: Teaching-friendly monad abstractions**: Port the monad hacks from https://github.com/Technologicat/python-3-scicomp-intro/tree/master/examples (monads.py) into unpythonic. `MonadicList` already exists in `amb.py` as precedent; the teaching examples include additional monad abstractions that could be generally useful. Some overlap with OSlash, but unpythonic already duplicates stdlib/third-party functionality where it adds value in its own voice (conditions/restarts, fold/scan suite). (Noted 2026-04-16.)
+
+
+- **D15: Audit bare `{path}` interpolation for repr/raw asymmetry on Windows**: Fleet-wide audit across all projects. The known failure mode (mcpyrate `cacbfd2`, 2026-04-15): an f-string interpolates a file path with bare `{__file__}`, producing raw backslashes (`C:\a\b`), while the other side of a comparison uses `repr()`/`unparse()` output with escaped backslashes (`C:\\a\\b`) — mismatch on Windows, passes on POSIX by accident. Fix is `{__file__!r}` so both sides speak the same dialect. The risk is NOT f-string reinterpretation (that's safe), but asymmetry when a bare-interpolated path is compared against, compiled as, or embedded into Python source. Grep hints: `__file__` in f-strings; also any path value interpolated into strings that later reach `compile()`, `eval()`, `ast.unparse()`, assertions, or similar. (Noted 2026-04-17.)
 
 
