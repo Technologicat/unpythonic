@@ -33,10 +33,11 @@ If you want to roll your own monads, the parts for this module come from:
 __all__ = ["forall", "choice", "insist", "deny"]
 
 from collections import namedtuple
-from collections.abc import Callable, Iterable, Iterator, Sequence, Sized
+from collections.abc import Callable, Iterable
 from typing import Any
 
 from .arity import arity_includes, UnknownArity
+from .monads.list import List
 
 Choice = namedtuple("Choice", "k v")
 
@@ -218,166 +219,20 @@ def monadify(value: Any, unpack: bool = True) -> "MonadicList":
             return MonadicList.from_iterable(value)
         except TypeError:
             pass  # fall through
-    return MonadicList((value,))  # unit
+    return MonadicList(value)  # unit: varargs form — singleton list containing value
 
-class MonadicList:  # TODO: This if anything is **the** place to use @typed.
-    """A monadic list."""
-    def __init__(self, iterable: Iterable = ()) -> None:
-        """Construct a MonadicList from an iterable.
-
-        iterable: Iterable[a]
-        returns: M a
-
-        Like ``list`` and ``tuple``, accepts a single iterable argument.
-        Use ``MonadicList((value,))`` for a singleton (the unit operator).
-        """
-        self.x = tuple(iterable)
-
-    def __rshift__(self, f: Callable) -> "MonadicList":
-        """Monadic bind; standard notation ">>=" in Haskell.
-
-        self: M a
-        f: a -> M b
-        returns: M b
-
-        Generally speaking, bind is defined as::
-            m >> f = m.fmap(f).join()
-
-        Specifically for `MonadicList`, bind is `flatmap`.
-        """
-        # bind ma f = join (fmap f ma)
-        return self.fmap(f).join()
-        # done manually, essentially MonadicList.from_iterable(flatmap(lambda elt: f(elt), self.x))
-        # return MonadicList.from_iterable(result for elt in self.x for result in f(elt))
-
-    def then(self, f: "MonadicList") -> "MonadicList":
-        """Sequence, a.k.a. "then"; standard notation ">>" in Haskell.
-
-        Like `bind`, but discarding the input `a`.
-
-        self: M a
-        f : M b
-        returns: M b
-        """
-        cls = self.__class__
-        if not isinstance(f, cls):
-            raise TypeError(f"Expected a MonadicList, got {type(f)} with value {repr(f)}")
-        return self >> (lambda _: f)
-
-    @classmethod
-    def guard(cls, b: Any) -> "MonadicList":
-        """Allow a branch of the computation to continue only if `b` is truthy.
-
-        b: bool
-        returns: M b
-
-        How to use:
-          - The type of `guard` is (bool -> M b). You'll want to wrap it in a function
-            that takes in an `a`; then `guard` outputs the `M b`, as expected by monadic
-            bind, so that you can bind your MonadicList `m` to your guard function.
-          - The call to `guard` produces a dummy `MonadicList`, which will be non-blank
-            (with exactly one item) if `b` is truthy, and blank if `b` is falsey.
-          - Use `.then(...)` just after the `guard` to discard the dummy, and replace with
-            the actual output you want. The value (that passed the guard) from the original
-            `MonadicList` is still live in the current scope.
-              - If you just want to filter, just `MonadicList((x,))` it (the unit operator).
-          - When an input doesn't pass the guard, the blank output from `guard` automatically
-            cancels the rest of that branch of the computation.
-        """
-        if b:
-            return cls((True,))  # MonadicList with one element; value not intended to be actually used.
-        return cls()  # 0-element MonadicList; short-circuit this branch of the computation.
-
-    # Sequence ABC interface.
-    # The main point is to make MonadicList iterable so that "for result in f(elt)" works (when f outputs a list monad).
-    def __iter__(self) -> Iterator:
-        return iter(self.x)
-    def __len__(self) -> int:
-        return len(self.x)
-    def __getitem__(self, i: int) -> Any:
-        return self.x[i]
-    def __reversed__(self) -> Iterator:
-        return reversed(self.x)
-    def __contains__(self, value: Any) -> bool:
-        return value in self.x
-    def index(self, value: Any) -> int:
-        return self.x.index(value)
-    def count(self, value: Any) -> int:
-        return self.x.count(value)
-
-    def __eq__(self, other: Any) -> bool:
-        if other is self:
-            return True
-        if len(self) != len(other):
-            return False
-        return other == self.x
-
-    def __add__(self, other: "MonadicList") -> "MonadicList":
-        """Concatenation of MonadicList, for convenience."""
-        if not isinstance(other, MonadicList):
-            raise TypeError(f"Expected a monadic list, got {type(other)} with value {repr(other)}")
-        cls = self.__class__
-        return cls.from_iterable(self.x + other.x)
-
-    def __repr__(self):  # pragma: no cover
-        clsname = self.__class__.__name__
-        return f"{clsname}{self.x}"
-
-    @classmethod
-    def from_iterable(cls, iterable: Iterable) -> "MonadicList":
-        """Convenience method: turn an iterable into a MonadicList.
-
-        Eager; the input iterable will be iterated over in its entirety
-        to produce the list. If it is consumable, it will be consumed.
-        """
-        return cls(iterable)
-
-    def copy(self) -> "MonadicList":
-        """Return a copy of this MonadicList."""
-        cls = self.__class__
-        return cls(self.x)
-
-    @classmethod
-    def lift(cls, f: Callable) -> Callable:
-        """Lift a regular function into a MonadicList-producing one.
-
-        f: a -> b
-        returns: a -> M b
-        """
-        return lambda x: cls((f(x),))
-
-    def fmap(self, f: Callable) -> "MonadicList":
-        """The map operator.
-
-        self: M a
-        f: a -> b
-        returns: M b
-        """
-        cls = self.__class__
-        return cls.from_iterable(f(elt) for elt in self.x)
-
-    def join(self) -> "MonadicList":
-        """The join operator. Flatten nested self.
-
-        x: M (M a)
-        returns: M a
-        """
-        cls = self.__class__
-        if not all(isinstance(elt, cls) for elt in self.x):
-            raise TypeError(f"Expected a nested MonadicList, got {type(self.x)} with value {self.x}")
-        # list of lists - concat them
-        return cls.from_iterable(elt for sublist in self.x for elt in sublist)
+# TODO(3.0.0): remove this deprecated alias. Users should import `List`
+# directly from `unpythonic.monads`. See TODO_DEFERRED.md.
+# The implementation moved to unpythonic/monads/list.py and was renamed to
+# `List` with a varargs constructor (`List(1, 2, 3)`); the old
+# iterable-based constructor (`MonadicList((1, 2, 3))`) is gone, so existing
+# users who relied on it will need to switch to `List.from_iterable(...)`.
+MonadicList = List
 
 insist = MonadicList.guard  # retroactively require expr to be True
 def deny(v: Any) -> Any:
     """Opposite of `insist`. End a branch of the computation if `v` is truthy."""
     return insist(not v)
-
-# register virtual base classes
-# register virtual base classes
-for _abscls in (Iterable, Sized, Sequence):
-    _abscls.register(MonadicList)
-del _abscls
 
 # TODO: export these or not? insist and deny already cover the interesting usage.
 # anything with one item (except nil), actual value is not used

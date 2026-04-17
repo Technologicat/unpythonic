@@ -8,9 +8,12 @@ from ...syntax import macros, test, the, test_raises  # noqa: F401
 from ...test.fixtures import session, testset
 
 from ...syntax import macros, continuations, call_cc, tco  # noqa: F401, F811
+from ...syntax import macros, monadic_do  # noqa: F401, F811
+from ...monads import Maybe, Writer
 from ...funutil import Values
 from ...misc import timer
 
+from math import sqrt
 from types import FunctionType
 from operator import add, mul
 
@@ -230,6 +233,42 @@ def runtests():
             with timer() as tictoc:
                 fact(5000)  # no crash
             print("    Time taken for factorial of 5000: {:g}s".format(tictoc.dt))
+
+    # No kell is complete without its monads.
+    with testset("monadic do-notation"):
+        # `nil` is available from the Pytkell dialect template (module-level import).
+
+        # Maybe — sqrt chain. In Pytkell's auto-lazy world, the chain
+        # still evaluates eagerly at the bind points (since the receiver
+        # of >> needs to be an actual monad to dispatch).
+        def maybe_sqrt(x):
+            if x < 0:
+                return Maybe(nil)  # noqa: F821 -- `nil` is in the Pytkell dialect
+            return Maybe(sqrt(x))
+
+        with monadic_do[Maybe] as root4:
+            [a := maybe_sqrt(16),
+             b := maybe_sqrt(a)] in root4 << Maybe(b)
+        test[root4 == Maybe(2.0)]
+
+        with monadic_do[Maybe] as bad:
+            [a := maybe_sqrt(-1),
+             b := maybe_sqrt(a)] in bad << Maybe(b)
+        test[bad == Maybe(nil)]  # noqa: F821 -- `nil` is in the Pytkell dialect
+
+        # List-monad Pythagorean triples under Pytkell's auto-lazify is deferred:
+        # `lazify`'s deep-force via `mogrify` doesn't reliably unwrap the nested
+        # generator expressions that `List`'s internal `from_iterable` produces
+        # during bind. Use `monadic_do[List]` outside Pytkell, or materialize
+        # intermediate results explicitly. See TODO_DEFERRED entry.
+
+        # Writer — logged computation.
+        with monadic_do[Writer] as w:
+            [a := Writer(10, "start; "),
+             b := Writer(a + 1, "+1; ")] in w << Writer(b * 2, "doubled; ")
+        value, log = w.data
+        test[value == 22]
+        test[log == "start; +1; doubled; "]
 
 if __name__ == '__main__':
     with session(__file__):

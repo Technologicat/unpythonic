@@ -4,6 +4,8 @@
 
 **New**:
 
+- `unpythonic.monads`: subpackage of classical monads — `Identity`, `Maybe`, `Either` (with `Left`/`Right`), `List`, `Writer`, `State`, `Reader`. Plus `Monad`/`LiftableMonad` base classes and `liftm`/`liftm2`/`liftm3` helpers. Not re-exported at the top level; import as `from unpythonic.monads import Maybe`.
+- `monadic_do`: do-notation macro over any monad. `with monadic_do[M] as result:` with body `[bindings] in result << final_expr`; supports `:=` (primary) and `<<` (legacy) for bindings; empty bindings allowed; `_ := mexpr` for sequencing. Always used as the innermost `with` (body shape constraint), composes correctly with `lazify`/`continuations`/`tco`/`autocurry`/etc.
 - `environ_override`: context manager to temporarily override OS environment variables within a `with` block, restoring the previous state on exit.
   - Thread-safe (serialises concurrent overrides via `RLock`); same-thread nesting supported.
   - New module `unpythonic.environ`; the function is named `override` at the module level and re-exported as `environ_override` at the top level.
@@ -25,6 +27,7 @@
 
 **Changed**:
 
+- `unpythonic.amb.MonadicList`: the implementation was moved to `unpythonic.monads.List` and renamed. `MonadicList` remains as a silent alias of `List` for name compatibility, scheduled for removal in 3.0.0. The constructor uses varargs (`List(1, 2, 3)`) — the class itself is the monadic unit (`List(x)` is a singleton list). Iterable-constructor use-cases go through `List.from_iterable(iterable)`.
 - `unpythonic.net` (REPL server and client) now runs on MS Windows.
   - Previously the whole subsystem was POSIX-only because `unpythonic.net.ptyproxy` required `termios`, `tty`, and `os.openpty`.
   - A new `socket.socketpair()`-based backend stands in for the pty master/slave endpoints on Windows, plugged in via a platform dispatch in `PTYSocketProxy`.

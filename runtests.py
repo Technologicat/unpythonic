@@ -20,7 +20,8 @@ def main():
     # so it lives in the only subfolder in the project that is named
     # `test` (singular).
     testsets = [("regular code", (discover_testmodules(os.path.join("unpythonic", "tests")) +
-                                  discover_testmodules(os.path.join("unpythonic", "net", "tests")))),
+                                  discover_testmodules(os.path.join("unpythonic", "net", "tests")) +
+                                  discover_testmodules(os.path.join("unpythonic", "monads", "tests")))),
                 ("macros", discover_testmodules(os.path.join("unpythonic", "syntax", "tests"))),
                 ("dialects", discover_testmodules(os.path.join("unpythonic", "dialects", "tests")))]
     return run(testsets)

@@ -335,6 +335,31 @@ The condition system is the clean, general solution to this problem. It automati
 
 If this sounds a lot like an exception system, that's because conditions are the supercharged sister of exceptions. The condition model cleanly separates mechanism from policy, while otherwise remaining similar to the exception model.
 </details>  
+<details><summary>Monads: Identity, Maybe, Either, List, Writer, State, Reader.</summary>
+
+[[docs](doc/features.md#monads)] [[`monadic_do` macro](doc/macros.md#monadic_do-do-notation-for-any-monad)]
+
+```python
+from unpythonic.llist import nil
+from unpythonic.monads import Maybe, List
+
+# Maybe — short-circuits on `nil`; the lambda is never called
+assert Maybe(nil) >> (lambda x: Maybe(x + 1)) == Maybe(nil)
+
+# List — flatMap. Pythagorean triples by three nested binds.
+def r(lo, hi):
+    return List.from_iterable(range(lo, hi))
+pt = r(1, 21) >> (lambda z:
+     r(1, z + 1) >> (lambda x:
+     r(x, z + 1) >> (lambda y:
+     List.guard(x*x + y*y == z*z).then(
+     List((x, y, z))))))
+assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
+                             (8, 15, 17), (9, 12, 15), (12, 16, 20))
+```
+
+For do-notation syntax (`with monadic_do[M] as result:`), see the macro documentation. Bind is `>>` (Python's `>>=` is in-place and doesn't chain), sequence is `.then(other)`, the class itself is `unit`.
+</details>  
 <details><summary>Lispy symbol type.</summary>
 
 [[docs](doc/features.md#sym-gensym-Singleton-symbols-and-singletons)]
@@ -697,6 +722,34 @@ with lazify:
     assert my_if(True, 23, 1/0) == 23
     assert my_if(False, 1/0, 42) == 42
 ```
+</details>  
+<details><summary>Monadic do-notation for any monad.</summary>
+
+[[docs](doc/macros.md#monadic_do-do-notation-for-any-monad)]
+
+```python
+from unpythonic.syntax import macros, monadic_do
+from unpythonic.monads import Maybe, List
+
+# Maybe — do-notation threads Just-values (denoted `Maybe(value)`); any Nothing (`unpythonic.nil`) short-circuits.
+with monadic_do[Maybe] as result:
+    [x := Maybe(10),
+     y := Maybe(x + 1)] in result << Maybe(x + y)
+assert result == Maybe(21)
+
+# List — Pythagorean triples via the list monad
+def r(lo, hi):
+    return List.from_iterable(range(lo, hi))
+with monadic_do[List] as pt:
+    [z := r(1, 21),
+     x := r(1, z + 1),
+     y := r(x, z + 1),
+     _ := List.guard(x*x + y*y == z*z)] in pt << List((x, y, z))
+assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
+                             (8, 15, 17), (9, 12, 15), (12, 16, 20))
+```
+
+Body shape is a single `[bindings] in result << final_expr` statement: bindings on the left of `in`, the "send to box" exit pattern on the right. `:=` is the primary bind arrow (parsed by the same `letdoutil` machinery as the modern `let[]` syntax); `<<` also works.
 </details>  
 <details><summary>Genuine multi-shot continuations (call/cc).</summary>
 

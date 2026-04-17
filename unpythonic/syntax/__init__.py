@@ -93,6 +93,7 @@ from .lambdatools import *  # noqa: F401, F403
 from .lazify import *  # noqa: F401, F403
 from .letdo import *  # noqa: F401, F403
 from .letsyntax import *  # noqa: F401, F403
+from .monadic_do import *  # noqa: F401, F403
 from .nb import *  # noqa: F401, F403
 from .prefix import *  # noqa: F401, F403
 from .tailtools import *  # noqa: F401, F403

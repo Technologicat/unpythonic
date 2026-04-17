@@ -85,6 +85,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [`catch`, `throw`: escape continuations (ec)](#catch-throw-escape-continuations-ec) (as in [Lisp's `catch`/`throw`](http://www.gigamonkeys.com/book/the-special-operators.html), unlike C++ or Java)
   - [`call_ec`: first-class escape continuations](#call_ec-first-class-escape-continuations), like Racket's `call/ec`.
 - [`forall`: nondeterministic evaluation](#forall-nondeterministic-evaluation), a tuple comprehension with multiple body expressions.
+- [Monads](#monads): Identity, Maybe, Either, List, Writer, State, Reader — plus `liftm`/`liftm2`/`liftm3`. For do-notation syntax, see the [`monadic_do` macro](macros.md#monadic_do-do-notation-for-any-monad).
 - [`handlers`, `restarts`: conditions and restarts](#handlers-restarts-conditions-and-restarts), a.k.a. **resumable exceptions**.
   - [Fundamental signaling protocol](#fundamental-signaling-protocol)
   - [API summary](#api-summary)
@@ -3594,6 +3595,159 @@ The implementation is based on the List monad, and a bastardized variant of do-n
  - `insist x` = `guard x`
  - `deny x` = `guard (not x)`
  - Last line = implicit `return ...`
+
+
+### Monads
+
+**Added in v2.1.0.**
+
+A small zoo of classical monads, living in the `unpythonic.monads` subpackage. For do-notation syntax over any of these, see the [`monadic_do` macro](macros.md#monadic_do-do-notation-for-any-monad).
+
+The subpackage is **not** re-exported at the top level — import directly as `from unpythonic.monads import Maybe, Left, Right, ...`. Same style as `from unpythonic.env import env`.
+
+Bind uses `>>` (Python's `>>=` is `__irshift__`, in-place, doesn't chain). Sequence uses `.then(other_monad)`. The class itself is the `unit` constructor, so `Identity(x)`, `Maybe(x)`, `List(x)` are the monadic unit forms.
+
+#### The base classes
+
+- `Monad` — the base class all monads inherit from. Provides default `__rshift__` (bind, via `fmap . join`) and `then` (sequence). Abstract methods: `__init__` (unit), `fmap`, `join`.
+
+- `LiftableMonad(Monad)` — adds `lift`, i.e. `(a -> b) -> (a -> M b)`. Inherited by monads where `lift` is well-defined (`Identity`, `Maybe`, `Either`, `List`, `Writer`). `State` and `Reader` inherit from `Monad` directly.
+
+Modeled on `unpythonic.slicing.Sliced`: duck-first, `@abstractmethod` as documentation marker rather than strict enforcement.
+
+#### `Identity`
+
+Pedagogical no-op — ordinary function composition dressed as a monad. Useful as a reference when building or debugging other monads.
+
+```python
+from unpythonic.monads import Identity
+
+result = Identity(2) >> (lambda x: Identity(x + 1))
+assert result == Identity(3)
+```
+
+#### `Maybe`
+
+Short-circuiting on "nothing." The unpythonic convention uses `nil` (from `unpythonic.llist`) as the "nothing" sentinel, avoiding proliferation of null singletons. `Maybe(x)` for `x is not nil` is "Just x"; `Maybe(nil)` is "Nothing."
+
+```python
+from unpythonic.llist import nil
+from unpythonic.monads import Maybe
+
+# happy path
+assert Maybe(10) >> (lambda x: Maybe(x + 1)) == Maybe(11)
+
+# short-circuit: Nothing propagates; the lambda is never called
+assert Maybe(nil) >> (lambda x: Maybe(x + 1)) == Maybe(nil)
+```
+
+Trade-off: This encoding cannot wrap ``nil`` itself as a present value (Haskell: `Just nil`). In all other cases this yields better UX vs. demanding a ``Some(...)`` wrapper per value.
+
+#### `Either`, `Left`, `Right`
+
+Maybe's richer sibling — carries an error value down the short-circuit path. `Right` is success, `Left` is failure (by Haskell convention). `Either` itself is abstract; use `Left` and `Right` directly.
+
+```python
+from unpythonic.monads import Left, Right
+
+assert Right(10) >> (lambda x: Right(x + 1)) == Right(11)
+assert Left("boom") >> (lambda x: Right(x + 1)) == Left("boom")
+```
+
+#### `List`
+
+Multivalued / nondeterministic computation. Binding through a `List` is `flatMap`: each value in the list becomes a sub-computation that produces its own list of results, and all sub-results are concatenated.
+
+Replaces `MonadicList` from `unpythonic.amb`, which is kept as a deprecated alias — see `unpythonic.amb.MonadicList` for the back-compat note.
+
+Varargs constructor — the class itself is the monadic unit. `List(1, 2, 3)` for literals; `List.from_iterable(iter)` to build from an existing iterable.
+
+```python
+from unpythonic.monads import List
+
+# bind = flatMap
+assert (List(1, 2, 3) >> (lambda x: List(x, x * 10))) == List(1, 10, 2, 20, 3, 30)
+
+# Pythagorean triples — the canonical List-monad example
+def r(lo, hi):
+    return List.from_iterable(range(lo, hi))
+pt = r(1, 21) >> (lambda z:
+     r(1, z + 1) >> (lambda x:
+     r(x, z + 1) >> (lambda y:
+     List.guard(x*x + y*y == z*z).then(
+     List((x, y, z))))))
+assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
+                             (8, 15, 17), (9, 12, 15), (12, 16, 20))
+```
+
+Full `Sequence` ABC (`__len__`, `__getitem__`, `__contains__`, etc.); ABC registration so `isinstance(List(...), Sequence)` is `True`. Concatenation via `+`.
+
+#### `Writer`
+
+Pure-functional audit log. `Writer(value, log)` wraps a pair; binding threads the value through while concatenating logs. The log can be any type supporting `+` (default: empty `""`).
+
+```python
+from unpythonic.monads import Writer
+
+result = (Writer(10)
+          >> (lambda x: Writer(x + 1, "added 1; "))
+          >> (lambda y: Writer(y * 2, "doubled; ")))
+assert result.data == (22, "added 1; doubled; ")
+```
+
+`Writer.tell(msg)` interleaves a log entry without touching the value — useful as `computation.then(Writer.tell("done; "))`.
+
+#### `State`
+
+Threading a state value through a pure computation. Wraps a function `s -> (a, s)`: takes an input state, produces a data value, returns a new state. The state only becomes bound when the composed chain is `.run(s0)`; until then, it's a recipe.
+
+```python
+from unpythonic.monads import State
+
+bump = State(lambda s: (s, s + 1))
+chain = (bump
+         >> (lambda a: bump
+         >> (lambda b: bump
+         >> (lambda c: State.unit((a, b, c))))))
+values, final = chain.run(10)
+assert values == (10, 11, 12) and final == 13
+```
+
+Helper classmethods: `State.unit`, `State.get`, `State.put`, `State.modify`, `State.gets`. Accessors on a `State` instance: `.run(s)`, `.eval(s)` (data only), `.exec(s)` (state only).
+
+Does not inherit from `LiftableMonad` — `lift` doesn't have a canonical shape for State.
+
+#### `Reader`
+
+Read-only shared environment. Wraps a function `e -> a`. The environment threads through the chain; each step can `.ask()` for it.
+
+```python
+from unpythonic.monads import Reader
+
+config = {"multiplier": 3, "offset": 10}
+chain = (Reader.asks(lambda e: e["multiplier"])
+         >> (lambda m: Reader.asks(lambda e: e["offset"])
+         >> (lambda o: Reader.unit(m * 5 + o))))
+assert chain.run(config) == 25
+```
+
+Helper classmethods: `Reader.unit`, `Reader.ask`, `Reader.asks`. Instance methods: `.run(env)`, `.local(f)` (run in an `f`-modified environment).
+
+Does not inherit from `LiftableMonad` for the same reason as `State`.
+
+#### `liftm`, `liftm2`, `liftm3`
+
+Lift regular 1-, 2-, 3-argument functions into monadic ones. Distinct from `LiftableMonad.lift`: `lift: (a -> b) -> (a -> M b)` expects the caller to bind; `liftm: (a -> r) -> (M a -> M r)` binds internally.
+
+```python
+from unpythonic.monads import Maybe, liftm2
+
+add = lambda x, y: x + y
+add_m = liftm2(Maybe, add)
+assert add_m(Maybe(3), Maybe(4)) == Maybe(7)
+```
+
+The `M` parameter is curry-friendly (changes least often) — `functools.partial(liftm2, Maybe)` gives you a Maybe-specific lifter.
 
 
 ### `handlers`, `restarts`: conditions and restarts
