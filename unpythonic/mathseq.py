@@ -18,7 +18,7 @@ Finally, we provide ready-made generators that yield some common sequences
 (currently, the Fibonacci numbers and the prime numbers).
 """
 
-__all__ = ["s", "imathify", "gmathify",
+__all__ = ["s", "imathify", "gmathify", "slift1", "slift2",
            "sadd", "ssub", "sabs", "spos", "sneg", "sinvert", "smul", "spow",
            "struediv", "sfloordiv", "smod", "sdivmod",
            "sround", "strunc", "sfloor", "sceil",
@@ -26,19 +26,28 @@ __all__ = ["s", "imathify", "gmathify",
            "cauchyprod", "diagonal_reduce",
            "fibonacci", "triangular", "primes"]
 
+from collections.abc import Callable, Iterable, Iterator
 from itertools import repeat, takewhile, count
 from functools import wraps
-from operator import (add as primitive_add, mul as primitive_mul,
-                      pow as primitive_pow, mod as primitive_mod,
-                      floordiv as primitive_floordiv, truediv as primitive_truediv,
-                      sub as primitive_sub,
-                      neg as primitive_neg, pos as primitive_pos,
-                      and_ as primitive_and, xor as primitive_xor, or_ as primitive_or,
-                      lshift as primitive_lshift, rshift as primitive_rshift,
-                      invert as primitive_invert,
-                      lt as primitive_lt, le as primitive_le,
-                      eq as primitive_eq, ne as primitive_ne,
-                      ge as primitive_ge, gt as primitive_gt)
+from operator import (add as atom_add, mul as atom_mul,
+                      pow as atom_pow, mod as atom_mod,
+                      floordiv as atom_floordiv, truediv as atom_truediv,
+                      sub as atom_sub,
+                      neg as atom_neg, pos as atom_pos,
+                      and_ as atom_and, xor as atom_xor, or_ as atom_or,
+                      lshift as atom_lshift, rshift as atom_rshift,
+                      invert as atom_invert,
+                      lt as atom_lt, le as atom_le,
+                      eq as atom_eq, ne as atom_ne,
+                      ge as atom_ge, gt as atom_gt)
+
+from typing import Any, Literal, TypeVar
+
+# TODO: When floor bumps to 3.12, use inline `[T]` syntax on `slift1`
+# and `slift2` (PEP 695). Also consider making `imathify` generic
+# (`class imathify[T]`) — currently impractical because element types
+# are determined at runtime and arithmetic mixes types.
+T = TypeVar('T')
 
 from .it import take, rev, window
 from .gmemo import imemoize, gmemoize
@@ -62,7 +71,7 @@ try:
 except ImportError:  # pragma: no cover, optional at runtime, but installed at development time.
     sympy = None
 
-def _numsign(x):
+def _numsign(x: Any) -> int:
     """The sign function, for numeric inputs."""
     if x == 0:
         return 0
@@ -70,7 +79,7 @@ def _numsign(x):
 
 try:
     from sympy import log as _symlog, Expr as _symExpr, sign as _symsign
-    def log(x, b=None):
+    def log(x: Any, b: Any = None) -> Any:
         """The logarithm function.
 
         Works for both numeric and symbolic (`SymPy.Expr`) inputs.
@@ -87,7 +96,7 @@ try:
             return math_log(x, b)
         else:
             return math_log(x)
-    def sign(x):
+    def sign(x: Any) -> Any:
         """The sign function.
 
         Works for both numeric and symbolic (`SymPy.Expr`) inputs.
@@ -101,7 +110,7 @@ except ImportError:  # pragma: no cover, optional at runtime, but installed at d
     _symExpr = _NoSuchType
 
 
-def s(*spec):
+def s(*spec: Any) -> "imathify":
     """Create a lazy mathematical sequence.
 
     The sequence is returned as a generator object that supports infix math
@@ -268,7 +277,7 @@ def s(*spec):
     """
     origspec = spec  # for error messages
 
-    def is_almost_int(x):
+    def is_almost_int(x: Any) -> bool:
         try:
             if sympy and isinstance(x, sympy.Expr):
                 x = sympy.N(x)
@@ -276,7 +285,22 @@ def s(*spec):
         except TypeError:  # likely a SymPy expression that didn't simplify to a number
             return False
 
-    def analyze(*spec):  # raw spec (part before '...' if any) --> description
+    def analyze(*spec: Any) -> tuple[str, Any, Any | None]:
+        """Classify a raw sequence spec (the elements before ``...``) into a description.
+
+        Returns ``(seqtype, x0, k)`` where:
+
+        - ``seqtype``: ``"const"``, ``"arith"``, ``"geom"``, or ``"power"``
+        - ``x0``: initial value (first element)
+        - ``k``: sequence parameter — ``None`` for const, common difference ``d``
+          for arith, common ratio ``r`` for geom, exponent ``p`` for power
+
+        Requires 1–3 spec elements to identify the sequence type. More elements
+        are accepted if consistent (checked by analyzing overlapping triplets).
+
+        Cyclic sequences and ``Ellipsis`` handling are done by the caller (``s()``)
+        before ``analyze`` is called; this function only sees the numeric elements.
+        """
         n = len(spec)
         if n == 1:
             a0 = spec[0]
@@ -321,7 +345,7 @@ def s(*spec):
         else:  # more elements are optional but must be consistent
             data = [analyze(*triplet) for triplet in window(3, spec)]
             seqtypes, x0s, ks = zip(*data)
-            def isconst(xs):
+            def isconst(xs: tuple[Any, ...]) -> bool:
                 first, *rest = xs
                 return all(almosteq(x, first) for x in rest)
             if not isconst(seqtypes) or not isconst(ks):
@@ -330,36 +354,48 @@ def s(*spec):
                 raise SyntaxError(f"Inconsistent specification '{origspec}'")
             return data[0]
 
-    # final term handler for finite sequences - compute how many terms we should generate in total
     infty = float("inf")
-    def nofterms(desc, elt):  # return total number of terms in sequence or False
+    def nofterms(desc: tuple[str, Any, Any | None], elt: Any) -> int | float | bool:
+        """Compute total number of terms for a finite sequence with a final element.
+
+        ``desc`` is a sequence descriptor ``(seqtype, x0, k)`` as returned by
+        ``analyze``. ``elt`` is the final element specified by the user.
+
+        Returns the total term count (``int``), ``float("+inf")`` if the length
+        cannot be determined (constant sequence matching its own value), or
+        ``False`` if ``elt`` does not belong to the described sequence.
+
+        For geometric and power sequences, an alternating-sign parity check
+        ensures ``elt`` has the correct sign for its position.
+        """
         seqtype, x0, k = desc
         if seqtype == "const":
             if elt == x0:
-                return infty  # cannot determine how many items in a '...''d constant sequence
+                return infty
         elif seqtype == "arith":
-            # elt = x0 + a*k --> a = (elt - x0) / k
-            a = (elt - x0) / k
+            a = (elt - x0) / k  # elt = x0 + a*k
             if is_almost_int(a) and a > 0:
                 return int(1 + round(a))  # fencepost
         elif seqtype == "geom":
-            # elt = x0*(k**a) --> k**a = (elt/x0) --> a = logk(elt/x0)
-            a = log(abs(elt / x0), abs(k))
+            a = log(abs(elt / x0), abs(k))  # elt = x0*(k**a)
             if is_almost_int(a) and a > 0:
-                if not almosteq(x0 * (k**a), elt):  # check parity of final term, could be an alternating sequence
+                if not almosteq(x0 * (k**a), elt):  # parity check for alternating sequences
                     return False
                 return int(1 + round(a))
         else:  # seqtype == "power":
-            # elt = x0**(k**a) --> k**a = logx0 elt --> a = logk (logx0 elt)
-            a = log(log(abs(elt), abs(x0)), abs(k))
+            a = log(log(abs(elt), abs(x0)), abs(k))  # elt = x0**(k**a)
             if is_almost_int(a) and a > 0:
-                if not almosteq(x0**(k**a), elt):  # parity
+                if not almosteq(x0**(k**a), elt):  # parity check
                     return False
                 return int(1 + round(a))
         return False
 
-    # v0.14.3+: cyclic infinite sequences
-    def iscyclic(spec):
+    def iscyclic(spec: tuple[Any, ...]) -> bool:
+        """Check whether ``spec`` describes a cyclic sequence.
+
+        A cyclic spec has a ``list`` as its last element, marking the repeating
+        cycle: ``(*initials, [*repeats])``. The list must be non-empty.
+        """
         assert len(spec) >= 1
         *maybe_initial, maybe_repeating = spec
         if isinstance(maybe_repeating, list):
@@ -368,18 +404,18 @@ def s(*spec):
             return True
         return False
 
-    # analyze the specification
-    if Ellipsis not in spec:  # convenience fallback
-        if iscyclic(spec):
+    # Analyze the specification. We parse from the right, peeling off the trailing elements to determine which case we're in.
+    if Ellipsis not in spec:  # no `...` — convenience fallback, explicit enumeration of all elements.
+        if iscyclic(spec):  # a finite sequence can't be cyclic
             raise SyntaxError("Expected final ... for cyclic sequence.")
         return imathify(x for x in spec)
-    else:
+    else:  # has a `...`
+        # Peel off the last element to see where the `...` is.
         *spec, last = spec
-        if last is Ellipsis:
+        if last is Ellipsis:  # s(a0, a1, ...) or s([*repeats], ...) — infinite sequence.
             if not spec:
-                raise SyntaxError(f"Expected s(a0, a1, ...), s(a0, a1, ..., an), s([*repeats], ...), or s(*initials, [*repeats], ...); got '{origspec}'")
+                raise SyntaxError(f"Expected s(a0, a1, ...) or s(a0, a1, ..., an), s([*repeats], ...), or s(*initials, [*repeats], ...); got '{origspec}'")
             assert spec  # not empty
-            # v0.14.3+: cyclic infinite sequences
             if iscyclic(spec):
                 seqtype = "cyclic"
                 *initial, repeating = spec
@@ -387,7 +423,8 @@ def s(*spec):
             else:
                 seqtype, x0, k = analyze(*spec)
                 n = infty
-        else:
+        else:  # s(a0, a1, ..., an) — finite sequence with final element `last`.
+            # Peel off the `...` (now second-to-last) and analyze the formula.
             *spec, dots = spec
             if not (dots is Ellipsis and spec):
                 raise SyntaxError(f"Expected s(a0, a1, ...) or s(a0, a1, ..., an), s([*repeats], ...), or s(*initials, [*repeats], ...); got '{origspec}'")
@@ -404,7 +441,7 @@ def s(*spec):
     if seqtype == "const":
         return imathify(repeat(x0) if n is infty else repeat(x0, n))
     elif seqtype == "cyclic":
-        def cyclic():
+        def cyclic() -> Iterator[Any]:
             yield from initial
             while True:
                 yield from repeating
@@ -412,7 +449,7 @@ def s(*spec):
     elif seqtype == "arith":
         # itertools.count doesn't avoid accumulating roundoff error for floats, so we implement our own.
         # This should be, for any j, within 1 ULP of the true result.
-        def arith():
+        def arith() -> Iterator[Any]:
             j = 0
             while True:
                 yield x0 + j * k
@@ -420,7 +457,7 @@ def s(*spec):
         return imathify(arith() if n is infty else take(n, arith()))
     elif seqtype == "geom":
         if isinstance(k, _symExpr) or abs(k) >= 1:
-            def geom():
+            def geom() -> Iterator[Any]:
                 j = 0
                 while True:
                     yield x0 * (k**j)
@@ -432,7 +469,7 @@ def s(*spec):
             # Note that 1/(1/3) --> 3.0 even for floats, so we don't actually
             # need to modify the detection algorithm to account for this.
             kinv = 1 / k
-            def geom():
+            def geom() -> Iterator[Any]:
                 j = 0
                 while True:
                     yield x0 / (kinv**j)
@@ -440,14 +477,14 @@ def s(*spec):
         return imathify(geom() if n is infty else take(n, geom()))
     else:  # seqtype == "power":
         if isinstance(k, _symExpr) or abs(k) >= 1:
-            def power():
+            def power() -> Iterator[Any]:
                 j = 0
                 while True:
                     yield x0**(k**j)
                     j += 1
         else:
             kinv = 1 / k
-            def power():
+            def power() -> Iterator[Any]:
                 j = 0
                 while True:
                     yield x0**(1 / (kinv**j))
@@ -459,26 +496,34 @@ def s(*spec):
 class imathify:
     """Endow any iterable with infix math support (termwise).
 
-    The original iterable is saved to an attribute, and ``m.__iter__`` redirects
-    to it. No caching is performed, so performing a math operation on the m'd
+    The original iterable is saved to an attribute, and ``imathify.__iter__`` redirects
+    to it. No caching is performed, so performing a math operation on the imathified
     iterable will still consume the iterable (if it is consumable, for example
     a generator).
 
     This adds infix math only; to apply a function (e.g. ``sin``) termwise to
-    an iterable, use the comprehension syntax or ``map``, as usual.
+    an iterable, use ``slift1`` (or ``slift2`` for binary operations)::
+
+        from math import sin
+        ssin = slift1(sin)
+        sinseq = ssin(s(1, 2, ...))
+
+    Or, for one-off use, wrap a generator expression in ``imathify``::
+
+        sinseq = imathify(sin(x) for x in a)
 
     The mathematical sequences (Python-technically, iterables) returned by
-    ``s()`` are automatically m'd, as is the result of any infix arithmetic
-    operation performed on an already m'd iterable.
+    ``s()`` are automatically imathified, as is the result of any infix arithmetic
+    operation performed on an already imathified iterable.
 
     **CAUTION**: When an operation meant for general iterables is applied to an
     m'd iterable, the math support vanishes (because the operation returns a
-    general iterable, not an m'd one), but can be restored by m'ing again.
+    general iterable, not an imathified one), but can be restored by m'ing again.
 
     **NOTE**: The function versions of the operations (``sadd`` etc.) work on
-    general iterables (so you don't need to ``m`` their inputs), and return
-    an m'd iterable. The ``m`` operation is only needed for infix math, to make
-    arithmetic-heavy code more readable.
+    general iterables (so you don't need to ``imathify`` their inputs), and return
+    an imathified iterable. The ``imathify`` operation is only needed for infix math,
+    to make arithmetic-heavy code more readable.
 
     Examples::
 
@@ -505,77 +550,77 @@ class imathify:
 
         https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
     """
-    def __init__(self, iterable):
+    def __init__(self, iterable: Iterable[Any]) -> None:
         self._g = iterable
-    def __iter__(self):
+    def __iter__(self) -> Iterator[Any]:
         return iter(self._g)
-    def __add__(self, other):
+    def __add__(self, other: Any) -> "imathify":
         return sadd(self, other)
-    def __radd__(self, other):
+    def __radd__(self, other: Any) -> "imathify":
         return sadd(other, self)
-    def __sub__(self, other):
+    def __sub__(self, other: Any) -> "imathify":
         return ssub(self, other)
-    def __rsub__(self, other):
+    def __rsub__(self, other: Any) -> "imathify":
         return ssub(other, self)
-    def __abs__(self):
+    def __abs__(self) -> "imathify":
         return sabs(self)
-    def __pos__(self):
+    def __pos__(self) -> "imathify":
         return spos(self)
-    def __neg__(self):
+    def __neg__(self) -> "imathify":
         return sneg(self)
-    def __invert__(self):
+    def __invert__(self) -> "imathify":
         return sinvert(self)
-    def __mul__(self, other):
+    def __mul__(self, other: Any) -> "imathify":
         return smul(self, other)
-    def __rmul__(self, other):
+    def __rmul__(self, other: Any) -> "imathify":
         return smul(other, self)
-    def __truediv__(self, other):
+    def __truediv__(self, other: Any) -> "imathify":
         return struediv(self, other)
-    def __rtruediv__(self, other):
+    def __rtruediv__(self, other: Any) -> "imathify":
         return struediv(other, self)
-    def __floordiv__(self, other):
+    def __floordiv__(self, other: Any) -> "imathify":
         return sfloordiv(self, other)
-    def __rfloordiv__(self, other):
+    def __rfloordiv__(self, other: Any) -> "imathify":
         return sfloordiv(other, self)
-    def __divmod__(self, other):
+    def __divmod__(self, other: Any) -> "imathify":
         return sdivmod(self, other)
-    def __rdivmod__(self, other):
+    def __rdivmod__(self, other: Any) -> "imathify":
         return sdivmod(other, self)
-    def __mod__(self, other):
+    def __mod__(self, other: Any) -> "imathify":
         return smod(self, other)
-    def __rmod__(self, other):
+    def __rmod__(self, other: Any) -> "imathify":
         return smod(other, self)
-    def __pow__(self, other, *mod):
-        return spow(self, other, *mod)
-    def __rpow__(self, other):
+    def __pow__(self, other: Any, mod: int | None = None) -> "imathify":
+        return spow(self, other, mod)
+    def __rpow__(self, other: Any) -> "imathify":
         return spow(other, self)
-    def __round__(self, *ndigits):
-        return sround(self, *ndigits)
-    def __trunc__(self):
+    def __round__(self, ndigits: int | None = None) -> "imathify":
+        return sround(self, ndigits)
+    def __trunc__(self) -> "imathify":
         return strunc(self)
-    def __floor__(self):
+    def __floor__(self) -> "imathify":
         return sfloor(self)
-    def __ceil__(self):
+    def __ceil__(self) -> "imathify":
         return sceil(self)
-    def __lshift__(self, other):
+    def __lshift__(self, other: Any) -> "imathify":
         return slshift(self, other)
-    def __rlshift__(self, other):
+    def __rlshift__(self, other: Any) -> "imathify":
         return slshift(other, self)
-    def __rshift__(self, other):
+    def __rshift__(self, other: Any) -> "imathify":
         return srshift(self, other)
-    def __rrshift__(self, other):
+    def __rrshift__(self, other: Any) -> "imathify":
         return srshift(other, self)
-    def __and__(self, other):
+    def __and__(self, other: Any) -> "imathify":
         return sand(self, other)
-    def __rand__(self, other):
+    def __rand__(self, other: Any) -> "imathify":
         return sand(other, self)
-    def __xor__(self, other):
+    def __xor__(self, other: Any) -> "imathify":
         return sxor(self, other)
-    def __rxor__(self, other):
+    def __rxor__(self, other: Any) -> "imathify":
         return sxor(other, self)
-    def __or__(self, other):
+    def __or__(self, other: Any) -> "imathify":
         return sor(self, other)
-    def __ror__(self, other):
+    def __ror__(self, other: Any) -> "imathify":
         return sor(other, self)
     # Can't do this because each of these conversion operators must return an
     # instance of that primitive type.
@@ -587,20 +632,22 @@ class imathify:
     #     return sint(self)
     # def __float__(self):
     #     return sfloat(self)
-    def __lt__(self, other):
+    def __lt__(self, other: Any) -> "imathify":  # type: ignore[override]  # termwise, not scalar
         return slt(self, other)
-    def __le__(self, other):
+    def __le__(self, other: Any) -> "imathify":  # type: ignore[override]  # termwise, not scalar
         return sle(self, other)
-    def __eq__(self, other):
+    def __eq__(self, other: Any) -> "imathify":  # type: ignore[override]  # termwise, not scalar
         return seq(self, other)
-    def __ne__(self, other):
+    def __ne__(self, other: Any) -> "imathify":  # type: ignore[override]  # termwise, not scalar
         return sne(self, other)
-    def __ge__(self, other):
+    def __ge__(self, other: Any) -> "imathify":  # type: ignore[override]  # termwise, not scalar
         return sge(self, other)
-    def __gt__(self, other):
+    def __gt__(self, other: Any) -> "imathify":  # type: ignore[override]  # termwise, not scalar
         return sgt(self, other)
 
-def gmathify(gfunc):
+Iterable.register(imathify)
+
+def gmathify(gfunc: Callable[..., Iterable[Any]]) -> Callable[..., imathify]:
     """Decorator: make gfunc imathify() the returned generator instances.
 
     Return a new gfunc, which passes all its arguments to the original ``gfunc``.
@@ -613,7 +660,7 @@ def gmathify(gfunc):
         assert last(take(5, a() + a())) == 10
     """
     @wraps(gfunc)
-    def mathify(*args, **kwargs):
+    def mathify(*args: Any, **kwargs: Any) -> imathify:
         return imathify(gfunc(*args, **kwargs))
     return mathify
 
@@ -621,18 +668,57 @@ def gmathify(gfunc):
 # We expose the full set of "imathify" operators also as functions à la the ``operator`` module.
 # Prefix "s", short for "mathematical Sequence".
 # https://docs.python.org/3/library/operator.html
+#
+# But first, let's define some factories.
 
-# The *settings mechanism is used by round and pow.
-# These are recursive to support iterables containing iterables (e.g. an iterable of math sequences).
-def _make_termwise_stream_unop(op, *settings):
-    def stream_op(a):
-        if hasattr(a, "__iter__"):
+def slift1(op: Callable[..., T], *settings: Any) -> Callable[[Iterable[T] | T], imathify | T]:
+    """Lift a scalar unary operation to work termwise on iterables.
+
+    Returns a function that, given an iterable, lazily applies ``op`` to
+    each element and returns an imathified generator. Scalar inputs
+    are passed through to ``op`` directly. Recurses into nested iterables.
+
+    Any extra ``settings`` are appended to each call to ``op``, e.g.
+    ``slift1(round, 2)`` gives termwise ``round(x, 2)``.
+
+    Example::
+
+        from math import sin
+        ssin = slift1(sin)
+        result = ssin(s(1, 2, 3, ...))  # termwise sin
+
+    All the built-in ``s``-prefixed unary operators (``sabs``, ``sneg``, ...)
+    are defined using this mechanism.
+    """
+    def stream_op(a: Iterable[T] | T) -> imathify | T:
+        if isinstance(a, Iterable):
             return imathify(stream_op(x) for x in a)
         return op(a, *settings)
     return stream_op
-def _make_termwise_stream_binop(op, *settings):
-    def stream_op(a, b):
-        isiterable = [hasattr(x, "__iter__") for x in (a, b)]
+
+def slift2(op: Callable[..., T], *settings: Any) -> Callable[[Iterable[T] | T, Iterable[T] | T], imathify | T]:
+    """Lift a scalar binary operation to work termwise on iterables.
+
+    Returns a function that, given two inputs (either or both iterables),
+    lazily applies ``op`` termwise and returns an imathified generator.
+    When both inputs are iterables, ``zip`` semantics apply (terminates at
+    the shorter). When one input is scalar, it is broadcast. Recurses into
+    nested iterables.
+
+    Any extra ``settings`` are appended to each call to ``op``, e.g.
+    ``slift2(pow, 5)`` gives termwise ``pow(a, b, 5)``.
+
+    Example::
+
+        from math import atan2
+        satan2 = slift2(atan2)
+        result = satan2(s(1, 2, 3, ...), s(4, 5, 6, ...))  # termwise atan2
+
+    All the built-in ``s``-prefixed binary operators (``sadd``, ``smul``, ...)
+    are defined using this mechanism.
+    """
+    def stream_op(a: Iterable[T] | T, b: Iterable[T] | T) -> imathify | T:
+        isiterable = [isinstance(x, Iterable) for x in (a, b)]
         if all(isiterable):
             # it's very convenient here that zip() terminates when the shorter input runs out.
             return imathify(stream_op(x, y) for x, y in zip(a, b))
@@ -646,40 +732,42 @@ def _make_termwise_stream_binop(op, *settings):
             return op(a, b, *settings)
     return stream_op
 
-sadd = _make_termwise_stream_binop(primitive_add)
+# With these factories, the operators are just:
+
+sadd = slift2(atom_add)
 sadd.__doc__ = """Termwise a + b when one or both are iterables."""
-ssub = _make_termwise_stream_binop(primitive_sub)
+ssub = slift2(atom_sub)
 ssub.__doc__ = """Termwise a - b when one or both are iterables."""
-sabs = _make_termwise_stream_unop(abs)
+sabs = slift1(abs)
 sabs.__doc__ = """Termwise abs(a) for an iterable."""
-spos = _make_termwise_stream_unop(primitive_pos)
+spos = slift1(atom_pos)
 spos.__doc__ = """Termwise +a for an iterable."""
-sneg = _make_termwise_stream_unop(primitive_neg)
+sneg = slift1(atom_neg)
 sneg.__doc__ = """Termwise -a for an iterable."""
-smul = _make_termwise_stream_binop(primitive_mul)
+smul = slift2(atom_mul)
 smul.__doc__ = """Termwise a * b when one or both are iterables."""
 
-_pow = _make_termwise_stream_binop(primitive_pow)  # 2-arg form
-def spow(a, b, *mod):
+_spow = slift2(atom_pow)  # 2-arg form
+def spow(a: Any, b: Any, mod: int | None = None) -> Any:
     """Termwise a ** b when one or both are iterables.
 
     An optional third argument is supported, and passed through to the
     built-in ``pow`` function.
     """
-    op = _make_termwise_stream_binop(pow, mod[0]) if mod else _pow
-    return op(a, b)
+    stream_op = slift2(pow, mod) if mod is not None else _spow
+    return stream_op(a, b)
 
-struediv = _make_termwise_stream_binop(primitive_truediv)
+struediv = slift2(atom_truediv)
 struediv.__doc__ = """Termwise a / b when one or both are iterables."""
-sfloordiv = _make_termwise_stream_binop(primitive_floordiv)
+sfloordiv = slift2(atom_floordiv)
 sfloordiv.__doc__ = """Termwise a // b when one or both are iterables."""
-smod = _make_termwise_stream_binop(primitive_mod)
+smod = slift2(atom_mod)
 smod.__doc__ = """Termwise a % b when one or both are iterables."""
-sdivmod = _make_termwise_stream_binop(divmod)
+sdivmod = slift2(divmod)
 sdivmod.__doc__ = """Termwise (a // b, a % b) when one or both are iterables."""
 
-_round = _make_termwise_stream_unop(round)  # 1-arg form
-def sround(a, *ndigits):
+_sround = slift1(round)  # 1-arg form
+def sround(a: Any, ndigits: int | None = None) -> Any:
     """Termwise round(a) for an iterable.
 
     An optional second argument is supported, and passed through to the
@@ -690,28 +778,28 @@ def sround(a, *ndigits):
 
         https://docs.python.org/3/library/functions.html#round
     """
-    op = _make_termwise_stream_unop(round, ndigits[0]) if ndigits else _round
-    return op(a)
+    stream_op = slift1(round, ndigits) if ndigits is not None else _sround
+    return stream_op(a)
 
-strunc = _make_termwise_stream_unop(trunc)
+strunc = slift1(trunc)
 strunc.__doc__ = """Termwise math.trunc(a) for an iterable."""
-sfloor = _make_termwise_stream_unop(floor)
+sfloor = slift1(floor)
 sfloor.__doc__ = """Termwise math.floor(a) for an iterable."""
-sceil = _make_termwise_stream_unop(ceil)
+sceil = slift1(ceil)
 sceil.__doc__ = """Termwise math.ceil(a) for an iterable."""
 
 # bit twiddling operations
-slshift = _make_termwise_stream_binop(primitive_lshift)
+slshift = slift2(atom_lshift)
 slshift.__doc__ = """Termwise a << b when one or both are iterables."""
-srshift = _make_termwise_stream_binop(primitive_rshift)
+srshift = slift2(atom_rshift)
 srshift.__doc__ = """Termwise a >> b when one or both are iterables."""
-sand = _make_termwise_stream_binop(primitive_and)
+sand = slift2(atom_and)
 sand.__doc__ = """Termwise a & b when one or both are iterables."""
-sxor = _make_termwise_stream_binop(primitive_xor)
+sxor = slift2(atom_xor)
 sxor.__doc__ = """Termwise a ^ b when one or both are iterables."""
-sor = _make_termwise_stream_binop(primitive_or)
+sor = slift2(atom_or)
 sor.__doc__ = """Termwise a | b when one or both are iterables."""
-sinvert = _make_termwise_stream_unop(primitive_invert)
+sinvert = slift1(atom_invert)
 sinvert.__doc__ = """Termwise ~a for an iterable.
 
 Note this is a bitwise invert, which is usually not what you want.
@@ -726,36 +814,37 @@ See:
 # Can't do this because each of these conversion operators must return an
 # instance of that primitive type.
 #
-# sbool = _make_termwise_stream_unop(bool)
+# sbool = slift1(bool)
 # sbool.__doc__ = """Termwise bool(a) for an iterable."""
-# scomplex = _make_termwise_stream_unop(complex)
+# scomplex = slift1(complex)
 # scomplex.__doc__ = """Termwise complex(a) for an iterable."""
-# sint = _make_termwise_stream_unop(int)
+# sint = slift1(int)
 # sint.__doc__ = """Termwise int(a) for an iterable."""
-# sfloat = _make_termwise_stream_unop(float)
+# sfloat = slift1(float)
 # sfloat.__doc__ = """Termwise float(a) for an iterable."""
 
-slt = _make_termwise_stream_binop(primitive_lt)
+slt = slift2(atom_lt)
 slt.__doc__ = """Termwise a < b when one or both are iterables."""
-sle = _make_termwise_stream_binop(primitive_le)
+sle = slift2(atom_le)
 sle.__doc__ = """Termwise a <= b when one or both are iterables."""
-seq = _make_termwise_stream_binop(primitive_eq)
+seq = slift2(atom_eq)
 seq.__doc__ = """Termwise a == b when one or both are iterables."""
-sne = _make_termwise_stream_binop(primitive_ne)
+sne = slift2(atom_ne)
 sne.__doc__ = """Termwise a != b when one or both are iterables."""
-sge = _make_termwise_stream_binop(primitive_ge)
+sge = slift2(atom_ge)
 sge.__doc__ = """Termwise a >= b when one or both are iterables."""
-sgt = _make_termwise_stream_binop(primitive_gt)
+sgt = slift2(atom_gt)
 sgt.__doc__ = """Termwise a > b when one or both are iterables."""
 
 # -----------------------------------------------------------------------------
 
-def cauchyprod(a, b, *, require="any"):
+def cauchyprod(a: Iterable[Any], b: Iterable[Any], *,
+               require: Literal["all", "any"] = "any") -> imathify:
     """Cauchy product of two (possibly infinite) iterables.
 
     Defined by::
 
-        c[k] = suimathify(a[j] * b[k-j], j = 0, 1, ..., k),  k = 0, 1, ...
+        c[k] = sum_j imathify(a[j] * b[k-j], j = 0, 1, ..., k),  k = 0, 1, ...
 
     As a table::
 
@@ -778,12 +867,15 @@ def cauchyprod(a, b, *, require="any"):
     """
     return diagonal_reduce(a, b, require=require, combine=smul, reduce=sum)
 
-def diagonal_reduce(a, b, *, combine, reduce, require="any"):
+def diagonal_reduce(a: Iterable[Any], b: Iterable[Any], *,
+                    combine: Callable[[Iterable[Any], Iterable[Any]], Iterable[Any]],
+                    reduce: Callable[[Iterable[Any]], Any],
+                    require: Literal["all", "any"] = "any") -> imathify:
     """Diagonal combination-reduction for two (possibly infinite) iterables.
 
     Defined by::
 
-        c[k] = reduce(combine(a[j], b[k-j]), j = 0, 1, ..., k),  k = 0, 1, ...
+        c[k] = reduce_j(combine(a[j], b[k-j]), j = 0, 1, ..., k),  k = 0, 1, ...
 
     As a table::
 
@@ -801,7 +893,7 @@ def diagonal_reduce(a, b, *, combine, reduce, require="any"):
 
     The Cauchy product is the special case with ``combine=smul, reduce=sum``.
 
-    The output is automatically m'd so that it supports infix arithmetic.
+    The output is automatically imathified so that it supports infix arithmetic.
 
     The operations:
 
@@ -861,14 +953,13 @@ def diagonal_reduce(a, b, *, combine, reduce, require="any"):
     is not formed, because the terms ``a[0]*b[2]`` and ``a[2]*b[0]`` (that would
     contribute to it in the infinite case) cannot be formed from length-2 inputs.
     """
-    # TODO: Python 3.8+: test for the appropriate `typing` Protocol instead?
-    if not all(hasattr(x, "__iter__") for x in (a, b)):
+    if not all(isinstance(x, Iterable) for x in (a, b)):
         raise TypeError(f"Expected two iterables, got {type(a)}, {type(b)}")
     if require not in ("all", "any"):
         raise ValueError(f"require must be 'all' or 'any'; got '{require}'")
     ga = imemoize(a)
     gb = imemoize(b)
-    def diagonal():
+    def diagonal() -> Iterator[Any]:
         n = 1  # how many terms to take from a and b; output index k = n - 1
         while True:
             xs, ys = (tuple(take(n, g())) for g in (ga, gb))
@@ -887,16 +978,16 @@ def diagonal_reduce(a, b, *, combine, reduce, require="any"):
 
 # -----------------------------------------------------------------------------
 
-def fibonacci():
+def fibonacci() -> imathify:
     """Return the Fibonacci numbers 1, 1, 2, 3, 5, 8, ... as a lazy sequence."""
-    def fibos():
+    def fibos() -> Iterator[int]:
         a, b = 1, 1
         while True:
             yield a
             a, b = b, a + b
     return imathify(fibos())
 
-def triangular():
+def triangular() -> imathify:
     """Return the triangular numbers 1, 3, 6, 10, ... as a lazy sequence.
 
     Etymology::
@@ -909,7 +1000,7 @@ def triangular():
     """
     # We could just use Gauss's result  n * (n + 1) / 2  (which can be proved by induction),
     # but this algorithm is trivially correct.
-    def _triangular():
+    def _triangular() -> Iterator[int]:
         s = 1  # running total
         r = 2  # places in the next row of the triangle
         while True:
@@ -926,16 +1017,16 @@ def triangular():
 # larger as n grows (so memory transfers dominate for large n). That strategy
 # seems faster for n ~ 1e3, though.
 @gmemoize
-def _primes():
+def _primes() -> Iterator[int]:
     yield 2
     for n in count(start=3, step=2):
         if not any(n % p == 0 for p in takewhile(lambda x: x * x <= n, _primes())):
             yield n
 
 @gmemoize
-def _fastprimes():
-    memo = []
-    def primes():
+def _fastprimes() -> Iterator[int]:
+    memo: list[int] = []
+    def primes() -> Iterator[int]:
         memo.append(2)
         yield 2
         for n in count(start=3, step=2):
@@ -944,7 +1035,7 @@ def _fastprimes():
                 yield n
     return primes()
 
-def primes(optimize="speed"):
+def primes(optimize: Literal["memory", "speed"] = "speed") -> imathify:
     """Return the prime numbers 2, 3, 5, 7, 11, 13, ... as a lazy sequence.
 
     FP sieve of Eratosthenes with memoization.
