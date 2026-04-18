@@ -37,8 +37,9 @@ plus:
 - ``liftm``, ``liftm2``, ``liftm3`` — lift regular functions into monadic ones
 
 The subpackage is **not** re-exported at the top level of ``unpythonic`` —
-import directly as ``from unpythonic.monads import Maybe``, etc. This
-matches the pattern of ``from unpythonic.env import env``.
+import directly as ``from unpythonic.monads import Maybe``, etc. This is
+because ``unpythonic`` is mostly lispy, not haskelly, and some of these
+constructs have names that could be confusing in the top-level namespace.
 
 For do-notation syntax over any of these monads, see the macro
 ``from unpythonic.syntax import monadic_do``.
@@ -62,7 +63,7 @@ For do-notation syntax over any of these monads, see the macro
 - http://www.valuedlessons.com/2008/01/monads-in-python-with-nice-syntax.html
 
 This subpackage is ported from the teaching code at
-https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py.
+https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py
 """
 
 from .abc import *  # noqa: F401, F403
