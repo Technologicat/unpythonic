@@ -7,13 +7,12 @@ sub-computation that produces its own list of results, and all the
 sub-results are concatenated into a single flat list.
 
 The classical motivating example is McCarthy's *amb* operator
-(non-deterministic choice) — expressed here as combining ``List``
-monads in a do-notation.
+(non-deterministic choice) — which can be expressed as combining
+``List`` monads in a do-notation.
 
 This module replaces the implementation that previously lived as
 ``MonadicList`` in ``unpythonic.amb``. ``amb.MonadicList`` is kept as
-a deprecated alias — see ``amb.py`` for the alias and the 3.0.0 removal
-note.
+a deprecated alias, which will be removed in 3.0.0.
 
 **Constructor style**. The varargs form ``List(1, 2, 3)`` is primary
 because it makes monadic unit the class itself: ``unit x = List(x)``

@@ -207,7 +207,7 @@ def forall(*lines: Choice | Callable) -> tuple:
 # This low-level machinery is shared with the macro version, `unpythonic.syntax.forall`.
 
 def monadify(value: Any, unpack: bool = True) -> "MonadicList":
-    """Pack value into a monadic list if it is not already.
+    """Pack ``value`` into a monadic list if it is not already.
 
     If ``unpack=True``, an iterable ``value`` is unpacked into the created
     monadic list instance; if ``False``, the whole iterable is packed as one item.
@@ -222,11 +222,7 @@ def monadify(value: Any, unpack: bool = True) -> "MonadicList":
     return MonadicList(value)  # unit: varargs form — singleton list containing value
 
 # TODO(3.0.0): remove this deprecated alias. Users should import `List`
-# directly from `unpythonic.monads`. See TODO_DEFERRED.md.
-# The implementation moved to unpythonic/monads/list.py and was renamed to
-# `List` with a varargs constructor (`List(1, 2, 3)`); the old
-# iterable-based constructor (`MonadicList((1, 2, 3))`) is gone, so existing
-# users who relied on it will need to switch to `List.from_iterable(...)`.
+# directly from `unpythonic.monads`.
 MonadicList = List
 
 insist = MonadicList.guard  # retroactively require expr to be True
