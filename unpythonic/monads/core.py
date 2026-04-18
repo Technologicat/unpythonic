@@ -74,7 +74,7 @@ def liftm2(M: type, f: Callable) -> Callable:
         if not isinstance(My, M):
             raise TypeError(f"second argument: expected monad {M}, got {type(My)} with data {My!r}")
         return Mx >> (lambda x:
-               My >> (lambda y:
+               My >> (lambda y:  # noqa: E128 -- monadic style
                       M(f(x, y))))
     return lifted
 
@@ -95,7 +95,7 @@ def liftm3(M: type, f: Callable) -> Callable:
         if not isinstance(Mz, M):
             raise TypeError(f"third argument: expected monad {M}, got {type(Mz)} with data {Mz!r}")
         return Mx >> (lambda x:
-               My >> (lambda y:
-               Mz >> (lambda z:
+               My >> (lambda y:  # noqa: E128 -- monadic style
+               Mz >> (lambda z:  # noqa: E128 -- monadic style
                       M(f(x, y, z)))))
     return lifted
