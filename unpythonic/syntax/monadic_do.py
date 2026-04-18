@@ -137,11 +137,7 @@ def _monadic_do(block_body: list, monad_type: expr, result_name: str) -> list:
 
 
 def _is_binding_form(item) -> bool:
-    """Return True if *item* is ``name := expr`` or ``name << expr`` (a let-style binding).
-
-    Two nested ``if``s (rather than a single combined expression) keep the two
-    binding-syntax variants visually separate and easy to scan at the use site.
-    """
+    """Return True if *item* is ``name := expr`` or ``name << expr`` (a let-style binding)."""
     if type(item) is NamedExpr and type(item.target) is Name:
         return True
     if type(item) is BinOp and type(item.op) is LShift and type(item.left) is Name:  # noqa: SIM103 -- keep cases visually separate
