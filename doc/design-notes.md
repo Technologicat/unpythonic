@@ -22,8 +22,8 @@
     - [On `let` and Python](#on-let-and-python)
     - [Assignment syntax](#assignment-syntax)
     - [TCO syntax and speed](#tco-syntax-and-speed)
-    - [No Monads?](#no-monads)
-    - [No Types?](#no-types)
+    - [Monads](#monads)
+    - [Types](#types)
     - [Detailed Notes on Macros](#detailed-notes-on-macros)
     - [Miscellaneous notes](#miscellaneous-notes)
 
@@ -199,18 +199,24 @@ For other libraries bringing TCO to Python, see:
  - [MacroPy](https://github.com/azazel75/macropy) uses an approach similar to `fn.py`.
 
 
-## No Monads?
+## Monads
 
-(Beside List inside `forall`.)
+*Added in v2.1.0.*
 
-Admittedly unpythonic, but Haskell feature, not Lisp. Besides, already done elsewhere, see [OSlash](https://github.com/dbrattli/OSlash) if you need them.
+We provide have [`unpythonic.monads`](../unpythonic/monads/) and [`unpythonic.syntax.monadic_do`](../unpythonic/syntax/monadic_do.py).
 
-If you want to roll your own monads for whatever reason, there's [this silly hack](https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/monads.py) that wasn't packaged into this; or just read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
+For understanding monads, read Stephan Boyer's quick introduction [[part 1]](https://www.stephanboyer.com/post/9/monads-part-1-a-design-pattern) [[part 2]](https://www.stephanboyer.com/post/10/monads-part-2-impure-computations) [[super quick intro]](https://www.stephanboyer.com/post/83/super-quick-intro-to-monads) and figure it out, it's easy. (Until you get to `State` and `Reader`, where [this](http://brandon.si/code/the-state-monad-a-tutorial-for-the-confused/) and maybe [this](https://gaiustech.wordpress.com/2010/09/06/on-monads/) can be helpful.)
+
+If you don't need the language kitchen sink that is `unpythonic`, there are also specialized monad libraries for Python, such as [OSlash](https://github.com/dbrattli/OSlash).
 
 
-## No Types?
+## Types
 
-The `unpythonic` project will likely remain untyped indefinitely, since I don't want to enter that particular marshland with things like `curry` and `with continuations`. It may be possible to gradually type some carefully selected parts - but that's currently not on [the roadmap](https://github.com/Technologicat/unpythonic/milestones). I'm not against it, if someone wants to contribute.
+*Changed in v2.1.0.*
+
+We now provide type annotations for most of `unpythonic`'s pure-Python layer.
+
+The remaining modules will likely remain untyped indefinitely, since I don't want to enter that particular marshland with things like `curry` and `with continuations`. That said, I'm not against the idea, if someone wants to contribute.
 
 In general, on type systems, [this three-part discussion on LtU](http://lambda-the-ultimate.org/node/220) was interesting:
 
@@ -233,7 +239,7 @@ More on type systems:
 - Serious about types? [Bartosz Milewski: Category Theory for Programmers](https://bartoszmilewski.com/2014/10/28/category-theory-for-programmers-the-preface/) (online book)
 - [Chris Smith: What To Know Before Debating Type Systems](http://blogs.perl.org/users/ovid/2010/08/what-to-know-before-debating-type-systems.html)
 - [Martin Fowler on dynamic typing](https://www.martinfowler.com/bliki/DynamicTyping.html)
-- Do we need types? At least John Shutt (the author of the [Kernel](https://web.cs.wpi.edu/~jshutt/kernel.html) programming language) seems to think we don't: [Where do types come from?](http://fexpr.blogspot.com/2011/11/where-do-types-come-from.html)
+- Do we need types? At least John Shutt (the author of the [Kernel](https://web.cs.wpi.edu/~jshutt/kernel.html) programming language) thought that we don't: [Where do types come from?](http://fexpr.blogspot.com/2011/11/where-do-types-come-from.html)
 - In physics, units as used for dimension analysis are essentially a form of static typing.
   - This has been discussed on LtU, see e.g. [[1]](http://lambda-the-ultimate.org/node/33) [[2]](http://lambda-the-ultimate.org/classic/message11877.html).
 
