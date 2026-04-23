@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
 """bf: the classical human-incomprehensible automaton as a Python dialect.
 
-This module provides a `bf` → Python source-to-source **compiler** (not an
-interpreter), wrapped as an `mcpyrate` dialect so that a file ending in
-``.py`` can contain a `bf` program directly::
+This module provides a `bf` → Python source-to-source compiler, wrapped
+as an `mcpyrate` dialect so that a file ending in ``.py`` can contain
+a `bf` program directly::
 
     from unpythonic.dialects.bf import dialects, BF
 
@@ -19,10 +19,6 @@ plain function::
 This prints the Python that the dialect would run. Useful for the pedagogic
 side of things — reading a non-trivial `bf` program by rewriting it in a
 language a human can actually read.
-
-Why does this exist? Because `mcpyrate`'s `Dialect.transform_source` docstring
-uses brainfuck as its illustrative example and ends with the line
-*"Implementing the actual BF->Python transpiler is left as an exercise"*.
 
 Design
 
@@ -57,10 +53,9 @@ Design
 
 __all__ = ["BF", "Tape", "bf_compile"]
 
-import re
 from collections import defaultdict
 
-from mcpyrate.dialects import Dialect
+from mcpyrate.dialects import Dialect, split_at_dialectimport
 
 
 class Tape(defaultdict):
@@ -75,12 +70,6 @@ class Tape(defaultdict):
 
     def __setitem__(self, key, value):
         super().__setitem__(key, value & 0xFF)
-
-
-# Matches the single-line `from ... import dialects, BF` form. We require the
-# simple single-line form (no parenthesised list, no continuation backslash),
-# the same restriction mcpyrate's own dialect-import scanner imposes.
-_DIALECT_IMPORT = re.compile(r"^\s*from\s+[.\w]+\s+import\s+dialects\s*,\s*BF\s*$")
 
 
 def bf_compile(src: str) -> str:
@@ -220,22 +209,15 @@ def bf_compile(src: str) -> str:
 class BF(Dialect):
     """Brainfuck as a whole-module source-to-source transformer.
 
-    Everything before the dialect-import line is passed through unchanged
-    (keeps the encoding declaration and module docstring intact); everything
-    after it is treated as `bf` source and compiled via `bf_compile`.
+    Text before the dialect-import line is passed through unchanged (keeps
+    the encoding declaration and module docstring intact); text after it
+    is treated as `bf` source and compiled via `bf_compile`. Any other
+    dialect-imports in the module are preserved so that further dialect
+    processing can find them.
     """
     def transform_source(self, text):
-        lines = text.splitlines(keepends=True)
-        import_idx = None
-        for i, line in enumerate(lines):
-            if _DIALECT_IMPORT.match(line.rstrip("\r\n")):
-                import_idx = i
-                break
-        if import_idx is None:
-            # `transform_source` only runs because a dialect-import was found,
-            # so this branch is defensive — fall back to compiling the whole
-            # text as `bf`.
-            return bf_compile(text)
-        prologue = "".join(lines[:import_idx])
-        bf_src = "".join(lines[import_idx + 1:])
-        return prologue + bf_compile(bf_src)
+        r = split_at_dialectimport(text, type(self).__name__, self.lineno)
+        if r is None:
+            return text
+        prologue, other, body = r
+        return prologue + "".join(other) + bf_compile(body)
