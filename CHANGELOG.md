@@ -2,7 +2,11 @@
 
 **2.1.1** (in progress):
 
-*No user-visible changes yet.*
+**New**:
+
+- `unpythonic.dialects.bf`: a dialect that accepts a brainfuck program in place of Python source. Compiles `bf` to Python and runs it, or — via `bf_compile(src)` — returns the generated Python as a string for inspection. The tape is a `defaultdict[int, int]` subclass with 8-bit wrapping cells; comments in the `bf` source are preserved as Python comments; a `reset` line clears the tape between programs.
+  - Demonstrates the `mcpyrate` `Dialect.transform_source` hook (full-module source-to-source transformer), which the other dialects in this package do not use.
+  - Requires `mcpyrate >= 4.0.1` for the corresponding regex fix in the dialect-import scanner.
 
 
 ---
