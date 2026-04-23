@@ -64,6 +64,24 @@ print(bf_compile(bf_program_str))
 
 `bf_compile(src)` returns self-contained runnable Python — useful for reading a non-trivial BF program by rewriting it in a language a human can actually read.
 
+For example, the program above compiles to:
+
+```python
+from sys import stdin, stdout
+from unpythonic.dialects.bf import Tape
+tape = Tape()
+ptr = 0
+
+tape[ptr] += 13
+while tape[ptr]:
+    ptr += 1
+    tape[ptr] += 5
+    ptr -= 1
+    tape[ptr] -= 1
+ptr += 1
+stdout.write(chr(tape[ptr])); stdout.flush()
+```
+
 ## What BF is
 
 BF is a dialect ~of Python~ implemented as a whole-module *source-to-source* transform. The dialect definition lives in [`unpythonic.dialects.bf`](../../unpythonic/dialects/bf.py). Usage examples can be found in [the unit tests](../../unpythonic/dialects/tests/test_bf.py).
