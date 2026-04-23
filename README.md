@@ -797,21 +797,6 @@ with continuations:  # enables also TCO automatically
 
 The [dialects subsystem of `mcpyrate`](https://github.com/Technologicat/mcpyrate/blob/master/doc/dialects.md) makes Python into a language platform, à la [Racket](https://racket-lang.org/). We provide some example dialects based on `unpythonic`'s macro layer. See [documentation](doc/dialects.md).
 
-<details><summary>BF: the classical human-incomprehensible automaton.</summary>
-
-[[docs](doc/dialects/bf.md)]
-
-A [BF](https://en.wikipedia.org/wiki/Brainfuck) program, compiled to Python.
-
-```python
-from unpythonic.dialects.bf import dialects, BF  # noqa: F401
-
-# 'A' via a 5 × 13 multiplication loop
-+++++++++++++[>+++++<-]>.
-```
-
-Unlike the other dialects below, BF is a whole-module *source-to-source* transform — the body of a BF file isn't parseable as Python at all. It's the one example in this collection that exercises `mcpyrate`'s source-transformer hook, the modern equivalent of what old Lisp folks used to call a *reader macro*.
-</details>  
 <details><summary>Lispython: automatic TCO and an implicit return statement.</summary>
 
 [[docs](doc/dialects/lispython.md)]
@@ -889,6 +874,19 @@ double = lambda x: 2 * x
 assert (my_map, double, (q, 1, 2, 3)) == (ll, 2, 4, 6)
 ```
 </details>
+<details><summary>BF: the classical human-incomprehensible automaton.</summary>
+
+[[docs](doc/dialects/bf.md)]
+
+```python
+from unpythonic.dialects.bf import dialects, BF  # noqa: F401
+
+# 'A' via a 5 × 13 multiplication loop
++++++++++++++[>+++++<-]>.
+```
+
+Unlike the other dialects below, [BF](https://en.wikipedia.org/wiki/Brainfuck) is a whole-module *source-to-source* transform — the body of a BF file isn't parseable as Python at all. It's the one example in this collection that exercises `mcpyrate`'s source-transformer hook, the modern equivalent of what old Lisp folks used to call a *reader macro*.
+</details>  
 
 ## Install & uninstall
 
