@@ -4,10 +4,10 @@
 - [Pure-Python feature set](../features.md)
 - [Syntactic macro feature set](../macros.md)
 - [Examples of creating dialects using `mcpyrate`](../dialects.md)
-  - [BF](bf.md)
   - **Lispython**
   - [Listhell](listhell.md)
   - [Pytkell](pytkell.md)
+  - [BF](bf.md)
 - [REPL server](../repl.md)
 - [Troubleshooting](../troubleshooting.md)
 - [Design notes](../design-notes.md)
