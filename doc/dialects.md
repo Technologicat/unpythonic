@@ -4,6 +4,7 @@
 - [Pure-Python feature set](features.md)
 - [Syntactic macro feature set](macros.md)
 - **Examples of creating dialects using `mcpyrate`**
+  - [BF](dialects/bf.md)
   - [Lispython](dialects/lispython.md)
   - [Listhell](dialects/listhell.md)
   - [Pytkell](dialects/pytkell.md)
@@ -32,10 +33,11 @@ Hence *dialects*.
 
 As examples of what can be done with a dialects system together with a kitchen-sink language extension macro package such as `unpythonic`, we currently provide the following dialects:
 
+  - [**BF**: the classical human-incomprehensible automaton](dialects/bf.md)
   - [**Lispython**: The love child of Python and Scheme](dialects/lispython.md)
   - [**Listhell**: It's not Lisp, it's not Python, it's not Haskell](dialects/listhell.md)
   - [**Pytkell**: Because it's good to have a kell](dialects/pytkell.md)
 
-All three dialects support `unpythonic`'s `continuations` block macro, to add `call/cc` to the language; but it is not enabled automatically.
+Lispython, Listhell, and Pytkell are AST-transforming dialects, built on top of `unpythonic`'s macro layer. All three support `unpythonic`'s `continuations` block macro, to add `call/cc` to the language; but it is not enabled automatically. BF is a source-to-source compiler — the body of a BF file is not parseable as Python — and demonstrates the other half of `mcpyrate`'s dialect system.
 
 Mostly, these dialects are intended as a cross between teaching material and a (fully functional!) practical joke, but Lispython may occasionally come in handy.
