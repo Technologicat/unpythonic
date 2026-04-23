@@ -100,4 +100,4 @@ Not intended for ~serious~ use.
 
 ## Etymology?
 
-Wikipedia has [more on the name](https://en.wikipedia.org/wiki/Brainfuck#Etymology) than is strictly appropriate here.
+See [Wikipedia](https://en.wikipedia.org/wiki/Brainfuck).
