@@ -873,7 +873,7 @@ assert (my_prod, (range, 1, 5)) == 24
 double = lambda x: 2 * x
 assert (my_map, double, (q, 1, 2, 3)) == (ll, 2, 4, 6)
 ```
-</details>
+</details>  
 <details><summary>BF: the classical human-incomprehensible automaton.</summary>
 
 [[docs](doc/dialects/bf.md)]
@@ -886,7 +886,7 @@ from unpythonic.dialects.bf import dialects, BF  # noqa: F401
 ```
 
 Unlike the other dialects below, [BF](https://en.wikipedia.org/wiki/Brainfuck) is a whole-module *source-to-source* transform — the body of a BF file isn't parseable as Python at all. It's the one example in this collection that exercises `mcpyrate`'s source-transformer hook, the modern equivalent of what old Lisp folks used to call a *reader macro*.
-</details>  
+</details>
 
 ## Install & uninstall
 
