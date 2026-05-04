@@ -95,32 +95,45 @@ def runtests():
         test[tuple(m) == (6, 9, 3**(1 / 2))]
 
     with testset("Values unpacking in call/callwith"):
-        # call: a leading Values unpacks into the call.
+        # Leading Values: rets become positional args, kwrets become kwargs.
         v = Values(1, 2, x=3)
         test[call(lambda a, b, x: (a, b, x), v) == (1, 2, 3)]
-
-        # call: positional-only Values.
         test[call(add, Values(2, 3)) == 5]
 
-        # call: extra positional and keyword args merge after the Values.
-        # rets come first, args[1:] appended; kwargs override kwrets.
-        def f(a, b, c, x, y):
-            return (a, b, c, x, y)
-        test[call(f, Values(1, 2, x=10), 3, y=20) == (1, 2, 3, 10, 20)]
-        # explicit kwarg overrides Values.kwrets on key conflict
-        test[call(f, Values(1, 2, x=10), 3, x=99, y=20) == (1, 2, 3, 99, 20)]
+        # Mixed with regular args: Values expands at its position, others stay put.
+        def f3(a, b, c):
+            return (a, b, c)
+        test[call(f3, 1, Values(2, 3)) == (1, 2, 3)]
+        test[call(f3, Values(1, 2), 3) == (1, 2, 3)]
+        test[call(f3, 1, Values(2), 3) == (1, 2, 3)]
 
-        # call: a non-leading Values is passed through as a single argument.
-        # (Trigger is args[0] only, not "any args is Values".)
-        def g(p, q):
-            return (p, q)
-        test[call(g, 1, Values(2, 3)) == (1, Values(2, 3))]
+        # Multiple Values expand in left-to-right order.
+        def f4(a, b, c, d):
+            return (a, b, c, d)
+        test[call(f4, Values(1, 2), Values(3, 4)) == (1, 2, 3, 4)]
+        test[call(f4, Values(1), 2, Values(3, 4)) == (1, 2, 3, 4)]
+
+        # Trailing positional and keyword args merge after the Values.
+        def f5(a, b, c, x, y):
+            return (a, b, c, x, y)
+        test[call(f5, Values(1, 2, x=10), 3, y=20) == (1, 2, 3, 10, 20)]
+
+        # Rightmost wins per unique keyword name.
+        # Explicit kwargs override Values.kwrets:
+        test[call(f5, Values(1, 2, x=10), 3, x=99, y=20) == (1, 2, 3, 99, 20)]
+        # Among multiple Values, the later one's kwrets override the earlier:
+        def fkw(a, b, *, x):
+            return (a, b, x)
+        test[call(fkw, Values(1, x=10), Values(2, x=20)) == (1, 2, 20)]
 
         # callwith: same rules, applied at definition time.
         test[callwith(Values(2, 3))(add) == 5]
         test[callwith(Values(1, 2, x=3))(lambda a, b, x: (a, b, x)) == (1, 2, 3)]
-        test[callwith(Values(1, 2, x=10), 3, y=20)(f) == (1, 2, 3, 10, 20)]
-        test[callwith(Values(1, 2, x=10), 3, x=99, y=20)(f) == (1, 2, 3, 99, 20)]
+        test[callwith(1, Values(2, 3))(f3) == (1, 2, 3)]
+        test[callwith(Values(1, 2), Values(3, 4))(f4) == (1, 2, 3, 4)]
+        test[callwith(Values(1, 2, x=10), 3, y=20)(f5) == (1, 2, 3, 10, 20)]
+        test[callwith(Values(1, 2, x=10), 3, x=99, y=20)(f5) == (1, 2, 3, 99, 20)]
+        test[callwith(Values(1, x=10), Values(2, x=20))(fkw) == (1, 2, 20)]
 
     # The `Values` abstraction is used by various parts of `unpythonic` that
     # deal with function composition; particularly `curry`, the `compose` and

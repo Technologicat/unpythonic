@@ -19,17 +19,27 @@ def _init_module() -> None:  # called by unpythonic.__init__ when otherwise done
     _init_done = True
 
 def _maybe_unpack_values(args, kwargs):
-    """If `args[0]` is a `Values`, unpack it into `args` and `kwargs`.
+    """Expand any `Values` in `args` (left-to-right, in place).
 
-    Trailing positional arguments are appended after `rets`; trailing keyword
-    arguments are merged on top of `kwrets` (explicit kwargs win on key conflict).
-    Used by `call` and `callwith`.
+    Each `Values` encountered contributes its `rets` to the positional arguments
+    and its `kwrets` to the keyword arguments. Across multiple `Values` and the
+    caller's explicit `kwargs`, rightmost wins per unique keyword (explicit
+    `kwargs` are syntactically last, so they override).
+
+    Used by `call` and `callwith`. Bails out cheaply if no `Values` is present.
     """
-    if args and isinstance(args[0], Values):
-        v = args[0]
-        args = (*v.rets, *args[1:])
-        kwargs = {**v.kwrets, **kwargs}
-    return args, kwargs
+    if not any(isinstance(a, Values) for a in args):
+        return args, kwargs
+    new_args = []
+    new_kwargs = {}
+    for a in args:
+        if isinstance(a, Values):
+            new_args.extend(a.rets)
+            new_kwargs.update(a.kwrets)
+        else:
+            new_args.append(a)
+    new_kwargs.update(kwargs)
+    return tuple(new_args), new_kwargs
 
 # Only the single-argument form (just f) of the "call" decorator is supported by unpythonic.syntax.util.sort_lambda_decorators.
 #
@@ -107,23 +117,29 @@ def call(f, *args, **kwargs):
 
     **Values unpacking**:
 
-    If the first positional argument is a ``Values``, it is unpacked into
-    the call: its ``rets`` become positional arguments and its ``kwrets``
-    become keyword arguments. Any further positional arguments are appended
-    after, and any explicit keyword arguments are merged on top (overriding
-    the ``Values``'s ``kwrets`` on key conflict).
+    Any ``Values`` in the positional arguments is unpacked in place,
+    left-to-right: its ``rets`` splice into the positional arguments,
+    its ``kwrets`` merge into the keyword arguments. Across multiple
+    ``Values`` and the explicit ``kwargs``, rightmost wins per unique
+    keyword name (explicit ``kwargs`` are syntactically last, so they
+    override). Mirrors the spread/merge semantics of Python's
+    ``[*a, *b, c]`` and ``{**a, **b}``.
 
-    This mirrors the behavior of the function-composition utilities
-    (``compose``, ``pipe``, ...), where ``Values`` is the protocol for
-    multiple positional and named return values. The merge semantics
-    support Haskell-style passthrough currying, where the curry context
-    may contribute extra arguments alongside a ``Values`` returned by an
-    inner step.
+    ``Values`` is the protocol unpythonic uses for multiple positional
+    and named return values; this lets you take a ``Values`` produced by
+    one function and apply it as the arguments to another.
 
-    Example::
+    Examples::
 
         v = Values(1, 2, x=3)
         assert call(lambda a, b, x: (a, b, x), v) == (1, 2, 3)
+
+        # Spread anywhere, mixed with regular args.
+        assert call(lambda a, b, c: (a, b, c), 1, Values(2, 3)) == (1, 2, 3)
+
+        # Spread-and-override: kwrets contribute defaults, explicit kwargs win.
+        defaults = Values(timeout=30, retries=3)
+        # call(api, defaults, retries=5)  →  api(timeout=30, retries=5)
     """
     args, kwargs = _maybe_unpack_values(args, kwargs)
 #    return f(*args, **kwargs)
@@ -228,12 +244,9 @@ def callwith(*args, **kwargs):
 
     **Values unpacking**:
 
-    If the first positional argument is a ``Values``, it is unpacked at
-    the time ``callwith`` is invoked: its ``rets`` become the leading
-    frozen positional arguments and its ``kwrets`` become frozen keyword
-    arguments. Any further positional arguments are appended after, and
-    any explicit keyword arguments are merged on top (overriding the
-    ``Values``'s ``kwrets`` on key conflict). Same merge semantics as
+    Any ``Values`` in the positional arguments is unpacked when
+    ``callwith`` is invoked (so the closure captures already-expanded
+    args/kwargs). Same spread-in-place / rightmost-wins semantics as
     ``call``; see its docstring.
 
     Example::

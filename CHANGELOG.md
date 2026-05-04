@@ -14,7 +14,7 @@
 
 **Changed**:
 
-- `unpythonic.funutil.call` and `callwith` now unpack a leading `Values` argument: its `rets` become positional arguments and its `kwrets` become keyword arguments. Any further positional arguments are appended after, and any explicit keyword arguments are merged on top (overriding `kwrets` on key conflict). Mirrors the handling of `Values` in the function-composition utilities, and supports Haskell-style passthrough currying where the curry context contributes extra arguments alongside a `Values`.
+- `unpythonic.funutil.call` and `callwith` now unpack `Values` in their positional arguments: each `Values` expands in place (left-to-right), splicing its `rets` into the positional arguments and merging its `kwrets` into the keyword arguments. Across multiple `Values` and the explicit `kwargs`, rightmost wins per unique keyword name. Mirrors the spread/merge semantics of Python's `[*a, *b, c]` and `{**a, **b}`; lets a `Values` produced by one function be applied as the arguments to another.
 
 
 ---
