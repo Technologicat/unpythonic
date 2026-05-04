@@ -70,6 +70,17 @@ Fleet-wide audit across all projects. The known failure mode (mcpyrate `cacbfd2`
 Noted 2026-04-17.
 
 
+## CI: PyPy-3.11 / macOS / Windows — `test_dbg` errors via `inspect.getframeinfo`
+
+`unpythonic.syntax.tests.test_dbg` errors out twice on PyPy-3.11 / macOS-latest and PyPy-3.11 / windows-latest, with `TypeError: unsupported operand type(s) for -: 'NoneType' and 'int'` raised at `inspect.py:1728` (`start = lineno - 1 - context//2`, with `lineno=None`). Trigger path: `test[]` macro → `_observe` → `testexpr` (frame at `line -1`, i.e. macro-generated) → `unpythonic.misc.callsite_filename` → `inspect.stack()`. Linux PyPy-3.11 unaffected.
+
+**Pre-existing**: appeared between 2026-04-24 (CI green on `8182293`) and 2026-05-04 (CI red on `5bcf3d4`) without any code change to the affected paths. PyPy version string unchanged (3.11.15) — most likely a runner-image bump on the floating `macos-latest`/`windows-latest` tags introduced a PyPy binary or environment change that exposes the macro-frame `lineno=None` case in upstream `inspect.getframeinfo`.
+
+**Mitigation options**: guard `unpythonic.misc.callsite_filename` against `None`-`lineno` frames (skip them or substitute 1); or pin PyPy's tooled subversion in CI. The first is more robust to upstream churn and helps any user running on PyPy with macro frames in the stack.
+
+Noted 2026-05-04.
+
+
 ## Remove `unpythonic.amb.MonadicList` alias (3.0.0)
 
 As part of the monads port, `MonadicList` was moved to `unpythonic.monads.List` with a varargs constructor (`List(1, 2, 3)` instead of `MonadicList([1, 2, 3])`). A silent alias `MonadicList = List` is kept in `unpythonic/amb.py` for backward-name compatibility during the 2.x series. Remove the alias in 3.0.0 along with the accompanying `TODO(3.0.0)` comment at the alias site. Users must then import `List` directly from `unpythonic.monads`. Note: this is name-only compat — the constructor signature changed at 2.0.0, so existing callers of `MonadicList([...])` already needed to switch to varargs or `from_iterable(...)` at 2.0.0.
