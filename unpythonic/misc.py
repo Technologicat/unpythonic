@@ -17,11 +17,10 @@ from collections.abc import Callable, Iterable, Iterator
 import contextlib
 from copy import copy
 from functools import partial
-from itertools import count
-import inspect
 import logging
 import pathlib
 from queue import Empty, Queue
+import sys
 from time import perf_counter
 from typing import Any, IO, TypeVar
 from types import FunctionType, LambdaType, TracebackType
@@ -282,24 +281,34 @@ def slurp(queue: Queue) -> list:
         pass
     return out
 
+_CALLSITE_TRANSPARENT = frozenset((
+    "maybe_force_args",                  # lazify
+    "curried", "curry", "_currycall",    # autocurry
+    "call", "callwith",                  # manual use of misc utils
+))
+
 def callsite_filename() -> str:
     """Return the filename of the call site, as a string.
 
     Useful as a building block for debug utilities and similar.
 
-    The filename is grabbed from the call stack using `inspect`.
-    This works also in the REPL (where `__file__` is undefined).
+    Skips over our own call-helpers (`call`, `callwith`, `curry` and
+    friends, lazify's `maybe_force_args`), so the *user's* call site is
+    reported. Works also in the REPL (where `__file__` is undefined).
     """
-    stack = inspect.stack()
-    for k in count(start=1):  # ignore callsite_filename() itself
-        framerecord = stack[k]
-        # ignore our call-helpers
-        if framerecord.function not in ("maybe_force_args",  # lazify
-                                        "curried", "curry", "_currycall",  # autocurry
-                                        "call", "callwith"):  # manual use of misc utils
-            frame = framerecord.frame
-            filename = frame.f_code.co_filename
-            return filename
+    # We walk via `sys._getframe` rather than `inspect.stack`. `inspect.stack`
+    # calls `inspect.getframeinfo` for every frame on the way and reads source
+    # context lines around `f_lineno`, which raises `TypeError` if any frame
+    # in the walk has `f_lineno is None`. PyPy 3.11 / macOS / Windows hits
+    # exactly that: at least one frame on the way out of a `test[]` macro
+    # invocation reports `f_lineno = None`. Linux PyPy and CPython don't.
+    # We never use line info here; only `f_code.co_filename`.
+    frame = sys._getframe(1)  # skip callsite_filename itself
+    while frame is not None:
+        if frame.f_code.co_name not in _CALLSITE_TRANSPARENT:
+            return frame.f_code.co_filename
+        frame = frame.f_back
+    raise RuntimeError("callsite_filename: no eligible frame on the call stack")
 
 def safeissubclass(cls: Any, cls_or_tuple: type | tuple[type, ...]) -> bool:
     """Like issubclass, but if `cls` is not a class, swallow the `TypeError` and return `False`."""

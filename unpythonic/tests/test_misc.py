@@ -125,6 +125,12 @@ def runtests():
     with testset("callsite_filename"):
         test["test_misc.py" in the[callsite_filename()]]
 
+        # Skips over our own call-helpers so the *user's* call site is
+        # reported, not the helper's. Reaching `callsite_filename` via
+        # `call(...)` should still return this test file.
+        from ..funutil import call
+        test["test_misc.py" in the[call(callsite_filename)]]
+
     # Like issubclass, but if `cls` is not a class, swallow the `TypeError` and return `False`.
     with testset("safeissubclass"):
         class MetalBox:
