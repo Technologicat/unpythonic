@@ -106,6 +106,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 [**Function call and return value tools**](#function-call-and-return-value-tools)
 - [`def` as a code block: `@call`](#def-as-a-code-block-call): run a block of code immediately, in a new lexical scope.
 - [`@callwith`: freeze arguments, choose function later](#callwith-freeze-arguments-choose-function-later)
+- [Spreading a `Values` into `call` / `callwith`](#spreading-a-values-into-call--callwith)
 - [`Values`: multiple and named return values](#values-multiple-and-named-return-values)
   - [`valuify`](#valuify): convert pythonic multiple-return-values idiom of `tuple` into `Values`.
 
@@ -4762,6 +4763,42 @@ assert tuple(m) == (6, 9, 3**(1/2))
 ```
 
 Inspired by *Function application with $* in [LYAH: Higher Order Functions](http://learnyouahaskell.com/higher-order-functions).
+
+
+### Spreading a `Values` into `call` / `callwith`
+
+**Added in v2.2.0.**
+
+Both `call` and `callwith` recognize [`Values`](#values-multiple-and-named-return-values) in their positional arguments and spread it into the call. Each `Values` expands in place, left-to-right: its `rets` splice into the positional arguments, its `kwrets` merge into the keyword arguments. Across multiple `Values` and the caller's explicit keyword arguments, rightmost wins per unique keyword name (explicit `kwargs` are syntactically last, so they always override).
+
+```python
+from unpythonic import call, callwith, Values
+
+# Apply a Values bundle as the arguments to a function.
+v = Values(1, 2, x=3)
+assert call(lambda a, b, x: (a, b, x), v) == (1, 2, 3)
+
+# Spread anywhere, mixed with regular arguments.
+def f(a, b, c):
+    return (a, b, c)
+assert call(f, 1, Values(2, 3)) == (1, 2, 3)
+assert call(f, Values(1, 2), 3) == (1, 2, 3)
+
+# Multiple Values expand in left-to-right order.
+def f4(a, b, c, d):
+    return (a, b, c, d)
+assert call(f4, Values(1, 2), Values(3, 4)) == (1, 2, 3, 4)
+
+# Spread-and-override: kwrets carry defaults, explicit kwargs win.
+defaults = Values(timeout=30, retries=3)
+def api(*, timeout, retries):
+    return (timeout, retries)
+assert call(api, defaults, retries=5) == (30, 5)
+```
+
+Mirrors Python's familiar spread/merge — `[*a, *b, c]` for the positional side, `{**a, **b}` for the keyword side. The motivating use is taking a `Values` produced by one function and applying it as the arguments to another, including spread-and-override patterns where a `Values` carries defaults and explicit kwargs override individual keys.
+
+For `callwith`, the spread happens at the moment `callwith` is invoked, when the arguments are frozen — so the inner closure already sees the expanded positional and keyword arguments.
 
 
 ### `Values`: multiple and named return values
