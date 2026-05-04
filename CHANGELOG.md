@@ -8,6 +8,10 @@
   - Demonstrates the `mcpyrate` `Dialect.transform_source` hook (full-module source-to-source transformer), which the other dialects in this package do not use.
   - Uses the new `mcpyrate.dialects.split_at_dialectimport` helper (requires `mcpyrate >= 4.1.0`), which correctly handles the case where the bf dialect-import shares a `from X import dialects, A, B` line with other dialects.
 
+**Changed**:
+
+- `unpythonic.funutil.call` and `callwith` now unpack a leading `Values` argument: its `rets` become positional arguments and its `kwrets` become keyword arguments. Any further positional arguments are appended after, and any explicit keyword arguments are merged on top (overriding `kwrets` on key conflict). Mirrors the handling of `Values` in the function-composition utilities, and supports Haskell-style passthrough currying where the curry context contributes extra arguments alongside a `Values`.
+
 
 ---
 

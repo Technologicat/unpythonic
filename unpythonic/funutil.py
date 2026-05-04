@@ -18,6 +18,19 @@ def _init_module() -> None:  # called by unpythonic.__init__ when otherwise done
     from .collections import frozendict
     _init_done = True
 
+def _maybe_unpack_values(args, kwargs):
+    """If `args[0]` is a `Values`, unpack it into `args` and `kwargs`.
+
+    Trailing positional arguments are appended after `rets`; trailing keyword
+    arguments are merged on top of `kwrets` (explicit kwargs win on key conflict).
+    Used by `call` and `callwith`.
+    """
+    if args and isinstance(args[0], Values):
+        v = args[0]
+        args = (*v.rets, *args[1:])
+        kwargs = {**v.kwrets, **kwargs}
+    return args, kwargs
+
 # Only the single-argument form (just f) of the "call" decorator is supported by unpythonic.syntax.util.sort_lambda_decorators.
 #
 # This is as it should be; if given any arguments beside f, the call doesn't conform
@@ -91,7 +104,28 @@ def call(f, *args, **kwargs):
 
     Note that in the multi-break case, ``x`` and ``y`` are no longer in scope
     outside the block, since the block is a function.
+
+    **Values unpacking**:
+
+    If the first positional argument is a ``Values``, it is unpacked into
+    the call: its ``rets`` become positional arguments and its ``kwrets``
+    become keyword arguments. Any further positional arguments are appended
+    after, and any explicit keyword arguments are merged on top (overriding
+    the ``Values``'s ``kwrets`` on key conflict).
+
+    This mirrors the behavior of the function-composition utilities
+    (``compose``, ``pipe``, ...), where ``Values`` is the protocol for
+    multiple positional and named return values. The merge semantics
+    support Haskell-style passthrough currying, where the curry context
+    may contribute extra arguments alongside a ``Values`` returned by an
+    inner step.
+
+    Example::
+
+        v = Values(1, 2, x=3)
+        assert call(lambda a, b, x: (a, b, x), v) == (1, 2, 3)
     """
+    args, kwargs = _maybe_unpack_values(args, kwargs)
 #    return f(*args, **kwargs)
     return maybe_force_args(force(f), *args, **kwargs)  # support unpythonic.syntax.lazify
 
@@ -191,7 +225,25 @@ def callwith(*args, **kwargs):
 
         *Function application with $* in
         http://learnyouahaskell.com/higher-order-functions
+
+    **Values unpacking**:
+
+    If the first positional argument is a ``Values``, it is unpacked at
+    the time ``callwith`` is invoked: its ``rets`` become the leading
+    frozen positional arguments and its ``kwrets`` become frozen keyword
+    arguments. Any further positional arguments are appended after, and
+    any explicit keyword arguments are merged on top (overriding the
+    ``Values``'s ``kwrets`` on key conflict). Same merge semantics as
+    ``call``; see its docstring.
+
+    Example::
+
+        v = Values(2, 3)
+        def myadd(a, b):
+            return a + b
+        assert callwith(v)(myadd) == 5
     """
+    args, kwargs = _maybe_unpack_values(args, kwargs)
     def applyfrozenargsto(f):
         return maybe_force_args(force(f), *args, **kwargs)
     return applyfrozenargsto

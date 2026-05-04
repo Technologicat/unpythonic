@@ -94,6 +94,34 @@ def runtests():
                             lambda x: x**(1 / 2)])
         test[tuple(m) == (6, 9, 3**(1 / 2))]
 
+    with testset("Values unpacking in call/callwith"):
+        # call: a leading Values unpacks into the call.
+        v = Values(1, 2, x=3)
+        test[call(lambda a, b, x: (a, b, x), v) == (1, 2, 3)]
+
+        # call: positional-only Values.
+        test[call(add, Values(2, 3)) == 5]
+
+        # call: extra positional and keyword args merge after the Values.
+        # rets come first, args[1:] appended; kwargs override kwrets.
+        def f(a, b, c, x, y):
+            return (a, b, c, x, y)
+        test[call(f, Values(1, 2, x=10), 3, y=20) == (1, 2, 3, 10, 20)]
+        # explicit kwarg overrides Values.kwrets on key conflict
+        test[call(f, Values(1, 2, x=10), 3, x=99, y=20) == (1, 2, 3, 99, 20)]
+
+        # call: a non-leading Values is passed through as a single argument.
+        # (Trigger is args[0] only, not "any args is Values".)
+        def g(p, q):
+            return (p, q)
+        test[call(g, 1, Values(2, 3)) == (1, Values(2, 3))]
+
+        # callwith: same rules, applied at definition time.
+        test[callwith(Values(2, 3))(add) == 5]
+        test[callwith(Values(1, 2, x=3))(lambda a, b, x: (a, b, x)) == (1, 2, 3)]
+        test[callwith(Values(1, 2, x=10), 3, y=20)(f) == (1, 2, 3, 10, 20)]
+        test[callwith(Values(1, 2, x=10), 3, x=99, y=20)(f) == (1, 2, 3, 99, 20)]
+
     # The `Values` abstraction is used by various parts of `unpythonic` that
     # deal with function composition; particularly `curry`, the `compose` and
     # `pipe` families, and the `with continuations` macro.
