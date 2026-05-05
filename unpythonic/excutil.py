@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """Exception-related utilities."""
 
-__all__ = ["raisef", "tryf",
+__all__ = ["raisef", "tryf", "withf",
            "equip_with_traceback",
            "async_raise",
            "reraise_in", "reraise"]
 
-from collections.abc import Callable, Iterator, Mapping
-from contextlib import contextmanager
+from collections.abc import Callable, Iterable, Iterator, Mapping
+from contextlib import contextmanager, ExitStack
 import sys
 import threading
 from typing import Any, NoReturn
@@ -153,6 +153,62 @@ def tryf(body: Callable[[], Any], *handlers: tuple, elsef: Callable[[], Any] | N
     finally:
         if finallyf is not None:
             finallyf()
+
+def withf(cms: Any, body: Callable[..., Any]) -> Any:
+    """``with`` as a function.
+
+    This allows lambdas to use context managers.
+
+    ``cms`` is either a single context manager, or a sequence of context
+    managers ``(cm1, cm2, ...)``. A sequence is entered left-to-right and
+    exited in reverse, analogously to ``with cm1, cm2, ...:``.
+
+    A bare context manager (one whose runtime type defines ``__enter__``)
+    is treated as a 1-element sequence; the explicit tuple is optional in
+    that case.
+
+    ``body`` represents the body of the ``with`` block. The arity is
+    auto-detected:
+
+      - If ``body`` accepts as many positional arguments as there are
+        context managers, it receives the as-values, in order. This is
+        the analogue of ``with cm1 as x, cm2 as y: body(x, y)``.
+
+      - If ``body`` is a thunk (takes no positional arguments), the
+        as-values are discarded. Useful for context managers used purely
+        for their side effects, such as ``with lock: ...``.
+
+    The return value of ``withf`` is whatever ``body`` returns. (Lispily,
+    `with` is an expression here, even though Python's statement form
+    is value-less.)
+
+    Exceptions raised inside ``body`` are passed to the context manager's
+    ``__exit__`` as usual; if not suppressed there, they propagate out of
+    ``withf``.
+    """
+    if hasattr(type(cms), "__enter__"):
+        cms = (cms,)
+    elif not isinstance(cms, Iterable):
+        raise TypeError(f"cms must be a context manager or an iterable of context managers, got {type(cms)} with value {repr(cms)}")
+    else:
+        cms = tuple(cms)
+        for cm in cms:
+            if not hasattr(type(cm), "__enter__"):
+                raise TypeError(f"Each item in cms must be a context manager, got {type(cm)} with value {repr(cm)}")
+
+    n = len(cms)
+    with ExitStack() as stack:
+        values = [stack.enter_context(cm) for cm in cms]
+        try:
+            is_thunk = not arity_includes(body, n)
+        except UnknownArity:  # well, we tried!  # pragma: no cover
+            # Inspection failed (e.g. an uninspectable C callable). Default to
+            # the n-arg form — receiving the as-values is the primary use of
+            # `withf`. Any real mismatch surfaces as a TypeError at the call.
+            is_thunk = False
+        if is_thunk:
+            return body()
+        return body(*values)
 
 def equip_with_traceback(exc: BaseException, stacklevel: int = 1) -> BaseException:  # Python 3.7+
     """Given an exception instance exc, equip it with a traceback.

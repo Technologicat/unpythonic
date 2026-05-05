@@ -121,7 +121,7 @@ The oft-quoted single-expression limitation of the Python `lambda` is ultimately
    - So we use macros to define a `cond` expression, essentially duplicating a feature the language already almost has. See [our macros](macros.md).
  - Functional looping (with TCO) gives us equivalents of `for` and `while`. See the constructs in `unpythonic.fploop`, particularly `looped` and `breakably_looped`.
  - `unpythonic.ec.call_ec` gives us `return` (the ec).
- - `unpythonic.misc.raisef` gives us `raise`, and `unpythonic.misc.tryf` gives us `try`/`except`/`else`/`finally`.
+ - `unpythonic.excutil.raisef` gives us `raise`, `unpythonic.excutil.tryf` gives us `try`/`except`/`else`/`finally`, and `unpythonic.excutil.withf` gives us `with`.
  - A lambda can be named, see `unpythonic.misc.namelambda`.
    - There are some practical limitations on the fully qualified name of nested lambdas.
    - Note this does not bind the name to an identifier at the use site, so the name cannot be used to recurse. The point is that the name is available for inspection, and it will show in tracebacks.
@@ -131,8 +131,7 @@ The oft-quoted single-expression limitation of the Python `lambda` is ultimately
  - A lambda can assert by using an if-expression and then `raisef` to actually raise the `AssertionError`.
    - Or use the `test[]` macro, which also shows the source code for the asserted expression if the assertion fails.
    - Technically, `test[]` will `signal` the `TestFailure` (part of the public API of `unpythonic.test.fixtures`), not raise it, but essentially, `test[]` is a more convenient assert that optionally hooks into a testing framework. The error signal, if unhandled, will automatically chain into raising a `ControlError` exception, which is often just fine.
- - Context management (`with`) is currently **not** available for lambdas, even in `unpythonic`.
-   - Aside from the `async` stuff, this is the last hold-out preventing full generality, so we will likely add an expression form of `with` in a future version. This is tracked in [issue #76](https://github.com/Technologicat/unpythonic/issues/76).
+ - Context management (`with`) is available in expression position via `unpythonic.excutil.withf`. Aside from the `async` stuff, this was the last hold-out preventing full generality of lambdas.
 
 Still, ultimately one must keep in mind that Python is not a Lisp. Not all of Python's standard library is expression-friendly; some standard functions and methods lack return values - even though a call is an expression! For example, `set.add(x)` returns `None`, whereas in an expression context, returning `x` would be much more useful, even though it does have a side effect.
 

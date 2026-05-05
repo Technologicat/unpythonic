@@ -99,6 +99,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 
 [**Exception tools**](#exception-tools)
 - [`raisef`, `tryf`: `raise` and `try` as functions](#raisef-tryf-raise-and-try-as-functions), useful inside a lambda.
+- [`withf`: `with` as a function](#withf-with-as-a-function), useful inside a lambda.
 - [`equip_with_traceback`](#equip-with-traceback), equip a manually created exception instance with a traceback. 
 - [`async_raise`: inject an exception to another thread](#async_raise-inject-an-exception-to-another-thread) *(CPython only)*
 - [`reraise_in`, `reraise`: automatically convert exception types](#reraise_in-reraise-automatically-convert-exception-types)
@@ -4403,6 +4404,34 @@ test[tryf(lambda: raise_instance(),
 The exception handler is a function. It may optionally accept one argument, the exception instance. Just like in an `except` clause, the exception specification can be either an exception type, or a `tuple` of exception types.
 
 Functions can also be specified to represent the `else` and `finally` blocks; the keyword parameters to do this are `elsef` and `finallyf`. Each of them is a thunk (a 0-argument function). See the docstring of `unpythonic.tryf` for details.
+
+Examples can be found in [the unit tests](../unpythonic/tests/test_excutil.py).
+
+
+### `withf`: `with` as a function
+
+**Added in v2.2.0**.
+
+The `withf` function is a `with` block for an expression position. This rounds out the set with `raisef` and `tryf`, completing the suite of statement-as-expression utilities the language otherwise omits.
+
+```python
+from unpythonic import withf
+
+# Single context manager; body receives the as-value.
+contents = withf(open("README.md"), lambda f: f.read())
+
+# Multiple context managers, entered left-to-right and exited in reverse,
+# analogously to `with cm1, cm2, ...:`. Pass them as a tuple.
+combined = withf((open("a.txt"), open("b.txt")),
+                 lambda fa, fb: fa.read() + fb.read())
+
+# Body may be a thunk if the as-values aren't needed (the `with lock:` style).
+result = withf(lock, lambda: critical_section())
+```
+
+The body's arity is auto-detected: if it accepts as many positional arguments as there are context managers, it receives the as-values in order; if it is a thunk, the as-values are discarded. This mirrors the optional-argument convention of `tryf`'s exception handlers.
+
+The return value of `withf` is whatever the body returns. (Lispily, `with` is an expression here, even though Python's statement form is value-less. *Value of everything, cost of nothing.*)
 
 Examples can be found in [the unit tests](../unpythonic/tests/test_excutil.py).
 

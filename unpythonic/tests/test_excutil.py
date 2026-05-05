@@ -7,11 +7,13 @@ import threading
 from time import sleep
 import sys
 
-from ..excutil import (raisef, tryf,
+from ..excutil import (raisef, tryf, withf,
                        equip_with_traceback,
                        reraise_in, reraise,
                        async_raise)
 from ..env import env
+
+from contextlib import contextmanager, suppress
 
 def runtests():
     # raisef: raise an exception from an expression position
@@ -75,6 +77,63 @@ def runtests():
                                     ((ValueError, str), lambda: "got a string"))]  # same, in the tuple case
         test_raises[TypeError, tryf(lambda: "hello",
                                     ("not a type at all!", lambda: "got a string"))]
+
+    # withf: enter context manager(s) in expression position
+    with testset("withf (with-block in an expression)"):
+        # A simple value-yielding context manager.
+        @contextmanager
+        def producing(value):
+            yield value
+
+        # A side-effect-only context manager that records enter/exit order.
+        events = []
+        @contextmanager
+        def tracking(label):
+            events.append(("enter", label))
+            try:
+                yield label
+            finally:
+                events.append(("exit", label))
+
+        # Bare single CM, body takes the as-value.
+        test[withf(producing(42), lambda x: x + 1) == 43]
+
+        # Single CM in a 1-tuple — equivalent.
+        test[withf((producing(42),), lambda x: x + 1) == 43]
+
+        # Multiple CMs: body receives all as-values, in order.
+        test[withf((producing("a"), producing("b")), lambda x, y: x + y) == "ab"]
+
+        # Thunk body: as-values discarded. Useful for `with lock: ...` style.
+        events.clear()
+        test[withf(tracking("L"), lambda: "done") == "done"]
+        test[events == [("enter", "L"), ("exit", "L")]]
+
+        # Multiple CMs entered left-to-right, exited in reverse.
+        events.clear()
+        withf((tracking("A"), tracking("B"), tracking("C")), lambda: None)
+        test[events == [("enter", "A"), ("enter", "B"), ("enter", "C"),
+                        ("exit", "C"), ("exit", "B"), ("exit", "A")]]
+
+        # Exception inside body propagates after CMs exit.
+        events.clear()
+        test_raises[ValueError, withf(tracking("X"), lambda: raisef(ValueError("boom")))]
+        test[events == [("enter", "X"), ("exit", "X")]]
+
+        # CM may suppress an exception. `withf` returns whatever body returned
+        # before the raise — i.e. `None` if no return ran, since `suppress` only
+        # swallows the exception escaping `body`.
+        test[withf(suppress(ValueError),
+                   lambda: raisef(ValueError("ignored"))) is None]
+
+        # Return value is whatever body returns; supports any object.
+        test[withf(producing(None), lambda x: (x, "tuple")) == (None, "tuple")]
+
+        # Bad input: not a CM and not iterable.
+        test_raises[TypeError, withf(42, lambda: None)]
+
+        # Bad input: iterable containing a non-CM.
+        test_raises[TypeError, withf((producing(1), "not a CM"), lambda x, y: None)]
 
     with testset("equip_with_traceback"):
         e = Exception("just testing")
