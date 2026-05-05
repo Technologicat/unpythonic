@@ -43,10 +43,10 @@ def runtests():
 
         # No `expect[]` and no `return`: asserts the block completes normally.
         with test:
-            x = 0
-            for _ in range(3):
-                x += 1
-            # no expect[]
+            log = []
+            log.append("step 1")
+            log.append("step 2")
+            # no expect[] — just asserts the statements all completed
 
     with testset("expect[] error cases (caught at macro expansion)"):
         # Two `expect[]` in the same block — SyntaxError.
