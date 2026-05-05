@@ -113,8 +113,9 @@ def runtests():
 
     # `expect[]` inside a `with test:` block — the runtime dispatch path.
     # We test that the value of the expression inside `expect[expr]` is what
-    # gets asserted, and that the implicit LHS `the[]` capture on a `Compare`
-    # still works (same rule as for the deprecated `return expr` form).
+    # gets asserted, and that both `the[]` capture rules (implicit LHS on a
+    # `Compare`, explicit) still apply, the same as they did for the
+    # deprecated `return expr` form.
     tests_failed << 0
     tests_errored << 0
     tests_run << 0
@@ -130,11 +131,16 @@ def runtests():
             log = []
             log.append("ran")
         with test:
-            # Implicit-LHS `the[]` injection works inside `expect[expr]` when
-            # `expr` is a Compare.
+            # Implicit-LHS capture: no explicit `the[]` anywhere in the block,
+            # and `expect[]` wraps a `Compare`, so the LHS is captured for
+            # failure reporting. (Effect is only visible on failure.)
             c = 0
-            expect[the[c] == 0]  # passes; would report c on failure
-    assert tests_run == 4
+            expect[c == 0]
+        with test:
+            # Explicit `the[]` inside `expect[]` overrides implicit-LHS.
+            items = ["a", "b"]
+            expect["a" in the[items]]
+    assert tests_run == 5
     assert tests_failed == 1
     assert tests_errored == 0
 
