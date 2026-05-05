@@ -34,6 +34,24 @@ ExcMapping = Mapping[ExcSpec, type[BaseException] | BaseException]
 from .arity import arity_includes, UnknownArity
 
 
+def _accepts_arity(f: Callable, n: int) -> bool:
+    """Whether `f` can be called with `n` positional arguments.
+
+    Used by `tryf` and `withf` to dispatch between an n-arg call form
+    (passing values to the user-supplied callback) and a 0-arg thunk
+    form (callback ignores values).
+
+    On `UnknownArity` (e.g. an uninspectable C callable), returns
+    `True` — we need to choose *something* as the default, and the
+    n-arg form is the more flexible choice. Any real mismatch
+    surfaces as a `TypeError` at the call.
+    """
+    try:
+        return arity_includes(f, n)
+    except UnknownArity:  # well, we tried!  # pragma: no cover
+        return True
+
+
 def raisef(exc: BaseException | type[BaseException], *, cause: BaseException | None = None) -> NoReturn:
     """``raise`` as a function, to make it possible for lambdas to raise exceptions.
 
@@ -98,14 +116,6 @@ def tryf(body: Callable[[], Any], *handlers: tuple, elsef: Callable[[], Any] | N
     you can also just create an ``env`` at an appropriate point,
     and store them there.
     """
-    def accepts_arg(f: Callable) -> bool:
-        try:
-            if arity_includes(f, 1):
-                return True
-        except UnknownArity:  # pragma: no cover
-            return True  # just assume it
-        return False
-
     def isexceptiontype(exc: Any) -> bool:
         try:
             if issubclass(exc, BaseException):
@@ -136,13 +146,13 @@ def tryf(body: Callable[[], Any], *handlers: tuple, elsef: Callable[[], Any] | N
             if isinstance(excspec, tuple):  # tuple of exception types
                 # this is safe, exctype is always a class at this point.
                 if any(issubclass(exctype, t) for t in excspec):
-                    if accepts_arg(handler):
+                    if _accepts_arity(handler, 1):
                         return handler(exception)
                     else:
                         return handler()
             else:  # single exception type
                 if issubclass(exctype, excspec):
-                    if accepts_arg(handler):
+                    if _accepts_arity(handler, 1):
                         return handler(exception)
                     else:
                         return handler()
@@ -199,16 +209,9 @@ def withf(cms: Any, body: Callable[..., Any]) -> Any:
     n = len(cms)
     with ExitStack() as stack:
         values = [stack.enter_context(cm) for cm in cms]
-        try:
-            is_thunk = not arity_includes(body, n)
-        except UnknownArity:  # well, we tried!  # pragma: no cover
-            # Inspection failed (e.g. an uninspectable C callable). Default to
-            # the n-arg form — receiving the as-values is the primary use of
-            # `withf`. Any real mismatch surfaces as a TypeError at the call.
-            is_thunk = False
-        if is_thunk:
-            return body()
-        return body(*values)
+        if _accepts_arity(body, n):
+            return body(*values)
+        return body()
 
 def equip_with_traceback(exc: BaseException, stacklevel: int = 1) -> BaseException:  # Python 3.7+
     """Given an exception instance exc, equip it with a traceback.
