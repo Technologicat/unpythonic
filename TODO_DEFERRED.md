@@ -70,6 +70,15 @@ Fleet-wide audit across all projects. The known failure mode (mcpyrate `cacbfd2`
 Noted 2026-04-17.
 
 
+## Unify `accepts_arity` helpers across `excutil` and `conditions`
+
+`unpythonic.excutil._accepts_arity(f, n)` (introduced alongside `withf` in 2.2.0) is the single source of truth for `tryf` / `withf`'s "n-arg form vs 0-arg thunk" dispatch, with the policy "default to the n-arg form on `UnknownArity`". `unpythonic.conditions.signal` (around line 199) defines its own private `accepts_arg(f)` helper with the same shape (n=1 hardcoded, returns `True` on `UnknownArity`). It would be natural to share one helper.
+
+**Caveat**: the right *policy* may be context-dependent. `tryf` and `withf` are user-facing combinators where defaulting to the n-arg form is the more flexible choice when introspection fails. The condition system's handler-dispatch is part of a fault-handling pathway — if anyone ever wants a stricter or more conservative default there (e.g. raise instead of guess, or default to thunk to avoid double-failure), that should be a deliberate decision per call site, not a side effect of unification. So a shared helper would either need a `default_on_unknown` parameter, or stay split into two helpers documenting the policy choice.
+
+Discovered during #76 (2026-05-05).
+
+
 ## Remove `unpythonic.amb.MonadicList` alias (3.0.0)
 
 As part of the monads port, `MonadicList` was moved to `unpythonic.monads.List` with a varargs constructor (`List(1, 2, 3)` instead of `MonadicList([1, 2, 3])`). A silent alias `MonadicList = List` is kept in `unpythonic/amb.py` for backward-name compatibility during the 2.x series. Remove the alias in 3.0.0 along with the accompanying `TODO(3.0.0)` comment at the alias site. Users must then import `List` directly from `unpythonic.monads`. Note: this is name-only compat — the constructor signature changed at 2.0.0, so existing callers of `MonadicList([...])` already needed to switch to varargs or `from_iterable(...)` at 2.0.0.
