@@ -14,7 +14,7 @@ the functionality is visual and it was just eyeballed. See the session example
 below to generate lots of colorful output, exercising the different features.
 """
 
-from ...syntax import macros, test, test_signals, test_raises, fail, error, warn, the  # noqa: F401
+from ...syntax import macros, test, test_signals, test_raises, fail, error, warn, the, expect  # noqa: F401
 
 from functools import partial
 
@@ -109,6 +109,33 @@ def runtests():
         test[counter() < the[counter()]]  # evaluation order not affected
     assert tests_run == 3
     assert tests_failed == 0
+    assert tests_errored == 0
+
+    # `expect[]` inside a `with test:` block — the runtime dispatch path.
+    # We test that the value of the expression inside `expect[expr]` is what
+    # gets asserted, and that the implicit LHS `the[]` capture on a `Compare`
+    # still works (same rule as for the deprecated `return expr` form).
+    tests_failed << 0
+    tests_errored << 0
+    tests_run << 0
+    with handlers(((TestFailure, TestError), report_and_proceed)):
+        with test:
+            a = 21
+            expect[a + a == 42]  # passes
+        with test:
+            b = 1
+            expect[b + b == 99]  # fails
+        with test:
+            # No `expect[]` and no `return`: asserts the block completes normally.
+            log = []
+            log.append("ran")
+        with test:
+            # Implicit-LHS `the[]` injection works inside `expect[expr]` when
+            # `expr` is a Compare.
+            c = 0
+            expect[the[c] == 0]  # passes; would report c on failure
+    assert tests_run == 4
+    assert tests_failed == 1
     assert tests_errored == 0
 
     # # If you want to proceed after most failures, but there is some particularly
