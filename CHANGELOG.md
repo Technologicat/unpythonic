@@ -4,6 +4,7 @@
 
 **New**:
 
+- `expect[]`: new expr macro for declaring the tested expression inside a `with test:` block. Replaces the `return expr` form. `return` continues to work but emits a `DeprecationWarning` at macro-expansion time and will be un-hijacked in 3.0.0 so that `return` inside `with test:` regains its standard Python meaning. Each block uses exactly one form: combining `expect[]` and `return` in the same block is a `SyntaxError`.
 - `unpythonic.excutil.withf`: `with` as a function. Expression form of the `with` statement, completing the `raisef`/`tryf`/`withf` suite. Accepts a single context manager or a tuple of them (entered left-to-right, exited in reverse). Body arity is auto-detected: an n-arg body receives the as-values in order, a thunk discards them. Returns whatever the body returns.
 - `unpythonic.dialects.bf`: a dialect that accepts a brainfuck program in place of Python source. Compiles `bf` to Python and runs it, or — via `bf_compile(src)` — returns the generated Python as a string for inspection. The tape is a `defaultdict[int, int]` subclass with 8-bit wrapping cells; comments in the `bf` source are preserved as Python comments; a `reset` line clears the tape between programs.
   - Demonstrates the `mcpyrate` `Dialect.transform_source` hook (full-module source-to-source transformer), which the other dialects in this package do not use.

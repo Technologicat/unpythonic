@@ -4,7 +4,7 @@
 See also `unpythonic.test.fixtures` for the high-level machinery.
 """
 
-__all__ = ["the", "test",
+__all__ = ["the", "expect", "test",
            "test_signals", "test_raises",
            "fail", "error", "warn",
            "expand_testing_macros_first",
@@ -20,6 +20,7 @@ from mcpyrate.utils import extract_bindings
 from mcpyrate.walkers import ASTTransformer
 
 from ast import Tuple, Subscript, Name, Call, copy_location, Compare, arg, Return, parse, Expr, AST
+import warnings
 
 from ..dynassign import dyn
 from ..env import env
@@ -82,6 +83,36 @@ def the(tree, **kw):
     For `test_raises` and `test_signals`, the `the[...]` mark is not supported.
     """
     raise SyntaxError("the[] is only meaningful inside a `test[]` or in a `with test` block")  # pragma: no cover, not meant to hit the expander
+
+def expect(tree, **kw):
+    """[syntax, expr] In a `with test` block, declare the expression whose value is checked.
+
+    Only meaningful as a statement at the top level of a `with test:` (or
+    `with test[message]:`) block. Use exactly once per block::
+
+        with test:
+            x = compute()
+            expect[x > 0]
+
+        with test["the answer"]:
+            answer = compute_answer()
+            expect[answer == 42]
+
+    **Added in v2.2.0**.
+
+    `expect[]` tells the test framework which expression's value should be
+    checked. Each `with test:` block declares its tested expression exactly
+    once, by exactly one form: either `expect[expr]` or `return expr`, not
+    both. The older `return expr` form continues to work but emits a
+    `DeprecationWarning`; it will be un-hijacked in a future major release
+    so that `return` inside `with test:` regains its standard Python meaning.
+
+    The "result" capture rules apply to the expression inside `expect[]`,
+    just as they did to `return expr`. `the[]` marks may appear inside
+    `expect[]` (or anywhere else in the block); when none are present and
+    the expression is a comparison, the leftmost term is implicitly captured.
+    """
+    raise SyntaxError("expect[] is only meaningful as a statement at the top level of `with test:`")  # pragma: no cover, not meant to hit the expander
 
 @parametricmacro
 def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
@@ -158,32 +189,39 @@ def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
         with test:
             body0
             ...
-            return expr  # optional
+            expect[expr]  # optional
 
         with test[message]:
             body0
             ...
-            return expr  # optional
+            expect[expr]  # optional
 
     The test block is automatically lifted into a function, so it introduces
     **a local scope**. Use the `nonlocal` or `global` declarations if you need
     to mutate something defined on the outside.
 
-    If there is a `return` at the top level of the block, that is the return
-    value from the test; it is what will be asserted.
+    If there is an `expect[expr]` at the top level of the block, the value of
+    `expr` is what will be asserted. At most one `expect[]` per block; using
+    both `expect[]` and `return` in the same block is a `SyntaxError`.
 
-    If there is no `return`, the test asserts that the block completes normally,
-    just like a `test[returns_normally(...)]` does for an expression.
+    If neither `expect[]` nor `return` is present, the test asserts that the
+    block completes normally, just like `test[returns_normally(...)]` does
+    for an expression.
+
+    `return expr` continues to work in this position (treated like
+    `expect[expr]`) but emits a `DeprecationWarning`. **Added in v2.2.0**;
+    `return` will be un-hijacked in a future major release so that it
+    regains its standard Python meaning.
 
     The asymmetry in syntax reflects the asymmetry between expressions and
-    statements in Python. Likewise, the fact that `with test` requires `return`
-    to return a value, but `test[...]` doesn't, is similar to the difference
-    between `def` and `lambda`.
+    statements in Python. Likewise, the fact that `with test` requires
+    `expect[]` to designate the tested expression, but `test[...]` doesn't,
+    is similar to the difference between `def` and `lambda`.
 
-    In the block variant, the "result" capture rules apply to the return value
-    designated by `return`. To override, `the[]` marks can be used for capturing
-    the value of any expressions inside the block. The marks don't have to be
-    in the `return`; they can appear anywhere.
+    In the block variant, the "result" capture rules apply to the expression
+    inside `expect[]`. To override, `the[]` marks can be used for capturing
+    the value of any expressions inside the block. The marks don't have to
+    be inside `expect[]`; they can appear anywhere.
 
     **Failure and error signaling**:
 
@@ -860,6 +898,12 @@ def _test_expr(tree):
 # These are used by `_test_expr` and `_test_block`.
 def _is_important_subexpr_mark(tree):
     return type(tree) is Subscript and type(tree.value) is Name and tree.value.id == "the"
+def _is_expect_marker(stmt):
+    """True if `stmt` is `expect[expr]` as a top-level statement of a `with test:` block."""
+    return (type(stmt) is Expr and
+            type(stmt.value) is Subscript and
+            type(stmt.value.value) is Name and
+            stmt.value.value.id == "expect")
 def _record_value(envname, sourcecode, value):
     envname.captured_values.append((sourcecode, value))
     return value
@@ -972,6 +1016,40 @@ def _test_block(block_body, args):
     thefunc.name = testblock_function_name
     thefunc.args.args[0] = arg(arg=envname)  # inject the gensymmed parameter name
     thefunc.body = block_body
+
+    # Recognize `expect[expr]` as a top-level statement of the block, and emit
+    # a `DeprecationWarning` for any top-level `return expr` (the deprecated
+    # form). `expect[]` and `return` cannot coexist in the same block — the
+    # block declares its tested expression exactly once, by exactly one form.
+    expect_indices = []
+    return_indices = []
+    for i, stmt in enumerate(thefunc.body):
+        if _is_expect_marker(stmt):
+            expect_indices.append(i)
+        elif type(stmt) is Return:
+            return_indices.append(i)
+    if len(expect_indices) > 1:
+        first_extra = thefunc.body[expect_indices[1]]
+        raise SyntaxError(f"at most one `expect[]` is allowed at the top level of `with test:` (got {len(expect_indices)}); extra at line {first_extra.lineno}")
+    if expect_indices and return_indices:
+        first_return = thefunc.body[return_indices[0]]
+        raise SyntaxError(f"`with test:` block has both `expect[]` and `return`; use one form, not both. Extra `return` at line {first_return.lineno}")
+    expander_filename = dyn._macro_expander.filename
+    for ridx in return_indices:
+        rstmt = thefunc.body[ridx]
+        warnings.warn_explicit(
+            "Using `return` to declare the tested expression in a `with test:` block is deprecated; use `expect[]` instead. The `return`-form will be un-hijacked in a future major release.",
+            DeprecationWarning,
+            expander_filename,
+            rstmt.lineno,
+        )
+    if expect_indices:
+        eidx = expect_indices[0]
+        expect_subscript = thefunc.body[eidx].value
+        retval = expect_subscript.slice
+        new_return = Return(value=retval)
+        copy_location(new_return, thefunc.body[eidx])
+        thefunc.body[eidx] = new_return
 
     # Handle the return statement.
     #

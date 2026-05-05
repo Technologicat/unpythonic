@@ -2155,7 +2155,7 @@ Nested testsets show hierarchy with indentation and asterisk depth (`**`, `****`
 
 ```python
 from unpythonic.syntax import (macros, test, test_raises, test_signals,
-                               fail, error, warn, the, expand_testing_macros_first)
+                               fail, error, warn, the, expect, expand_testing_macros_first)
 from unpythonic.test.fixtures import (session, testset, returns_normally,
                                       catch_signals, terminate)
 ```
@@ -2252,18 +2252,18 @@ Note that the testing constructs `error[]` and `warn[]`, which are macros, have 
 with test:
     body
     ...
-    # no `return`; assert just that the block completes normally
+    # no `expect[]`; assert just that the block completes normally
 with test:
     body
     ...
-    return expr  # assert that `expr` is truthy
+    expect[expr]  # assert that `expr` is truthy
 with test[message]:
     body
     ...
 with test[message]:
     body
     ...
-    return expr
+    expect[expr]
 with test_raises[exctype]:
     body
     ...
@@ -2277,6 +2277,8 @@ with test_signals[exctype, message]:
     body
     ...
 ```
+
+In a `with test:` block, `expect[expr]` (added in v2.2.0) is the way to declare the expression whose truthiness is asserted. Use it at most once per block. Earlier versions used `return expr` for this; that form still works but emits a `DeprecationWarning`, and using both `expect[]` and `return` in the same block is a `SyntaxError`. `return` will be un-hijacked in a future major release so it regains its standard Python meaning.
 
 In `with test`, the `the[]` helper macro is available. It can be used to mark any number of expressions and/or subexpressions in the block body.
 
