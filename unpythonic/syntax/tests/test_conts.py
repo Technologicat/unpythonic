@@ -787,50 +787,50 @@ def runtests():
             k2, x = k1(None)  # multi-shotting from earlier resume point
             test[x == "cont 2 first time"]
 
-    # TODO: This breaks the coverage analyzer, because 'name 'x' is assigned to before nonlocal declaration'.
-    # TODO: Fair enough, that's not standard Python. So let's just disable this for now.
-    # with testset("scoping, in presence of nonlocal"):
-    #     # TODO: better example
-    #     # It shouldn't matter in this particular example whether we declare the `x`
-    #     # in the continuations `nonlocal`, because once the parent returns, the
-    #     # only places that can access its locals *from that activation* are the
-    #     # continuation closures *created by that activation*.
-    #     with continuations:
-    #         def f():
-    #             # Original function scope
-    #             x = None
-    #
-    #             # Continuation 1 scope begins here
-    #             # (from the statement following `call_cc` onward, but including the `k1`)
-    #             k1 = call_cc[get_cc()]
-    #             nonlocal x  # <-- IMPORTANT
-    #             if iscontinuation(k1):
-    #                 # This is now the original `x`.
-    #                 x = "cont 1 first time"
-    #                 return k1, x
-    #
-    #             # Continuation 2 scope begins here
-    #             k2 = call_cc[get_cc()]
-    #             nonlocal x  # <-- IMPORTANT
-    #             if iscontinuation(k2):
-    #                 # This too is the original `x`.
-    #                 x = "cont 2 first time"
-    #                 return k2, x
-    #
-    #             # Still the original `x`.
-    #             x = "cont 2 second time"
-    #             return None, x
-    #
-    #         k1, x = f()
-    #         test[x == "cont 1 first time"]
-    #         k2, x = k1(None)  # when resuming, send `None` as the new value of variable `k1` in continuation 1
-    #         test[x == "cont 2 first time"]
-    #         k3, x = k2(None)
-    #         test[k3 is None]
-    #         test[x == "cont 2 second time"]
-    #
-    #         k2, x = k1(None)  # multi-shotting from earlier resume point
-    #         test[x == "cont 2 first time"]
+    with testset("scoping, in presence of nonlocal"):
+        # It shouldn't matter in this particular example whether we declare the `x`
+        # in the continuations `nonlocal`, because once the parent returns, the
+        # only places that can access its locals *from that activation* are the
+        # continuation closures *created by that activation*. The point of this
+        # testset is to demonstrate that `nonlocal` *works* as expected — the
+        # continuation's `nonlocal x` reaches back to the parent's `x`, just as
+        # if the continuation were any ordinary nested closure.
+        with continuations:
+            def f():
+                # Original function scope
+                x = None
+
+                # Continuation 1 scope begins here
+                # (from the statement following `call_cc` onward, but including the `k1`)
+                k1 = call_cc[get_cc()]
+                nonlocal x  # noqa: E999 -- macro splits body; post-expansion `nonlocal` is at the top of the continuation function
+                if iscontinuation(k1):
+                    # This is now the original `x`.
+                    x = "cont 1 first time"
+                    return k1, x
+
+                # Continuation 2 scope begins here
+                k2 = call_cc[get_cc()]
+                nonlocal x  # noqa: E999 -- as above
+                if iscontinuation(k2):
+                    # This too is the original `x`.
+                    x = "cont 2 first time"
+                    return k2, x
+
+                # Still the original `x`.
+                x = "cont 2 second time"
+                return None, x
+
+            k1, x = f()
+            test[x == "cont 1 first time"]
+            k2, x = k1(None)  # when resuming, send `None` as the new value of variable `k1` in continuation 1
+            test[x == "cont 2 first time"]
+            k3, x = k2(None)
+            test[k3 is None]
+            test[x == "cont 2 second time"]
+
+            k2, x = k1(None)  # multi-shotting from earlier resume point
+            test[x == "cont 2 first time"]
 
     # If you need to scope like `nonlocal`, use the classic solution: box the value,
     # so you have no need to overwrite the name; you can replace the thing in the box.
