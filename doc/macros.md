@@ -56,6 +56,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
   - [TCO and continuations](#tco-and-continuations)
 - [`continuations`: call/cc for Python](#continuations-callcc-for-python)
   - [General remarks on continuations](#general-remarks-on-continuations)
+  - [Scoping of locals in continuations](#scoping-of-locals-in-continuations)
   - [Differences between `call/cc` and certain other language features](#differences-between-callcc-and-certain-other-language-features) (generators, exceptions)
   - [`call_cc` API reference](#call_cc-api-reference)
   - [Combo notes](#combo-notes)
@@ -1397,6 +1398,56 @@ Code within a `with continuations` block is treated specially.
 >   - Inside a `def`, `call_cc[]` generates a tail call, thus terminating the original (parent) function. Hence `call_ec` does **not** combo with `with continuations`.
 >   - At the top level of the `with continuations` block, `call_cc[]` generates a normal call. In this case there is no return value for the block (for the continuation, either), because the use site of the `call_cc[]` is not inside a function.
 </details>
+
+#### Scoping of locals in continuations
+
+Each `call_cc[]` introduces a scope boundary. The continuation captured by `call_cc[]` — the rest of the function body that lexically follows it — is a **new closure**; importantly, it is not part of the surrounding lexical scope. Any name assigned in the continuation is local to the continuation, even if a name with the same spelling existed in the body before the `call_cc[]`.
+
+This is comparable to how Python's comprehensions and generator expressions also introduce a scope boundary, except here the boundary is invisible in the unexpanded source — the `call_cc[]` does not look like a `def`, but at expansion time it becomes one.
+
+The mechanism: under the hood, the continuation is a function. The assignment targets of `call_cc[]` become its parameters. Anything assigned later, anywhere in the body that lexically follows the `call_cc[]`, is a fresh local of that closure, by Python's standard scoping rules. For the closure-nesting topology that makes this scoping rule fall out, see [`callcc_topology.pdf`](callcc_topology.pdf) — the "Base case" panel shows a single continuation as a closure living in the lexical scope of its parent function, and the "Sequence of continuations" panel shows how chained `call_cc[]`s nest those closures.
+
+The practical implication:
+
+```python
+with continuations:
+    def f():
+        x = "before"
+        k = call_cc[get_cc()]
+        if iscontinuation(k):
+            return k
+        x = "after"  # fresh local of the continuation; does not rebind the outer x
+        return x
+```
+
+Two distinct names, both spelled `x`. To share state across the boundary, use a [`box`](features.md#box-a-mutable-single-item-container) — replace its contents instead of rebinding the name:
+
+```python
+with continuations:
+    def f():
+        b = box("before")  # `b` is now the box - the actual value is inside the box
+        k = call_cc[get_cc()]
+        if iscontinuation(k):
+            return k
+        b << "after"  # send new value into the same box
+        return unbox(b)  # return the value that is currently inside the box
+```
+
+For the authoritative reference, see the testsets `"scoping, using a box"` and `"scoping, locals only"` in [`unpythonic/syntax/tests/test_conts.py`](../unpythonic/syntax/tests/test_conts.py).
+
+**Why the macro doesn't auto-`nonlocal` parent locals into the continuation**
+
+A naïve fix would be to scan the parent body for assignments and emit `nonlocal` declarations for those names at the top of the continuation. An experiment along these lines was tried — the implementation lives as a commented-out `patch_scoping` function inside `unpythonic.syntax.tailtools._continuations` (search for `patch_scoping` in [`tailtools`](unpythonic/syntax/tailtools.py)) — but three load-bearing limits ruled it out:
+
+1. **Continuation parameters must shadow same-named parent locals.** The assignment targets of `call_cc[]` become the continuation's parameters. If the parent scope already has a name with the same spelling, declaring it `nonlocal` in the continuation would conflict with the parameter. So the auto-`nonlocal` rule has to *exclude* the continuation's parameters — which means at minimum those names cannot be lifted, and the principle of "as if same lexical scope" already breaks for them.
+
+2. **No upward propagation: a name introduced in the continuation cannot be made visible to code that ran before the `call_cc[]`.** Lifting *parent* locals into the continuation is a one-way street; making it bidirectional would require a second pass to discover continuation-introduced names and retro-declare them in the parent. The macro is one-pass (and already complex enough to make it one of the most intimidating parts of `unpythonic.syntax` to keep working during maintenance work).
+
+3. **At the top level of `with continuations:`, `nonlocal` vs `global` is undecidable from the AST alone.** Whether the block is at module top level (so parent assignments need `global`) or inside some enclosing function (so they need `nonlocal`) cannot be determined locally — the macro would need whole-module analysis to find out.
+
+Given limits 1 and 2, even a successful implementation would only *partially* maintain the illusion of "same scope" — and limit 3 would force an additional restriction or an extra analysis pass. The cure was less straightforward than the disease, so the abandoned experiment is preserved as commented-out code with these reasons recorded inline, and the rule "each `call_cc[]` is a scope boundary" is documented instead. The behavior is no worse than how Python itself treats comprehensions and generator expressions.
+
+For the deepest lurking gotcha: this also applies to *nested* `call_cc[]` invocations within the same function body — each one starts a new closure, so a chain of `call_cc[]`s creates a chain of nested closures, and a name assigned after the *n*th `call_cc[]` is local to the *n*th continuation, distinct from the same-spelled name assigned after the (*n*-1)th.
 
 #### Differences between `call/cc` and certain other language features
 
