@@ -19,9 +19,20 @@ workflows. Inferring from `~/.claude/CLAUDE.md` "Active projects":
 - **substrate-independent** — *writing project, not Python*; out of scope unless
   its embedded Python tool has its own pyproject.toml.
 
-For each project: verify it has a `pyproject.toml`, then apply the relevant parts
-of the sweep. Projects without coverage runs in CI need only Sweep B (and only
-if they have other dev tooling in CI's `pip install` lines).
+For each project: verify it has a `pyproject.toml`, then check whether CI
+actually runs coverage (look for `.github/workflows/coverage.yml`, or `--cov`
+flags / `coverage run` invocations in `ci.yml`). **Both sweeps are about
+coverage tooling**, so projects with no coverage in CI fall out of scope
+entirely — there's nothing to align. The broader cleanup of non-coverage
+`pip install` lines (sphinx, etc.) is explicitly deferred (see "Out of
+scope" below).
+
+Survey result for the current fleet (2026-05-06): `pylu`, `pydgq`, `wlsqm`
+have no coverage in CI and are out of scope — these are Cython projects, and
+coverage on Cython modules requires `linetrace=True` plus a separate tracing
+build, which none of them set up (the Python-level wrapping is thin enough
+that line coverage of the `.py` glue would mostly measure the test scaffolding
+anyway). `pyan3`, `mcpyrate`, `raven` are in scope.
 
 ## Sweep A: `[tool.coverage.run]` configuration
 
@@ -60,12 +71,16 @@ omit = [
 ]
 ```
 
-**Path varies by project.** Most fleet projects use `test/` (singular) for the
-test directory. **unpythonic uses `tests/` (plural)** because `unpythonic.test`
-is reserved for the test framework module (`unpythonic.test.fixtures`). Don't
-mechanically copy the unpythonic glob — pick the one that matches the project's
-layout, and don't add the *other* one as a precaution: in unpythonic, `*/test/*`
-would mistakenly omit the framework, which *is* production code.
+**Path varies by project — there is no fleet convention.** The naming drifted
+organically: unpythonic uses `tests/` (plural) because `unpythonic.test` is
+reserved for the test framework module (`unpythonic.test.fixtures`); the other
+projects' current testsuites were written without an explicit convention being
+set, so each picked a locally sensible name. Survey result for the current
+in-scope set: pyan uses `tests/` (plural, top-level), raven uses `tests/`
+(plural, scattered under `raven/<subpkg>/tests/`), mcpyrate uses `test/`
+(singular, at `mcpyrate/test/`). Pick the glob that matches the project's
+actual layout, and don't add the *other* one as a precaution: in unpythonic,
+`*/test/*` would mistakenly omit the framework, which *is* production code.
 
 The `omit` config applies even when the CI workflow uses `--source=.` from the
 command line — config-level omit is composed with whatever source is active.
@@ -117,6 +132,16 @@ dev deps match the baseline, you'll get coverage automatically.
 need `pytest-cov` declared in addition to / instead of `coverage` — pick what
 the workflow actually uses.
 
+**Exception — raven:** raven's CI deliberately uses ad-hoc `pip install` lines
+*because* a full `pdm install` would pull in the project's torch/torchvision
+ML stack (multi-gigabyte, and the workflow already takes pains to use the
+CPU-only PyTorch wheel index). For raven, do **only the declaration half** of
+Sweep B: add `pytest-cov` to `[dependency-groups].dev` so a fresh local
+`pdm install` includes it, but **leave the coverage workflow's ad-hoc install
+in place** — just keep `pytest-cov` in the explicit `pip install` list. The
+per-project `CLAUDE.md` (or a comment in `coverage.yml`) should note why the
+workflow doesn't use `pdm install`.
+
 ### Verify
 
 Locally:
@@ -146,9 +171,15 @@ echo "--- coverage.yml: install lines ---"
 grep -E 'pip install|pdm install|coverage' .github/workflows/coverage.yml 2>/dev/null || echo "(no coverage.yml)"
 echo "--- ci.yml: install lines ---"
 grep -E 'pip install|pdm install|coverage' .github/workflows/ci.yml 2>/dev/null | head -10 || echo "(no ci.yml)"
-echo "--- test directory name ---"
-ls -d */tests */test 2>/dev/null | head -3
+echo "--- test directory name (depth ≤ 3) ---"
+find . -maxdepth 3 -type d \( -name tests -o -name test \) \
+    -not -path '*/.venv/*' -not -path '*/__pycache__/*' 2>/dev/null | head -10
 ```
+
+The `find` form (vs the simpler `ls -d */tests */test`) is needed because some
+projects scatter test directories deeper — raven has them at
+`raven/<subpkg>/tests/`, three levels down. A depth-1 glob would miss those
+entirely and you'd write the wrong `omit` glob.
 
 Use the output to decide:
 
