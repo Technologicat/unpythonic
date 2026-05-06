@@ -414,6 +414,12 @@ class frozendict:
     As usual, this does **not** protect from mutating the values themselves,
     if they happen to be mutable objects (such as containers).
 
+    "Frozen" refers to the **mapping**: there is no ``__setitem__``,
+    ``__delitem__``, ``update``, etc. As with any plain Python class,
+    instance **attributes** (``d.foo = ...``) are not frozen — only
+    contents accessed via the mapping protocol are. The use case is
+    immutable data, not a sealed object.
+
     Any ``m`` used in the initialization of a ``frozendict`` is shallow-copied
     to make sure the bindings in the ``frozendict`` do not change even if the
     original is later mutated.
