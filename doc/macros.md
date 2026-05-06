@@ -56,6 +56,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
   - [TCO and continuations](#tco-and-continuations)
 - [`continuations`: call/cc for Python](#continuations-callcc-for-python)
   - [General remarks on continuations](#general-remarks-on-continuations)
+  - [Topology of continuations: how the wiring works](#topology-of-continuations-how-the-wiring-works)
   - [Scoping of locals in continuations](#scoping-of-locals-in-continuations)
   - [Differences between `call/cc` and certain other language features](#differences-between-callcc-and-certain-other-language-features) (generators, exceptions)
   - [`call_cc` API reference](#call_cc-api-reference)
@@ -1284,9 +1285,9 @@ Hence, if porting some code that uses `call/cc` from Racket to Python, in the Py
 
 Observe that while our outermost `call_cc` already somewhat acts like a prompt (in the sense of delimited continuations), we are currently missing the ability to set a prompt wherever (inside code that already uses `call_cc` somewhere) and make the continuation terminate there. So what we have right now is something between proper delimited continuations and classic whole-computation continuations - not really [co-values](http://okmij.org/ftp/continuations/undelimited.html), but not really delimited continuations, either.
 
-(TODO: If I interpret the wiki page right, our `call_cc` performs the job of `reset`; the called function forms the body of the `reset`. The `cc` argument passed into the called function performs the job of `shift`.)
+(Mapping to delimited-continuation terminology: the body of the *enclosing* function is the implicit body of `reset` — that's what delimits `cc`. The `call_cc[]` site does the job of `shift` (capture the rest of the enclosing function body as `cc`), and the called function `g` plays the role of `shift`'s body — the code that runs with the captured continuation in hand.)
 
-For various possible program topologies that continuations may introduce, see [these clarifying pictures](callcc_topology.pdf).
+For the closure topology that the `call_cc` machinery actually produces — and what `cc` and `pcc` are doing under the hood — see [Topology of continuations: how the wiring works](#topology-of-continuations-how-the-wiring-works) below.
 
 For full documentation, see the docstring of `unpythonic.syntax.continuations`. The unit tests [[1]](../unpythonic/syntax/tests/test_conts.py) [[2]](../unpythonic/syntax/tests/test_conts_escape.py) [[3]](../unpythonic/syntax/tests/test_conts_gen.py) [[4]](../unpythonic/syntax/tests/test_conts_topo.py) may also be useful as usage examples.
 
@@ -1398,6 +1399,26 @@ Code within a `with continuations` block is treated specially.
 >   - Inside a `def`, `call_cc[]` generates a tail call, thus terminating the original (parent) function. Hence `call_ec` does **not** combo with `with continuations`.
 >   - At the top level of the `with continuations` block, `call_cc[]` generates a normal call. In this case there is no return value for the block (for the continuation, either), because the use site of the `call_cc[]` is not inside a function.
 </details>
+
+#### Topology of continuations: how the wiring works
+
+If you want to know how the gears actually mesh — what kind of object a continuation *is* at run time, why there are two arguments named `cc` and `pcc`, and how the chain unwinds when a function ends — this is the section.
+
+<img src="callcc_topology.png" alt="Topology of call_cc continuations: closures, cc, and pcc" width="700"/>
+
+The diagram is dense the first time but each panel adds one idea on top of the previous.
+
+**Base case** (top left). A function `f` does `call_cc[g(...)]`, which captures the rest of `f`'s body as a closure. Let's name that closure `f_cont`. The macro builds it implicitly; the `call_cc` machinery passes it to `g` as the keyword argument `cc`. So `cc=f_cont` is just shorthand for "here is the rest of `f`, wrapped up so you can call it later." `f_cont` lives in `f`'s lexical scope — it sees `f`'s locals as enclosing-scope variables, exactly like any other nested closure. Once `g` has `cc` in hand, it can stash it somewhere for later use; that ability is the whole point of having `call_cc` in the first place.
+
+**Sequence of continuations** (second panel). If the rest-of-`f` itself contains another `call_cc`, then *the rest of the rest of `f`* gets captured as a second closure, `f_cont1`. By the same mechanism, `f_cont1` lives inside `f_cont`'s lexical scope. Two `call_cc`s in a row produce two nested closures — and the same thing happens for any number. This nesting is also why each `call_cc[]` introduces a scope boundary (see [Scoping of locals in continuations](#scoping-of-locals-in-continuations)): the boundaries are simply the closures' edges.
+
+**Nested continuations** (third panel). Now consider a `call_cc` that lives *inside* a function `g` that is itself being run as the body of an outer `call_cc`. The outer `call_cc` already arranged for `g`'s `cc` to point at `f_cont`. When `g` does its own `call_cc[h(...)]`, it captures the rest of `g`'s body as `g_cont`, and passes that to `h` as `cc=g_cont`. But there's a wrinkle: when `g_cont` eventually finishes, it needs to continue with `f_cont` (the *original* outer continuation), not just stop. To carry that information forward without disturbing the public `cc` argument, the machinery introduces a second argument: **`pcc`** ("parent cc"). On `g_cont` it is set to `f_cont`. The "Nearly equivalent?" panel on the right makes the same point in the special case where `g` was reached by tail call rather than by `call_cc`: a tail call must propagate whatever value `cc` had at the call site, since `cc` is the public API.
+
+**The chaining rule** (fourth panel — "The Confetti Scenarios"). Now we can write down the protocol that makes the whole thing work. *When a function ends, check `pcc` first. If `pcc` is set, tail-call it (passing the current `cc` along as its `cc`). If `pcc` is not set, tail-call `cc` directly.* That single rule is what threads a chain like `g_cont → f_cont` together correctly, and it generalises to chains of arbitrary length: the `cc` that was originally passed in always fires *last*, after the entire `pcc` chain has finished. The only place that ever sets `pcc` is the `call_cc[]` mechanism itself — specifically, at the moment it builds the definition of a continuation function. User code never touches `pcc`.
+
+**Tail-call composition** (bottom panels). One last wrinkle. When a continuation tail-calls another function while its own `pcc` is set, simply forwarding `cc` would skip the link in the chain that `pcc` represents. The fix is to *compose* `pcc`-then-`cc` into a new continuation, and pass that composed value as the callee's `cc`. The composed continuation, when it eventually fires, runs `pcc` first (with the original `cc` set as *its* `cc`), so the chain unwinds in the correct order. This composition rule applies recursively: nested tail calls compose nested chains. The general statement: a tail call checks for `pcc`; if set, makes a composed `cc`; if not, just passes along the existing `cc`.
+
+**Putting it together.** `cc` is the public API — it gets set by the `call_cc[]` mechanism at capture time and propagated by tail calls. `pcc` is internal plumbing — set only by `call_cc[]` itself, used only by the chaining rule when a function ends or tail-calls another. From the outside, a user writes `call_cc[func(...)]` and `func` receives `cc`; from the inside, the macro and the chaining rule work together to ensure the captured continuation eventually fires in the right place no matter how deeply the call stack nests.
 
 #### Scoping of locals in continuations
 
