@@ -216,13 +216,13 @@ class cons:
     Iterable. Default is to iterate as a linked list.
     """
     def __init__(self, v1: Any, v2: Any) -> None:
-        self.car = v1
-        self.cdr = v2
-        self._immutable = True
+        # Bypass our locked-down `__setattr__` to populate the read-only fields once.
+        object.__setattr__(self, "car", v1)
+        object.__setattr__(self, "cdr", v2)
     def __setattr__(self, k: str, v: Any) -> None:
-        if hasattr(self, "_immutable"):
-            raise TypeError("'cons' object does not support item assignment")
-        super().__setattr__(k, v)
+        raise TypeError(f"'cons' object does not support attribute assignment; tried to set {k!r}")
+    def __delattr__(self, k: str) -> None:
+        raise TypeError(f"'cons' object does not support attribute deletion; tried to delete {k!r}")
     def __iter__(self) -> LinkedListOrCellIterator:
         """Return iterator with default iteration scheme: single cell or list."""
         return LinkedListOrCellIterator(self)

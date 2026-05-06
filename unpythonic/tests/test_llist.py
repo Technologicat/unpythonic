@@ -22,8 +22,12 @@ def runtests():
         test_raises[TypeError, car("sedan")]
         test_raises[TypeError, cdr("disc")]
 
-        with test_raises[TypeError, "cons cells should be immutable"]:
+        with test_raises[TypeError, "cons cells should be immutable (no attribute assignment)"]:
             c.car = 3
+        with test_raises[TypeError, "cons cells should be immutable (no attribute deletion)"]:
+            del c.car
+        with test_raises[TypeError, "cons cells should be immutable (no new attributes)"]:
+            c.extra = "nope"
 
         test[the[c == c]]
         test[the[cons(1, 2) == cons(1, 2)]]
