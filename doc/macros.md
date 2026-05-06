@@ -1750,7 +1750,7 @@ with continuations:
     assert [x for x in mi] == [1, 2, 3]
 ```
 
-`MultishotIterator` supports a subset of the generator protocol: `iter`, `next`, `send`, `throw`, `close`, `gi_code`, `gi_frame`, `gi_running`, `gi_yieldfrom`. Plus one method that real generators don't have:
+`MultishotIterator` supports a subset of the generator protocol: `iter`, `next`, `send`, `throw`, `close`, `gi_code`, `gi_frame`, `gi_running`, `gi_yieldfrom`. Plus one method that standard generators don't have:
 
 ```python
 import copy
@@ -1774,14 +1774,51 @@ Unlike standard generators, multi-shot generators support `copy.copy()`. The for
 
 `copy.deepcopy(mi)` raises `TypeError`. The continuation closes over caller state we can't meaningfully deep-copy; use `copy.copy()` to fork.
 
+##### How does `copy.copy(mi)` differ from `k = mi.k`?
+
+It almost doesn't. `copy.copy(mi)` is essentially `MultishotIterator(mi.k)` — plus preservation of the closed-flag, plus the convenience of doing the snapshot in one operation (since `mi.k` is overwritten on each `next`/`send`/`throw`, you'd otherwise have to remember to grab `k` *before* the next advance). The fork is iterator-shaped from day one, so it composes with `for x in fork`, `next(fork)`, and `fork.gi_yieldfrom`; a bare `k` would have to be re-wrapped in a `MultishotIterator` to do the same.
+
+Use `k = mi.k` (or capture `k` from a destructuring like `k1, x1 = mi.k(...)`) when you want the raw continuation — for instance, to drive it from a custom orchestrator. Use `copy.copy(mi)` when you want a second consumer-shaped iterator and idiomatic stdlib-style code at the call site.
+
+(With standard generators, neither path is available: `copy.copy(real_gen)` raises `TypeError`, and `gen.gi_frame` isn't a continuation you could wrap and re-invoke. Multi-shot offers both.)
+
+##### Delegating to another multi-shot: `myield_from`
+
+The multi-shot analog of `yield from`. Inside an outer `@multishot` body, `myield_from[inner_call()]` drives a second `@multishot` to exhaustion, re-yielding each of its values to outer's caller. On inner's `StopIteration`, execution continues in outer's body. Two forms (subscript syntax — same convention as `myield[expr]`):
+
+```python
+with continuations:
+    @multishot
+    def inner():
+        myield[1]
+        myield[2]
+        return 99   # surfaces as StopIteration(99) at the boundary
+
+    @multishot
+    def outer():
+        myield[0]
+        result = myield_from[inner()]   # binds inner's StopIteration value
+        myield[result]                  # → 99
+```
+
+The statement form `myield_from[inner_call()]` discards inner's `StopIteration` value; the assignment form `var = myield_from[inner_call()]` binds it.
+
+`send` and `throw` from the outer's caller are forwarded into the inner. While delegating, `outer_mi.gi_yieldfrom` returns the inner `MultishotIterator` (mirroring the standard generator's `gi_yieldfrom`); it returns `None` again once inner is exhausted.
+
+`myield_from` is statement-only and may only appear at the top level of a `@multishot` body — same placement constraint as `myield`. Inside lambdas, comprehensions, or nested `def`s it is rejected at macro-expansion time.
+
+**Architecture note for the curious.** The expansion captures "rest of outer" via `_rest = call_cc[get_cc()]` (the multi-shot analog of Racket's `(let/cc return ...)`), tail-calls a small driver, and uses the *cut-the-tail* trick (`cc = identity`) inside a yield helper to deliver each `(captured_cc, value)` pair straight to the user's `mi._k()` trampoline. When inner exhausts, the driver invokes the captured rest-cc to resume outer's body just past the `myield_from` statement.
+
+**Limitation: cross-form delegation is wontfix.** `myield_from` is multi-shot-to-multi-shot only; you cannot `myield_from` a standard generator (the semantic mismatch is the same as for `yield from` in the other direction).
+
 ##### Differences from standard Python generators
 
 Beyond what's already mentioned above:
 
-- **`gi_frame` is always `None`.** A multi-shot generator has no paused frame — every `myield` terminated its frame and returned a continuation closure. State lives in the closure cells of the continuation, not in any frame. The real-generator idiom `gen.gi_frame is None ↔ exhausted` does **not** apply; use `mi.gi_code is None` as the liveness signal instead.
+- **`gi_frame` is always `None`.** A multi-shot generator has no paused frame — every `myield` terminated its frame and returned a continuation closure. State lives in the closure cells of the continuation, not in any frame. The standard-generator idiom `gen.gi_frame is None ↔ exhausted` does **not** apply; use `mi.gi_code is None` as the liveness signal instead.
 - **`gi_running` is always `False`.** Nothing is ever paused.
-- **`yield from` across a real generator and a multi-shot generator is not supported.** Real generators have paused state, multi-shots don't; the semantic mismatch can't be papered over. Multi-shot-to-multi-shot delegation (`myield_from`) is on the roadmap; until then, `gi_yieldfrom` is always `None`.
-- **`with` and `try`/`finally` across `myield` boundaries do not behave as in real generators.** A `with` block "exits" as soon as the multi-shot `myield`s the continuation (because, technically, the function returned). It re-enters from the top whenever the continuation is invoked. For an example of what the world's serious `call/cc`-having languages do here, see Racket's [`dynamic-wind`](https://docs.racket-lang.org/reference/cont.html#%28def._%28%28quote._~23~25kernel%29._dynamic-wind%29%29).
+- **`yield from` across a standard generator and a multi-shot generator is not supported.** Standard generators have paused state, multi-shots don't; the semantic mismatch can't be papered over. Multi-shot-to-multi-shot delegation is supported via `myield_from`; see the dedicated subsection above.
+- **⚠ `with`, `try`/`finally`, and `with handlers` across `myield` boundaries do not behave as in standard generators — load-bearing gotcha.** When a `myield` is reached, the `@multishot` function technically *returns* (the `myield` macro expansion compiles into a `return` of a continuation). All `with` `__exit__` and `try`/`finally` clauses lexically containing the `myield` therefore fire *at the `myield`*, not at the end of the multi-shot. Resuming the continuation jumps back into mid-body — the `with`/`try` is *not* re-entered (no second `__enter__` call), so a `with open(...) as f: myield[1]; myield[2]` will see `f` already closed at `myield[2]`. Same for unpythonic conditions: a `with handlers(...)` lexically containing a `myield` uninstalls the handler at the `myield` and the handler is *not* re-installed on resume. **Workaround for cleanup:** do it explicitly — call `f.close()` after the consumer is done, or use a `try/except StopIteration` in the caller. **Workaround for handlers:** install `with handlers(...)` *outside* the `@multishot` body, in the calling code that consumes the iterator. Conditions raised at any point during multi-shot consumption then propagate to that outer handler normally. For an example of what the world's serious `call/cc`-having languages do for this kind of thing, see Racket's [`dynamic-wind`](https://docs.racket-lang.org/reference/cont.html#%28def._%28%28quote._~23~25kernel%29._dynamic-wind%29%29).
 - **No async form.** No `__aiter__`, `asend`, etc.; multi-shot is sync-only.
 - **No pickling.** Continuations are closures.
 

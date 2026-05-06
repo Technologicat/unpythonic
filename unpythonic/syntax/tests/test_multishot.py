@@ -6,7 +6,7 @@ import copy
 from ...syntax import macros, test, test_raises  # noqa: F401, F811
 from ...test.fixtures import session, testset
 
-from ...syntax import macros, continuations, multishot, myield  # noqa: F401, F811
+from ...syntax import macros, continuations, multishot, myield, myield_from  # noqa: F401, F811
 from ...syntax import MultishotIterator  # runtime import (not a macro)
 
 
@@ -135,6 +135,24 @@ def runtests():
             test[next(mi) == 1]
             test_raises[ValueError, mi.throw(ValueError("boom"))]
 
+    with testset("MultishotIterator: send(value) on a bare-myield continuation drops the value"):
+        # Standard-generator parity: gen.send(value) on a bare yield discards
+        # the value. The `_step` helper detects partial-wrapping (the shape of
+        # a bare-myield continuation) and routes the advance as a no-arg call.
+        with continuations:
+            @multishot
+            def g():
+                myield[1]   # bare myield; the captured continuation is partial-wrapped
+                myield[2]
+                myield[3]
+
+            mi = MultishotIterator(g())
+            test[next(mi) == 1]
+            # Sending to a bare-myield continuation: value silently dropped, advance proceeds.
+            test[mi.send("ignored") == 2]
+            # send(None) on a bare-myield continuation also works (≡ next).
+            test[mi.send(None) == 3]
+
     with testset("MultishotIterator: copy.copy forks the iterator (HEADLINE)"):
         with continuations:
             @multishot
@@ -220,16 +238,136 @@ def runtests():
             # After close, gi_code is None — this is the liveness signal.
             test[mi.gi_code is None]
 
-    with testset("MultishotIterator: gi_yieldfrom is None (no myield_from yet)"):
+    with testset("myield_from: linear delegation (statement form)"):
         with continuations:
             @multishot
-            def g():
+            def inner():
                 myield[1]
+                myield[2]
 
-            mi = MultishotIterator(g())
-            test[mi.gi_yieldfrom is None]
-            next(mi)
-            test[mi.gi_yieldfrom is None]
+            @multishot
+            def outer():
+                myield[0]
+                myield_from[inner()]
+                myield[3]
+
+            mi = MultishotIterator(outer())
+            test[list(mi) == [0, 1, 2, 3]]
+
+    with testset("myield_from: assignment form binds inner's StopIteration value"):
+        with continuations:
+            @multishot
+            def inner():
+                myield[1]
+                return 99
+
+            @multishot
+            def outer():
+                v = myield_from[inner()]
+                myield[v]   # outer yields whatever inner returned via StopIteration
+
+            mi = MultishotIterator(outer())
+            test[list(mi) == [1, 99]]
+
+    with testset("myield_from: gi_yieldfrom tracks the inner iterator while delegating"):
+        with continuations:
+            @multishot
+            def inner():
+                myield[1]
+                myield[2]
+
+            @multishot
+            def outer():
+                myield[0]
+                myield_from[inner()]
+                myield[3]
+
+            mi = MultishotIterator(outer())
+            test[mi.gi_yieldfrom is None]    # not yet delegating
+
+            test[next(mi) == 0]              # outer's myield[0]
+            test[mi.gi_yieldfrom is None]    # still not delegating; outer hasn't entered _drive
+
+            test[next(mi) == 1]              # entered _drive; first inner value
+            test[isinstance(mi.gi_yieldfrom, MultishotIterator)]
+            inner_mi_seen = mi.gi_yieldfrom
+
+            test[next(mi) == 2]              # second inner value
+            test[mi.gi_yieldfrom is inner_mi_seen]   # same inner iterator object
+
+            test[next(mi) == 3]              # back in outer; inner exhausted
+            test[mi.gi_yieldfrom is None]    # delegation done
+
+            test_raises[StopIteration, next(mi)]
+
+    with testset("myield_from: send forwards value into inner"):
+        with continuations:
+            @multishot
+            def inner():
+                v = myield[10]
+                myield[v]   # echo the sent value
+
+            @multishot
+            def outer():
+                myield_from[inner()]
+
+            mi = MultishotIterator(outer())
+            test[next(mi) == 10]
+            test[mi.send(42) == 42]   # 42 reached inner's `v`
+
+    with testset("myield_from: throw forwards exception into inner; uncaught propagates out"):
+        with continuations:
+            @multishot
+            def inner():
+                myield[1]
+                myield[2]   # throw fires here; inner doesn't catch
+
+            @multishot
+            def outer():
+                myield_from[inner()]
+                myield["unreached"]
+
+            mi = MultishotIterator(outer())
+            test[next(mi) == 1]
+            test[next(mi) == 2]
+            test_raises[ValueError, mi.throw(ValueError("boom"))]
+            # State after a propagated throw: outer's continuation is unchanged
+            # (no advance happened in `_advance`); next consumer attempt re-enters
+            # the same continuation.
+
+    with testset("myield_from: multi-shot fork around delegation (copy.copy)"):
+        # When a fork happens *before* delegation begins, each iterator's
+        # resume re-runs `MultishotIterator(inner())`, so each gets its own
+        # fresh inner. Forks then iterate the delegation independently —
+        # both see inner's full sequence.
+        with continuations:
+            @multishot
+            def inner():
+                myield[1]
+                myield[2]
+                myield[3]
+
+            @multishot
+            def outer():
+                myield[0]
+                myield_from[inner()]
+
+            mi = MultishotIterator(outer())
+            test[next(mi) == 0]
+
+            fork = copy.copy(mi)   # before delegation; forks are independent
+
+            # mi consumes its own delegation
+            test[next(mi) == 1]
+            test[next(mi) == 2]
+            test[next(mi) == 3]
+            test_raises[StopIteration, next(mi)]
+
+            # fork consumes its own delegation
+            test[next(fork) == 1]
+            test[next(fork) == 2]
+            test[next(fork) == 3]
+            test_raises[StopIteration, next(fork)]
 
 
 if __name__ == '__main__':  # pragma: no cover
