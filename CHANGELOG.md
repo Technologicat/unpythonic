@@ -10,6 +10,7 @@
   - Demonstrates the `mcpyrate` `Dialect.transform_source` hook (full-module source-to-source transformer), which the other dialects in this package do not use.
   - Uses the new `mcpyrate.dialects.split_at_dialectimport` helper (requires `mcpyrate >= 4.1.0`), which correctly handles the case where the bf dialect-import shares a `from X import dialects, A, B` line with other dialects.
 - `unpythonic.llist.FrozenAttributeError`: compatibility shim that multiply-inherits from `TypeError` (legacy unpythonic <= 2.x) and `dataclasses.FrozenInstanceError` (Python 3.7+ stdlib convention). Raised by `cons` on attribute write/delete attempts. Either `except TypeError` or `except FrozenInstanceError` catches it. The `TypeError` base will be dropped in 3.0.0; new code should catch `FrozenInstanceError` (or `AttributeError`).
+- `unpythonic.syntax.multishot`: `@multishot` decorator macro and `myield` name/expr macro for multi-shot generators, plus `MultishotIterator` adapter. A `@multishot` function is generator-shaped, but at every `myield` the execution state is captured *as a continuation*, so it can be resumed from any earlier `myield` arbitrarily many times. Only meaningful inside `with continuations:`. `MultishotIterator` exposes a subset of the standard generator protocol (`iter`, `next`, `send`, `throw`, `close`, plus `gi_*` introspection) and one method real generators don't have: `copy.copy(mi)` forks the iterator at the current continuation, with the two iterators advancing into independent timelines. Closes #80. See `doc/macros.md`.
 
 **Fixed**:
 

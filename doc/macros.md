@@ -62,6 +62,7 @@ Because in Python macro expansion occurs *at import time*, Python programs whose
   - [`call_cc` API reference](#call_cc-api-reference)
   - [Combo notes](#combo-notes)
   - [Continuations as an escape mechanism](#continuations-as-an-escape-mechanism)
+  - [Multi-shot generators with `@multishot` and `myield`](#multi-shot-generators-with-multishot-and-myield)
   - [What can be used as a continuation?](#what-can-be-used-as-a-continuation)
   - [This isn't `call/cc`!](#this-isnt-callcc)
   - [Why this syntax?](#why-this-syntax)
@@ -1684,6 +1685,110 @@ There is also a second, even subtler catch; instead of setting `cc = ec` and ret
 Most often that is exactly what we want, but in this particular case, it causes *both* continuations to run, in sequence. But if, instead of performing a tail call to the `ec`, we set `cc = ec`, then the function's original `cc` argument (the one supplied by `call_cc[]`) is discarded, hence that continuation never runs - and we get the effect we want, *replacing* the `cc` by the `ec`.
 
 Such subtleties arise essentially from the difference between a language that natively supports continuations (Scheme, Racket) and one that has continuations hacked on top of it as macros performing a CPS conversion only partially (like Python with `unpythonic.syntax`, or Common Lisp with PG's continuation-passing macros). The macro approach works, but the programmer needs to be careful.
+
+#### Multi-shot generators with `@multishot` and `myield`
+
+A `@multishot` function is a generator-shaped construct on top of `call_cc[]`: it looks like a Python generator, but at every `myield` the execution state is captured *as a continuation*, so the function can be resumed from any earlier `myield` arbitrarily many times — branching execution into independent timelines. (Standard generators are single-shot continuations: once execution passes a `yield`, it cannot be rewound. Multi-shot is the more general construct; the one-shot vs. multi-shot distinction goes back at least to [Bruggeman, Waddell & Dybvig 1996](https://legacy.cs.indiana.edu/~dyb/pubs/call1cc.pdf), and Racket's [continuation reference](https://docs.racket-lang.org/reference/cont.html) is the canonical modern source.)
+
+Only meaningful inside a `with continuations:` block — required, not auto-wrapped (Zen of Python: explicit is better than implicit). The expansion of `myield` produces `call_cc[get_cc()]`, so outside `with continuations` it fails at macro-expansion time with the standard `call_cc[]` error.
+
+`myield` has four forms:
+
+| Multi-shot yield     | Returns       | `k` expects   | Single-shot analog       |
+|----------------------|---------------|---------------|--------------------------|
+| `myield`             | `k`           | no argument   | `yield`                  |
+| `myield[expr]`       | `(k, value)`  | no argument   | `yield expr`             |
+| `var = myield`       | `k`           | one argument  | `var = yield`            |
+| `var = myield[expr]` | `(k, value)`  | one argument  | `var = yield expr`       |
+
+To resume, call `k`. In cases where `k` expects an argument, that argument is the value to send into `var`.
+
+`myield` is a *statement* and may only appear at the top level of a `@multishot` function definition. (This is a real limitation of the underlying `call_cc[]`. Use inside lambdas, comprehensions, or nested `def`s is rejected at macro-expansion time.)
+
+`return value` inside `@multishot` raises `StopIteration(value)`, mirroring the standard generator protocol.
+
+Basic usage:
+
+```python
+from unpythonic.syntax import macros, continuations, multishot, myield
+
+with continuations:
+    @multishot
+    def f():
+        myield                # stop; return continuation `k`
+        myield[42]            # stop; return (k, 42)
+        k = myield            # stop; return k. Upon resume, set local `k` to the value sent in.
+        k = myield[42]        # stop; return (k, 42). Upon resume, set local `k`.
+
+    # Instantiate the multi-shot generator.
+    # There is always an implicit bare `myield` at the beginning, so f() returns
+    # the initial continuation rather than running the body immediately.
+    k0 = f()
+    k1 = k0()                 # run up to the explicit bare `myield`
+    k2, x2 = k1()             # to `myield[42]`
+    k3 = k2()                 # to `k = myield`
+    k4, x4 = k3(23)           # send 23, run to `k = myield[42]`
+    # k4(17) → StopIteration
+
+    # Multi-shot: re-invoke an earlier continuation.
+    k2_alt, x2_alt = k1()
+```
+
+For ergonomic generator-shaped consumption, wrap the initial continuation in a `MultishotIterator`:
+
+```python
+from unpythonic.syntax import MultishotIterator
+
+with continuations:
+    @multishot
+    def g():
+        myield[1]
+        myield[2]
+        myield[3]
+
+    mi = MultishotIterator(g())
+    assert [x for x in mi] == [1, 2, 3]
+```
+
+`MultishotIterator` supports a subset of the generator protocol: `iter`, `next`, `send`, `throw`, `close`, `gi_code`, `gi_frame`, `gi_running`, `gi_yieldfrom`. Plus one method that real generators don't have:
+
+```python
+import copy
+
+with continuations:
+    @multishot
+    def g():
+        myield[1]
+        myield[2]
+        myield[3]
+        myield[4]
+
+    mi = MultishotIterator(g())
+    next(mi)                  # → 1
+    fork = copy.copy(mi)      # snapshot the current continuation
+    next(mi); next(mi)        # original advances independently...   → 2, 3
+    next(fork)                # ...and so does the fork.             → 2
+```
+
+Unlike standard generators, multi-shot generators support `copy.copy()`. The fork shares the current continuation; subsequent advances of the two iterators are independent (the timelines diverge from the next advance onward). The fork is shallow — closure cells captured before the current continuation are *shared*, not duplicated. That is the multi-shot semantics; calling `copy.copy()` simply exposes it through the stdlib protocol.
+
+`copy.deepcopy(mi)` raises `TypeError`. The continuation closes over caller state we can't meaningfully deep-copy; use `copy.copy()` to fork.
+
+##### Differences from standard Python generators
+
+Beyond what's already mentioned above:
+
+- **`gi_frame` is always `None`.** A multi-shot generator has no paused frame — every `myield` terminated its frame and returned a continuation closure. State lives in the closure cells of the continuation, not in any frame. The real-generator idiom `gen.gi_frame is None ↔ exhausted` does **not** apply; use `mi.gi_code is None` as the liveness signal instead.
+- **`gi_running` is always `False`.** Nothing is ever paused.
+- **`yield from` across a real generator and a multi-shot generator is not supported.** Real generators have paused state, multi-shots don't; the semantic mismatch can't be papered over. Multi-shot-to-multi-shot delegation (`myield_from`) is on the roadmap; until then, `gi_yieldfrom` is always `None`.
+- **`with` and `try`/`finally` across `myield` boundaries do not behave as in real generators.** A `with` block "exits" as soon as the multi-shot `myield`s the continuation (because, technically, the function returned). It re-enters from the top whenever the continuation is invoked. For an example of what the world's serious `call/cc`-having languages do here, see Racket's [`dynamic-wind`](https://docs.racket-lang.org/reference/cont.html#%28def._%28%28quote._~23~25kernel%29._dynamic-wind%29%29).
+- **No async form.** No `__aiter__`, `asend`, etc.; multi-shot is sync-only.
+- **No pickling.** Continuations are closures.
+
+##### Cross-references
+
+- `unpythonic/syntax/tests/test_conts_gen.py` — single-shot generators built directly on `call_cc[]`/`@dlet`, kept as a teaching example for readers studying the underlying mechanics. The toy implementation predates `@multishot`; it shows the manual pattern that `@multishot` automates.
+- `unpythonic/syntax/tests/test_multishot.py` — canonical usage of `@multishot`, `myield`, and `MultishotIterator`.
 
 #### What can be used as a continuation?
 

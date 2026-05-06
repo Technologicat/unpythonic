@@ -17,8 +17,8 @@ See also the Racket version of this:
 
     https://github.com/Technologicat/python-3-scicomp-intro/blob/master/examples/beyond_python/generator.rkt
 
-And see the alternative approach using the pattern `k = call_cc[get_cc()]`
-in `test_conts_multishot.py`.
+For the `@multishot` macro that automates the multi-shot pattern, see
+`test_multishot.py`.
 """
 
 from ...syntax import macros, test, test_raises  # noqa: F401, F811
@@ -246,7 +246,8 @@ def runtests():
         # outside any make_generator are caught at compile time. The actual template the
         # make_generator macro needs to splice in is already here in the final example.)
         #
-        # See `test_conts_multishot.py`, where we do librarify this a bit further.
+        # The `@multishot` macro in `unpythonic.syntax.multishot` librarifies this
+        # pattern; see `test_multishot.py` for canonical usage.
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
