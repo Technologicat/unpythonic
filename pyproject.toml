@@ -129,3 +129,20 @@ ignore = [
 
 [tool.mypy]
 show_error_codes = true
+
+[tool.coverage.run]
+# Coverage signal is about which lines of *production code* run.
+# This project uses its own macro-aware test framework
+# (`unpythonic.test.fixtures`) rather than pytest, and the runner
+# already reports pass/fail/error per testset — coverage analysis
+# of the test files themselves would add noise without insight.
+#
+# Excluding tests also sidesteps coverage.py's source-parser
+# choking on macro-using test files whose unexpanded source is
+# not legal standard Python (e.g. `nonlocal x` after `x = None`
+# in test_conts.py, which the `continuations` macro splits into
+# a separate function at expansion time).
+source = ["unpythonic"]
+omit = [
+    "*/tests/*",
+]
