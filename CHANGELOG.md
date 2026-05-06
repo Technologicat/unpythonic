@@ -9,11 +9,12 @@
 - `unpythonic.dialects.bf`: a dialect that accepts a brainfuck program in place of Python source. Compiles `bf` to Python and runs it, or — via `bf_compile(src)` — returns the generated Python as a string for inspection. The tape is a `defaultdict[int, int]` subclass with 8-bit wrapping cells; comments in the `bf` source are preserved as Python comments; a `reset` line clears the tape between programs.
   - Demonstrates the `mcpyrate` `Dialect.transform_source` hook (full-module source-to-source transformer), which the other dialects in this package do not use.
   - Uses the new `mcpyrate.dialects.split_at_dialectimport` helper (requires `mcpyrate >= 4.1.0`), which correctly handles the case where the bf dialect-import shares a `from X import dialects, A, B` line with other dialects.
+- `unpythonic.llist.FrozenAttributeError`: compatibility shim that multiply-inherits from `TypeError` (legacy unpythonic <= 2.x) and `dataclasses.FrozenInstanceError` (Python 3.7+ stdlib convention). Raised by `cons` on attribute write/delete attempts. Either `except TypeError` or `except FrozenInstanceError` catches it. The `TypeError` base will be dropped in 3.0.0; new code should catch `FrozenInstanceError` (or `AttributeError`).
 
 **Fixed**:
 
 - `unpythonic.misc.callsite_filename`: walks the call stack via `sys._getframe` instead of `inspect.stack()`. Latent PyPy-3.11 / macOS / Windows bug: `inspect.stack()` reads source context around `f_lineno` for every frame, and on those targets at least one frame reachable from a `test[]` invocation reports `f_lineno = None`, which raises `TypeError` from `inspect.getframeinfo`. The new path reads only `f_code.co_filename`. CPython unaffected; PyPy on Linux unaffected.
-- `unpythonic.llist.cons`: `__delattr__` now raises `TypeError`. Latent bug: `del c.car` previously worked and corrupted the cell; only `__setattr__` was intercepted. The error message for `__setattr__` also now correctly says "attribute" (not "item") assignment.
+- `unpythonic.llist.cons`: `__delattr__` now raises `FrozenAttributeError` (catchable as `TypeError`, `FrozenInstanceError`, or `AttributeError`). Latent bug: `del c.car` previously worked and corrupted the cell; only `__setattr__` was intercepted. The error message for `__setattr__` also now correctly says "attribute" (not "item") assignment.
 - `unpythonic.assignonce`: `del e.foo` on a defined name now raises `AttributeError`. Latent bug: the assign-once contract could be bypassed via `del e.foo; e.foo = new_value`, since `__delattr__` was inherited unrestricted from `env`. Use `e.set("foo", value)` for explicit rebinding instead.
 
 **Changed**:

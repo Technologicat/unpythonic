@@ -5,7 +5,10 @@ from ..test.fixtures import session, testset
 
 from pickle import dumps, loads
 
-from ..llist import (cons, car, cdr, nil, ll, llist,
+from dataclasses import FrozenInstanceError
+
+from ..llist import (FrozenAttributeError,
+                     cons, car, cdr, nil, ll, llist,
                      caar, cdar, cadr, cddr, caddr, cdddr,
                      member, lreverse, lappend, lzip,
                      BinaryTreeIterator, JackOfAllTradesIterator,
@@ -28,6 +31,15 @@ def runtests():
             del c.car
         with test_raises[TypeError, "cons cells should be immutable (no new attributes)"]:
             c.extra = "nope"
+        # The exception is `FrozenAttributeError`, a shim that inherits from both
+        # `TypeError` (legacy unpythonic <= 2.x) and `dataclasses.FrozenInstanceError`
+        # (stdlib convention). All three `except` clauses catch.
+        with test_raises[FrozenAttributeError, "should be a FrozenAttributeError"]:
+            cons(1, 2).car = 3
+        with test_raises[FrozenInstanceError, "should also be catchable as the stdlib FrozenInstanceError"]:
+            cons(1, 2).car = 3
+        with test_raises[AttributeError, "should also be catchable as AttributeError (via FrozenInstanceError)"]:
+            cons(1, 2).car = 3
 
         test[the[c == c]]
         test[the[cons(1, 2) == cons(1, 2)]]

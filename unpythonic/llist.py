@@ -6,6 +6,7 @@ Hashable, pickleable, hooks into the built-in reversed(), can print like in Lisp
 
 from abc import ABCMeta, abstractmethod
 from collections.abc import Callable, Generator, Iterable, Iterator
+from dataclasses import FrozenInstanceError
 from itertools import zip_longest
 from typing import Any
 
@@ -18,7 +19,8 @@ from .symbol import gensym
 _fill = gensym("fill")
 
 # explicit list better for tooling support
-_exports = ["cons", "nil",
+_exports = ["FrozenAttributeError",
+            "cons", "nil",
             "LinkedListIterator", "LinkedListOrCellIterator", "TailIterator",
             "BinaryTreeIterator", "ConsIterator",
             "car", "cdr",
@@ -36,6 +38,20 @@ _exports = ["cons", "nil",
 #_exports.extend(_c3r)
 #_exports.extend(_c4r)
 __all__ = _exports
+
+class FrozenAttributeError(TypeError, FrozenInstanceError):
+    """Raised on a write/delete attempt against a frozen-instance type.
+
+    Multiply-inherits from `TypeError` (the legacy unpythonic <= 2.x base)
+    and `dataclasses.FrozenInstanceError` (the standard-library convention
+    since Python 3.7, itself a subclass of `AttributeError`). Either
+    `except` clause catches it.
+
+    Compatibility shim: lets unpythonic align with the stdlib idiom
+    without breaking user code that catches `TypeError`. The `TypeError`
+    base will be dropped in 3.0.0 (see issue #35), at which point this
+    class becomes a plain `FrozenInstanceError` and likely goes away.
+    """
 
 class Nil(Singleton):
     """The empty linked list. Singleton."""
@@ -220,9 +236,9 @@ class cons:
         object.__setattr__(self, "car", v1)
         object.__setattr__(self, "cdr", v2)
     def __setattr__(self, k: str, v: Any) -> None:
-        raise TypeError(f"'cons' object does not support attribute assignment; tried to set {k!r}")
+        raise FrozenAttributeError(f"'cons' object does not support attribute assignment; tried to set {k!r}")
     def __delattr__(self, k: str) -> None:
-        raise TypeError(f"'cons' object does not support attribute deletion; tried to delete {k!r}")
+        raise FrozenAttributeError(f"'cons' object does not support attribute deletion; tried to delete {k!r}")
     def __iter__(self) -> LinkedListOrCellIterator:
         """Return iterator with default iteration scheme: single cell or list."""
         return LinkedListOrCellIterator(self)
