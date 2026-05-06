@@ -201,17 +201,10 @@ def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
     to mutate something defined on the outside.
 
     If there is an `expect[expr]` at the top level of the block, the value of
-    `expr` is what will be asserted. At most one `expect[]` per block; using
-    both `expect[]` and `return` in the same block is a `SyntaxError`.
+    `expr` is what will be asserted. There may be at most one `expect[]` per block.
 
-    If neither `expect[]` nor `return` is present, the test asserts that the
-    block completes normally, just like `test[returns_normally(...)]` does
-    for an expression.
-
-    `return expr` continues to work in this position (treated like
-    `expect[expr]`) but emits a `DeprecationWarning`. **Added in v2.2.0**;
-    `return` will be un-hijacked in a future major release so that it
-    regains its standard Python meaning.
+    If `expect[]` is not present, the test asserts that the block completes
+    normally, just like `test[returns_normally(...)]` does for an expression.
 
     The asymmetry in syntax reflects the asymmetry between expressions and
     statements in Python. Likewise, the fact that `with test` requires
@@ -222,6 +215,18 @@ def test(tree, *, args, syntax, expander, **kw):  # noqa: F811
     inside `expect[]`. To override, `the[]` marks can be used for capturing
     the value of any expressions inside the block. The marks don't have to
     be inside `expect[]`; they can appear anywhere.
+
+    **Changed in v2.2.0**:
+
+    Earlier versions of `unpythonic` used `return expr` instead of `expect[expr]`.
+
+    Beginning with v2.2.0, the preferred syntax is `expect[expr]`.
+    `return expr` continues to work in this position (treated exactly like
+    `expect[expr]`) but emits a `DeprecationWarning`. `return` will be
+    un-hijacked in a future major release so that it regains its standard
+    Python meaning.
+
+    Using both `expect[]` and `return` in the same block is a `SyntaxError`.
 
     **Failure and error signaling**:
 
