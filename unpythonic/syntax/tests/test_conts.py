@@ -803,7 +803,7 @@ def runtests():
                 # Continuation 1 scope begins here
                 # (from the statement following `call_cc` onward, but including the `k1`)
                 k1 = call_cc[get_cc()]
-                nonlocal x  # noqa: E999 -- macro splits body; post-expansion `nonlocal` is at the top of the continuation function
+                nonlocal x  # noqa: F811 -- macro splits body; post-expansion `nonlocal` is at the top of the continuation function, not a redefinition
                 if iscontinuation(k1):
                     # This is now the original `x`.
                     x = "cont 1 first time"
@@ -811,7 +811,7 @@ def runtests():
 
                 # Continuation 2 scope begins here
                 k2 = call_cc[get_cc()]
-                nonlocal x  # noqa: E999 -- as above
+                nonlocal x  # noqa: F811 -- as above
                 if iscontinuation(k2):
                     # This too is the original `x`.
                     x = "cont 2 first time"
