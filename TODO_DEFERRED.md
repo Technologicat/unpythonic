@@ -79,18 +79,6 @@ Noted 2026-04-17.
 Discovered during #76 (2026-05-05).
 
 
-## Rename `testing_testingtools.py` → `selftest_testingtools.py` and relocate its demo
-
-`unpythonic/syntax/tests/testing_testingtools.py` is the bare-`assert` self-test of the `test[]` framework — the naming deliberately breaks the `test_*.py` convention so `runtests.py` skips it (avoiding circular self-reference: you can't use `test[]` to test `test[]`'s own pass/fail dispatch). The current name is easy to misread now that there's also a sibling `test_testingtools.py` (added in #85 step 1) that uses `test[]` for non-circular framework-adjacent tests (macro-expansion behavior, `expect[]` semantics, `DeprecationWarning` capture).
-
-Two cleanups to do together:
-
-1. Rename `testing_testingtools.py` → `selftest_testingtools.py`. The `selftest_` prefix advertises the intent and stays outside `runtests.py`'s discovery glob.
-2. Move the large commented-out session demo at the bottom of that file into `doc/` as a runnable example — useful demonstration, just not in a place where it pretends to be a test.
-
-Discovered during #85 step 1 (2026-05-05).
-
-
 ## Remove `unpythonic.amb.MonadicList` alias (3.0.0)
 
 As part of the monads port, `MonadicList` was moved to `unpythonic.monads.List` with a varargs constructor (`List(1, 2, 3)` instead of `MonadicList([1, 2, 3])`). A silent alias `MonadicList = List` is kept in `unpythonic/amb.py` for backward-name compatibility during the 2.x series. Remove the alias in 3.0.0 along with the accompanying `TODO(3.0.0)` comment at the alias site. Users must then import `List` directly from `unpythonic.monads`. Note: this is name-only compat — the constructor signature changed at 2.0.0, so existing callers of `MonadicList([...])` already needed to switch to varargs or `from_iterable(...)` at 2.0.0.

@@ -9,10 +9,12 @@
 # tests the condition system (up to 0.14.2.1) using plain asserts.
 #
 # The really problematic part in a monolithic language extension like
-# `unpythonic` is to write tests that test the testing framework. Currently we
-# don't do that. The test framework is considered to change at most slowly, so
-# for that, manual testing is sufficient (see commented-out example session in
-# `unpythonic.syntax.test.testing_testingtools`).
+# `unpythonic` is to write tests that test the testing framework. The
+# low-level machinery has a bare-`assert` self-test in
+# `unpythonic.syntax.tests.selftest_testingtools` (the `selftest_` prefix
+# keeps `runtests.py` from picking it up). For a worked example of the
+# user-facing framework, see `unpythonic.test.fixtures`'s module
+# docstring and the "Test sessions and testsets" chapter in `doc/macros.md`.
 
 from ..syntax import macros, test, test_raises, test_signals, fail, the  # noqa: F401
 from ..test.fixtures import session, testset, catch_signals, returns_normally

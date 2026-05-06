@@ -2590,6 +2590,24 @@ In case of an uncaught signal, the error is reported, and the testset resumes.
 
 In case of an uncaught exception, the error is reported, and the testset terminates, because the exception model does not support resuming.
 
+Chained exceptions are reported with their full context. Both the explicit `raise X from Y` form and Python's implicit chaining inside an `except` handler appear in the report:
+
+```python
+with testset("raise from"):
+    try:
+        raise ValueError
+    except ValueError as e:
+        raise RuntimeError from e
+
+with testset("implicit chaining"):
+    try:
+        raise ValueError
+    except ValueError:
+        raise RuntimeError
+```
+
+In both testsets the report shows the inner `ValueError` and the outer `RuntimeError`, with the appropriate "above exception was the direct cause of" / "during handling of the above exception" link between them.
+
 Catching of uncaught *signals*, in both the low-level `test` constructs and the high-level `testset`, can be disabled using `with catch_signals(False)`. This is useful in testing code that uses conditions and restarts; sometimes allowing a signal (e.g. from `unpythonic.warn` in the conditions-and-restarts system) to remain uncaught is the right thing to do.
 
 #### Producing unconditional failures, errors, and warnings
