@@ -130,9 +130,12 @@ def multishot(tree, syntax, expander, **kw):
         one reference to a relevant continuation closure exists.
 
         "Nested" implies that re-invoking an earlier continuation branches
-        execution into an independent timeline. Multiple resumes of the
-        same continuation share the cells from before that point but get
-        fresh activation records — so timelines diverge.
+        execution into an independent timeline — but only for *locals*.
+        Each resume gets a fresh activation record, so locals diverge;
+        closure cells captured before the resume point are shared, so a
+        mutation through one (a `nonlocal`, a mutable argument, or
+        module-level state) is visible to every timeline reached from the
+        same fork point.
 
       - `myield` is a *statement*, and it may only appear at the top level
         of a `@multishot` function definition (limitation of the underlying
@@ -326,8 +329,12 @@ class MultishotIterator:
 
     Beyond the standard subset, `MultishotIterator` supports `copy.copy(mi)`,
     which forks the iterator at its current continuation. The fork shares the
-    current continuation; subsequent advances of the two iterators are
-    independent. (Unlike standard generators, multi-shot generators support
+    current continuation; subsequent advances get fresh activation records, so
+    the forks' locals diverge. Closure cells captured before the fork point
+    are shared, so a mutation through one (a `nonlocal`, a mutable argument,
+    or module-level state) in one fork is visible to the others. Forks are
+    independent timelines for *locals* only, not for state reached through
+    closure cells. (Unlike standard generators, multi-shot generators support
     `copy.copy()`.)
 
     `copy.deepcopy(mi)` raises `TypeError` — the continuation closes over caller
@@ -448,11 +455,16 @@ class MultishotIterator:
     def __copy__(self):
         """Return a fork of this iterator at the current continuation.
 
-        Both iterators share the current continuation; subsequent advances
-        of the two are independent (the timelines diverge from the next
-        advance onward). The fork is shallow: closure cells captured before
-        the current continuation are *shared*, not duplicated — that is the
-        multi-shot semantics.
+        Both iterators share the current continuation. Each subsequent
+        advance gets a fresh activation record, so the forks' locals
+        diverge. Closure cells captured before the fork point are shared,
+        so a mutation through one (a `nonlocal`, a mutable argument, or
+        module-level state) in one fork is visible to the others. Forks
+        are independent timelines for *locals* only, not for state reached
+        through closure cells.
+
+        This is the multi-shot semantics, not a quirk of `copy.copy()`;
+        the same applies to plain re-invocation of an earlier continuation.
 
         If this iterator is closed, the fork is also closed (the underlying
         continuation is preserved, so the fork can be re-opened by assigning

@@ -1770,7 +1770,7 @@ with continuations:
     next(fork)                # ...and so does the fork.             → 2
 ```
 
-Unlike standard generators, multi-shot generators support `copy.copy()`. The fork shares the current continuation; subsequent advances of the two iterators are independent (the timelines diverge from the next advance onward). The fork is shallow — closure cells captured before the current continuation are *shared*, not duplicated. That is the multi-shot semantics; calling `copy.copy()` simply exposes it through the stdlib protocol.
+Unlike standard generators, multi-shot generators support `copy.copy()`. The fork shares the current continuation; each subsequent advance creates a fresh *activation record* (the call frame and local-variable storage for one invocation), so the forks' locals diverge from the next advance onward. The fork is shallow, though. Names that the body reads or writes from an *enclosing* scope — a `nonlocal` in the surrounding function, a captured free variable, a mutable argument — live in shared boxes that CPython calls *closure cells*: each captured name has one cell, and the inner function and its enclosing scope read and write the *same* cell. (Module-level state works similarly via the module's `__dict__`.) Forks share those cells, so a mutation through any of them in one fork's timeline is visible to the others. Forks are independent timelines for *locals* only — not for state reached through closure cells. The same applies to plain re-invocation of an earlier continuation; `copy.copy()` just exposes the multi-shot semantics through the stdlib protocol.
 
 `copy.deepcopy(mi)` raises `TypeError`. The continuation closes over caller state we can't meaningfully deep-copy; use `copy.copy()` to fork.
 
@@ -1787,8 +1787,9 @@ Beyond what's already mentioned above:
 
 ##### Cross-references
 
-- `unpythonic/syntax/tests/test_conts_gen.py` — single-shot generators built directly on `call_cc[]`/`@dlet`, kept as a teaching example for readers studying the underlying mechanics. The toy implementation predates `@multishot`; it shows the manual pattern that `@multishot` automates.
-- `unpythonic/syntax/tests/test_multishot.py` — canonical usage of `@multishot`, `myield`, and `MultishotIterator`.
+- [`unpythonic.syntax.multishot`](../unpythonic/syntax/multishot.py) — implementation: the macros and `MultishotIterator`.
+- [`unpythonic/syntax/tests/test_multishot.py`](../unpythonic/syntax/tests/test_multishot.py) — canonical usage of `@multishot`, `myield`, and `MultishotIterator`.
+- [`unpythonic/syntax/tests/test_conts_gen.py`](../unpythonic/syntax/tests/test_conts_gen.py) — single-shot generators built directly on `call_cc[]`/`@dlet`, kept as a teaching example for readers studying the underlying mechanics. The toy implementation predates `@multishot`; it shows the manual pattern that `@multishot` automates.
 
 #### What can be used as a continuation?
 
