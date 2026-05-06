@@ -131,6 +131,15 @@ def runtests():
             with test_raises[AttributeError, "overwriting a reserved name should not be allowed"]:
                 e.set = {1, 2, 3}
 
+        # Reserved internal names cannot be clobbered by client code, even
+        # before finalization. (Previously `_env`/`_finalized` were on a
+        # `_direct_write` whitelist that bypassed the reserved-name check.)
+        with env() as e:
+            with test_raises[AttributeError, "client code must not be able to overwrite the internal _env dict"]:
+                e._env = {"surprise": 42}
+            with test_raises[AttributeError, "client code must not be able to overwrite the _finalized flag"]:
+                e._finalized = True
+
         with env(x=1) as e:
             e.finalize()
             with test_raises[TypeError, "deleting binding from finalized environment should not be allowed"]:

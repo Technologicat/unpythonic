@@ -54,15 +54,15 @@ class env:
     """
     # do not allow bindings that would break functionality.
     _reserved_names = ("set", "clear", "finalize", "_env", "_finalized",
-                       "_direct_write", "_reserved_names")
-    _direct_write = ("_env", "_finalized")
+                       "_reserved_names")
 
     # For pickle support, since unpickling calls `__new__` but not `__init__`.
     # If `self._env` is not present, `__getattr__` will crash with an infinite loop. So create it as early as possible.
     def __new__(cls, **kwargs: Any) -> "env":
         instance = super().__new__(cls)
-        instance._env = {}
-        instance._finalized = False  # "let" sets this once env setup done
+        # Bypass our locked-down `__setattr__` to install the internal slots once.
+        object.__setattr__(instance, "_env", {})
+        object.__setattr__(instance, "_finalized", False)  # `finalize()` flips this
         instance.__init__(**kwargs)
         return instance
 
@@ -74,9 +74,6 @@ class env:
     # https://docs.python.org/3/reference/datamodel.html#object.__setattr__
     # https://docs.python.org/3/reference/datamodel.html#object.__getattr__
     def __setattr__(self, name: str, value: Any) -> None:
-        # TODO: doesn't protect against client code writing to the _direct_write names.
-        if name in self._direct_write:  # hook to allow creating internal variables directly in self
-            return super().__setattr__(name, value)
         if name in self._reserved_names:
             raise AttributeError(f"cannot overwrite reserved name {repr(name)}; complete list: {self._reserved_names}")
         if self._finalized and name not in self:
@@ -221,7 +218,8 @@ class env:
         Existing bindings can still be given new values even in a finalized
         environment.
         """
-        self._finalized = True
+        # Bypass our own `__setattr__`, which would refuse `_finalized` as a reserved name.
+        object.__setattr__(self, "_finalized", True)
 
     # For rebind syntax: "e.foo << newval" --> "e.foo.__lshift__(newval)",
     # so foo.__lshift__() must be set up to rebind e.foo.
