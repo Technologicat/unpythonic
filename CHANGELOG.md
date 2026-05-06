@@ -13,10 +13,17 @@
 **Fixed**:
 
 - `unpythonic.misc.callsite_filename`: walks the call stack via `sys._getframe` instead of `inspect.stack()`. Latent PyPy-3.11 / macOS / Windows bug: `inspect.stack()` reads source context around `f_lineno` for every frame, and on those targets at least one frame reachable from a `test[]` invocation reports `f_lineno = None`, which raises `TypeError` from `inspect.getframeinfo`. The new path reads only `f_code.co_filename`. CPython unaffected; PyPy on Linux unaffected.
+- `unpythonic.llist.cons`: `__delattr__` now raises `TypeError`. Latent bug: `del c.car` previously worked and corrupted the cell; only `__setattr__` was intercepted. The error message for `__setattr__` also now correctly says "attribute" (not "item") assignment.
+- `unpythonic.assignonce`: `del e.foo` on a defined name now raises `AttributeError`. Latent bug: the assign-once contract could be bypassed via `del e.foo; e.foo = new_value`, since `__delattr__` was inherited unrestricted from `env`. Use `e.set("foo", value)` for explicit rebinding instead.
 
 **Changed**:
 
 - `unpythonic.funutil.call` and `callwith` now unpack `Values` in their positional arguments: each `Values` expands in place (left-to-right), splicing its `rets` into the positional arguments and merging its `kwrets` into the keyword arguments. Across multiple `Values` and the explicit `kwargs`, rightmost wins per unique keyword name. Mirrors the spread/merge semantics of Python's `[*a, *b, c]` and `{**a, **b}`; lets a `Values` produced by one function be applied as the arguments to another.
+
+**Internal**:
+
+- `unpythonic.llist.cons`: dropped the internal `_immutable` sentinel; the read-only `car`/`cdr` are now installed via `object.__setattr__` in `__init__`, and `__setattr__` is a one-liner that always raises.
+- `unpythonic.env.env`: dropped the `_direct_write` whitelist that allowed internal slots (`_env`, `_finalized`) to bypass `__setattr__`. Internal initialisation and `finalize()` now use `object.__setattr__` directly. Client code attempting `e._env = ...` or `e._finalized = ...` is now rejected by the reserved-name check (was silently allowed via the whitelist).
 
 
 ---
