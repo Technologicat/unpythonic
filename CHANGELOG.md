@@ -25,6 +25,8 @@
 
 - `unpythonic.llist.cons`: dropped the internal `_immutable` sentinel; the read-only `car`/`cdr` are now installed via `object.__setattr__` in `__init__`, and `__setattr__` is a one-liner that always raises.
 - `unpythonic.env.env`: dropped the `_direct_write` whitelist that allowed internal slots (`_env`, `_finalized`) to bypass `__setattr__`. Internal initialisation and `finalize()` now use `object.__setattr__` directly. Client code attempting `e._env = ...` or `e._finalized = ...` is now rejected by the reserved-name check (was silently allowed via the whitelist).
+- `doc/macros.md`: new "Topology of continuations: how the wiring works" subsection (with inlined `callcc_topology.png` diagram explaining the `cc`/`pcc` machinery) and "Scoping of locals in continuations" subsection (the rule, the box workaround, the three load-bearing limits that ruled out auto-`nonlocal` propagation). Closes #82.
+- `unpythonic/syntax/tests/test_conts.py`: revived the `"scoping, in presence of nonlocal"` testset that was disabled in 2022 due to a coverage.py source-parsing limitation. The new `[tool.coverage.run]` config in `pyproject.toml` scopes coverage to production code (excluding `*/tests/*`) and sidesteps the parse failure at report time.
 
 
 ---
