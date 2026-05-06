@@ -20,6 +20,12 @@ def runtests():
         with test_raises[AttributeError, "should not be able to rebind an unbound name"]:
             e.set("c", 3)
 
+        with test_raises[AttributeError, "should not be able to delete a defined name (would bypass assign-once)"]:
+            del e.a
+
+        # `e.a` was 42 from the rebind above; the failed delete must not have removed it.
+        test[e.a == 42]
+
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()

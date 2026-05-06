@@ -31,6 +31,17 @@ class assignonce(_envcls):
         else:
             raise AttributeError(f"name {repr(name)} is already defined")
 
+    def __delattr__(self, name: str) -> None:
+        """Forbid `del e.foo` on a defined name.
+
+        Otherwise the assign-once contract could be bypassed via
+        ``del e.foo; e.foo = new_value``. Use ``.set(name, value)`` for
+        explicit rebinding instead.
+        """
+        if name not in self._reserved_names and name in self:
+            raise AttributeError(f"name {repr(name)} is defined; deletion not allowed in an assign-once environment (use .set() to rebind)")
+        super().__delattr__(name)
+
     def set(self, name: str, value: Any) -> Any:
         """Rebind an existing name to a new value."""
         env = self._env
