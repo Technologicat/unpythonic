@@ -8,6 +8,7 @@
   - [Listhell](listhell.md)
   - [Pytkell](pytkell.md)
   - **BF**
+  - [Befunge](befunge.md)
 - [REPL server](../repl.md)
 - [Troubleshooting](../troubleshooting.md)
 - [Design notes](../design-notes.md)

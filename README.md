@@ -885,7 +885,21 @@ from unpythonic.dialects.bf import dialects, BF  # noqa: F401
 +++++++++++++[>+++++<-]>.
 ```
 
-Unlike the other dialects below, [BF](https://en.wikipedia.org/wiki/Brainfuck) is a whole-module *source-to-source* transform — the body of a BF file isn't parseable as Python at all. It's the one example in this collection that exercises `mcpyrate`'s source-transformer hook, the modern equivalent of what old Lisp folks used to call a *reader macro*.
+Unlike Lispython, Listhell, and Pytkell, [BF](https://en.wikipedia.org/wiki/Brainfuck) is a whole-module *source-to-source* transform — the body of a BF file isn't parseable as Python at all. It's one of two examples in this collection that exercises `mcpyrate`'s source-transformer hook (the modern equivalent of what old Lisp folks used to call a *reader macro*); the other is Befunge below. BF compiles to legible structured Python, so reading the compiled output is a reasonable way to read the original program — *the dialect-as-transpiler model*.
+</details>  
+<details><summary>Befunge: two-dimensional, self-modifying, deeply confused.</summary>
+
+[[docs](doc/dialects/befunge.md)]
+
+```python
+"""Hello from Befunge!"""
+
+from unpythonic.dialects.befunge import dialects, Befunge  # noqa: F401
+
+"!egnufeB morf olleH">:#,_@
+```
+
+The other source-transforming dialect. Where BF compiles to structured Python, [Befunge-93](https://en.wikipedia.org/wiki/Befunge) wraps its 80 × 25 self-modifying playfield in a runtime interpreter call — *the dialect-as-reader model*. The contrast with BF is the point: BF is structurally close to Python, so a transpiler is the natural fit; Befunge is fundamentally IP-driven on a 2-D grid that can rewrite itself at runtime, so a legible static translation is impossible and the right move is to ship an interpreter.
 </details>
 
 ## Install & uninstall

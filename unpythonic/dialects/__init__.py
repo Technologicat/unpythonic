@@ -12,6 +12,7 @@ For examples of how to use these particular dialects, see the unit tests.
 """
 
 # re-exports
+from .befunge import *  # noqa: F401, F403
 from .bf import *  # noqa: F401, F403
 from .lispython import *  # noqa: F401, F403
 from .listhell import *  # noqa: F401, F403
