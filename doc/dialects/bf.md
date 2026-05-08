@@ -21,6 +21,7 @@
 
 - [BF: the classical human-incomprehensible automaton](#bf-the-classical-human-incomprehensible-automaton)
     - [Features](#features)
+    - [Reading the compiled Python](#reading-the-compiled-python)
     - [What BF is](#what-bf-is)
     - [Comboability](#comboability)
     - [CAUTION](#caution)
@@ -56,16 +57,22 @@ from unpythonic.dialects.bf import dialects, BF  # noqa: F401
     - A leading `# ` in the BF source is passed through cleanly, so both `# real comment` and bare `real comment` come out as `# real comment` in the compiled Python.
   - **`reset`**: a line whose stripped content is exactly `reset` compiles to `tape.clear(); ptr = 0`. This lets several BF programs share one file.
 
-The same compiler is available as a plain function:
+## Reading the compiled Python
+
+BF is a *transpiler*: it takes a BF program and emits human-readable Python that does the same thing. The compiled output is intentionally legible — `+++` becomes `tape[ptr] += 3`, `[…]` becomes `while tape[ptr]: …`, comments are preserved as Python comments — so reading the Python is a perfectly good way to understand a non-trivial BF program. The pedagogic value of the dialect lives in the output text, not in any stored knowledge of the input.
+
+Two ways to actually see the compiled Python:
+
+**1. Programmatically, via `bf.compile`.** Useful for offline inspection, ad-hoc experiments, and printing the compiled form into a notebook or a paper:
 
 ```python
 from unpythonic.dialects import bf
-print(bf.compile(bf_program_str))
+
+src = "+++++++++++++[>+++++<-]>."  # 'A' via a 5×13 multiplication loop
+print(bf.compile(src))
 ```
 
-`bf.compile(src)` returns self-contained runnable Python — useful for reading a non-trivial BF program by rewriting it in a language a human can actually read. The qualified `bf.compile` form is recommended over `from … import compile` to avoid shadowing `builtins.compile` in the importer's namespace.
-
-For example, the program above compiles to:
+For the program above, this prints:
 
 ```python
 from sys import stdin, stdout
@@ -82,6 +89,21 @@ while tape[ptr]:
 ptr += 1
 stdout.write(chr(tape[ptr])); stdout.flush()
 ```
+
+The qualified `bf.compile` form is recommended over `from … import compile` to avoid shadowing `builtins.compile` in the importer's namespace.
+
+**2. Live, while running the dialect file, via `mcpyrate.debug.StepExpansion`.** When `StepExpansion` is the *first* dialect in the import chain, the dialect expander prints the source after each transformer pass — so for a BF file it shows the BF body before transformation and the generated Python afterward, then runs the result:
+
+```python
+from mcpyrate.debug import dialects, StepExpansion
+from unpythonic.dialects.bf import dialects, BF
+
++++++++++++++[>+++++<-]>.
+```
+
+Run via `macropython` (or by `import`-ing the file) and the BF→Python translation is printed to stderr alongside the program's normal execution. Useful when the BF source already lives inside a `.py` file and you'd rather not retype it as a string for `bf.compile`.
+
+`StepExpansion` is documented in [`mcpyrate`'s troubleshooting guide](https://github.com/Technologicat/mcpyrate/blob/master/doc/troubleshooting.md). It works for any dialect, not just BF.
 
 ## What BF is
 
