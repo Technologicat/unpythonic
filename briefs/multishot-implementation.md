@@ -55,11 +55,11 @@ Standard generator protocol subset:
 Generator introspection attributes:
 - `gi_frame` — **always `None`**. A multi-shot generator has no paused frame: every `myield` terminated its frame and returned a continuation closure; state lives in closure cells, not a frame. The real-generator idiom `gen.gi_frame is None ↔ exhausted` does **not** apply here — there's never a paused frame, by construction. Document loudly under "Differences from standard Python generators".
 - `gi_code` — `self.k.__code__` while live; `None` after `close()`. This is what consumers should use as the liveness signal. Gives debuggers the code object that the next advance will run.
-- `gi_running` — **always `False`**. Deadpan-true: nothing is ever paused; every continuation is a separately-activated closure. Document the answer plainly; do not nudge the joke.
+- `gi_running` — **always `False`**. Nothing is ever paused: every continuation is a separately-activated closure.
 - `gi_yieldfrom` — `None` in v1 (no `myield_from` yet). Becomes meaningful in the post-v1 follow-up.
 
 Beyond the standard surface:
-- `__copy__` — fork the iterator. Both copies share the current continuation; subsequent advances diverge into independent timelines. **This is the entire point of multi-shot, exposed through the stdlib `copy` protocol.** Document deadpan: *"Returns a fork of this iterator at the current continuation. Subsequent advances of the two iterators are independent."* No nudge that this is impossible for normal generators — let the reader who knows have the double-take.
+- `__copy__` — fork the iterator. Both copies share the current continuation; subsequent advances diverge into independent timelines. **This is the entire point of multi-shot, exposed through the stdlib `copy` protocol.** Docstring should mention the technical distinction — standard Python generators don't support `copy.copy()` at all — since that's what makes the protocol meaningful here. Suggested docstring: *"Forks this multi-shot iterator at the current continuation; subsequent advances of the two iterators are independent. Unlike standard Python generators, multi-shot generators are copyable."*
 - `__deepcopy__` — raises `TypeError("multi-shot iterators cannot be deep-copied; use copy.copy() to fork")`. The continuation closes over caller state we can't meaningfully deep-copy, and the stdlib's default deep-copy fallback (recurse into `__dict__`) would either error obscurely or produce a nonsensical clone. Fail loudly and point the user at the right tool.
 - `__del__` calls `close()`. Mostly cosmetic for multishot (no paused frame to clean up), but mirrors generator GC semantics.
 
@@ -79,7 +79,7 @@ New subsection in `doc/macros.md` under the existing continuations chapter, para
 
 1. **Why multi-shot.** One-paragraph framing: classical Python generator + can resume from any earlier `myield` arbitrarily many times.
 2. **Usage.** `@multishot` + `myield` four-form table (the one already in the demo's docstring), plus the `MultishotIterator` wrapper for generator-protocol-shaped consumption.
-3. **Differences from standard Python generators.** Deadpan list, with `copy()` as the standout: *"Unlike standard generators, multi-shot generators support `copy.copy()`. The fork shares the current continuation; subsequent advances of the two iterators diverge into independent timelines."* Then the limitations: no `yield from` across real/multishot, exception/`finally` semantics differ across `myield` boundaries, no async form, no pickling, statement-only top-level `myield`.
+3. **Differences from standard Python generators.** `copy()` is the headline: *"Unlike standard generators, multi-shot generators support `copy.copy()`. The fork shares the current continuation; subsequent advances of the two iterators diverge into independent timelines."* Then the limitations: no `yield from` across real/multishot, exception/`finally` semantics differ across `myield` boundaries, no async form, no pickling, statement-only top-level `myield`.
 4. **Cross-references.** Pointer to `test_conts_gen.py` (single-shot didactic version, raw `call_cc`) and `test_conts_multishot.py` — wait, that one *is* the implementation, will be replaced. Cross-link to whatever didactic example survives, plus the new `test_multishot.py` for the canonical usage.
 
 TOC updated.

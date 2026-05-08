@@ -14,17 +14,17 @@ illustrative example and ends with the line *"Implementing the actual
 BF->Python transpiler is left as an exercise"*. This brief picks up that
 gauntlet.
 
-Superposition of two simultaneous goals:
+Two simultaneous goals on a single code path:
 
-1. **Discordian joke**: canonical-brainfuck-compatible dialect that lets you
+1. **Practical joke**: canonical-brainfuck-compatible dialect that lets you
    put `++++++[>++++++++<-]>.` in a `.py` file and run it.
 2. **Pedagogic tool**: `bf_compile(src)` returns human-readable Python source,
    useful for understanding what a given brainfuck program does by rewriting
    it in a language a human can actually read.
 
-Both goals ride on the same code path — the dialect activation just runs what
-`bf_compile` produces. The pedagogic value is a consequence of insisting the
-compiled output be legible Python; we do not maintain two compilation modes.
+The dialect activation just runs what `bf_compile` produces. The pedagogic
+value is a consequence of insisting the compiled output be legible Python;
+we do not maintain two compilation modes.
 
 ## Layout
 
@@ -210,8 +210,6 @@ level covers the semantics.
 
 ## Delivery style
 
-Deadpan. Module docstring treats brainfuck as a perfectly reasonable
-language to be targeting. Commit messages, changelog entry, and tests do
-not wink at the joke. The reader discovers for themselves that
-`"Hello from bf!"` is actually printed by a real brainfuck interpreter
-sitting inside the test suite.
+Conventional `unpythonic.dialects` module style — matter-of-fact
+docstrings, commit messages, and test names. Module docstring treats
+brainfuck as a target language; no commentary on the choice.
