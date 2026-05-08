@@ -110,6 +110,10 @@ Legacy `flake8rc` also present (used by Emacs flycheck, not by CI or CC).
 - **Tests** are in `tests/` (plural) subdirectories under the code they test. The testing *framework* lives at `unpythonic/test/` (singular).
 - Each module declares `__all__` explicitly for public API. The top-level `__init__.py` re-exports via star imports.
 - **Import style**: Use `from ... import ...` (not `import ...`). The from-import syntax is mandatory for macro imports and used consistently throughout. Don't rename unpythonic features with `as`—macro code depends on original bare names.
+- **Public-symbol references in docstrings, comments, briefs**:
+  - **Prose references** (mentioning a function or class to direct the reader): use the fully-qualified name, e.g. "similar to `unpythonic.misc.timer`". Saves the reader from grepping the source tree.
+  - **Usage examples** (showing how to call): use the bare name and skip the import line. Public top-level symbols are accessible via `from unpythonic import X`; spelling that out in every example is noise.
+  - **Exception**: when fully-qualified access is itself part of the recommendation (e.g. `unpythonic.dialects.bf.compile` to avoid shadowing `builtins.compile` in the importer's namespace), keep the qualified form in the example.
 - **No star imports** in user code (only in the top-level `__init__.py` for re-export).
 - **Curry-friendly signatures**: Parameters that change least often go on the left. Use `def f(func, thing0, *things)` (not `def f(func, *things)`) when at least one `thing` is required, so `curry` knows when to trigger.
 - **Macros are the nuclear option**: Only make a macro when a regular function can't do the job. Prefer a pure-Python core with a thin macro layer for UX.
