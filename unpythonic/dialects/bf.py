@@ -13,8 +13,11 @@ Running the file (under `macropython`, or by `import`) compiles the body to
 Python, then executes the result. The same compiler is also available as a
 plain function::
 
-    from unpythonic.dialects.bf import bf_compile
-    print(bf_compile(bf_program_str))
+    from unpythonic.dialects import bf
+    print(bf.compile(bf_program_str))
+
+The qualified `bf.compile` form is recommended over `from ... import compile`
+to avoid shadowing the builtin in the importer's namespace.
 
 This prints the Python that the dialect would run. Useful for the pedagogic
 side of things — reading a non-trivial `bf` program by rewriting it in a
@@ -51,7 +54,7 @@ Design
 - **Blank lines**: passed through, with consecutive blanks collapsed to one.
 """
 
-__all__ = ["BF", "Tape", "bf_compile"]
+__all__ = ["BF", "Tape", "compile"]
 
 from collections import defaultdict
 
@@ -72,13 +75,17 @@ class Tape(defaultdict):
         super().__setitem__(key, value & 0xFF)
 
 
-def bf_compile(src: str) -> str:
+def compile(src: str) -> str:
     """Compile a `bf` program to Python source.
 
     `src` is the raw `bf` program text (no surrounding Python, no dialect
     import). The returned string is self-contained, runnable Python — it
     imports `Tape` from this module, initialises state, and performs the
     operations the `bf` program describes.
+
+    Shadows ``builtins.compile`` if imported by name. Recommended use
+    is via the module: ``from unpythonic.dialects import bf`` then
+    ``bf.compile(src)``.
     """
     INDENT = "    "
     lines_out = []
@@ -211,7 +218,7 @@ class BF(Dialect):
 
     Text before the dialect-import line is passed through unchanged (keeps
     the encoding declaration and module docstring intact); text after it
-    is treated as `bf` source and compiled via `bf_compile`. Any other
+    is treated as `bf` source and compiled via `compile`. Any other
     dialect-imports in the module are preserved so that further dialect
     processing can find them.
     """
@@ -220,4 +227,4 @@ class BF(Dialect):
         if r is None:
             return text
         prologue, other, body = r
-        return prologue + "".join(other) + bf_compile(body)
+        return prologue + "".join(other) + compile(body)

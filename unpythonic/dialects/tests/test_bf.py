@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Test the bf dialect: Tape class, bf_compile, and dialect activation."""
+"""Test the bf dialect: Tape class, bf.compile, and dialect activation."""
 
 import io
 from contextlib import redirect_stdout
@@ -10,7 +10,8 @@ from ...syntax import macros, test, test_raises, the  # noqa: F401
 from ...test.fixtures import session, testset
 
 from ...misc import redirect_stdin
-from ..bf import BF, Tape, bf_compile  # noqa: F401
+from ..bf import BF, Tape  # noqa: F401
+from .. import bf  # for bf.compile (qualified to avoid shadowing builtins.compile)
 
 
 def _print_string_program(s):
@@ -35,7 +36,7 @@ def _print_string_program(s):
 def _run_bf(src):
     """Compile `src` and exec it, returning the captured stdout."""
     buf = io.StringIO()
-    code = bf_compile(src)
+    code = bf.compile(src)
     ns = {}
     with redirect_stdout(buf):
         exec(compile(code, "<bf-compiled>", "exec"), ns)
@@ -71,63 +72,63 @@ def runtests():
         t2.clear()
         test[t2[7] == 0]
 
-    with testset("bf_compile: folding"):
-        out = bf_compile("+++")
+    with testset("bf.compile: folding"):
+        out = bf.compile("+++")
         test[the["tape[ptr] += 3" in out]]
-        out = bf_compile("-----")
+        out = bf.compile("-----")
         test[the["tape[ptr] -= 5" in out]]
-        out = bf_compile(">>>>")
+        out = bf.compile(">>>>")
         test[the["ptr += 4" in out]]
-        out = bf_compile("<<")
+        out = bf.compile("<<")
         test[the["ptr -= 2" in out]]
 
-    with testset("bf_compile: no cancellation of opposites"):
+    with testset("bf.compile: no cancellation of opposites"):
         # `+-` does not cancel: two separate runs, honest compilation.
-        out = bf_compile("+-")
+        out = bf.compile("+-")
         test[the["tape[ptr] += 1" in out]]
         test[the["tape[ptr] -= 1" in out]]
         # `><` same.
-        out = bf_compile("><")
+        out = bf.compile("><")
         test[the["ptr += 1" in out]]
         test[the["ptr -= 1" in out]]
 
-    with testset("bf_compile: loops"):
-        out = bf_compile("[+]")
+    with testset("bf.compile: loops"):
+        out = bf.compile("[+]")
         test[the["while tape[ptr]:" in out]]
         test[the["tape[ptr] += 1" in out]]
 
         # Empty loop body becomes `pass` (Python requires a non-empty suite).
-        out = bf_compile("[]")
+        out = bf.compile("[]")
         test[the["while tape[ptr]:" in out]]
         test[the["pass" in out]]
 
         # Comment-only body also needs `pass`.
-        out = bf_compile("[ comment only ]")
+        out = bf.compile("[ comment only ]")
         test[the["# comment only" in out]]
         test[the["pass" in out]]
 
         # Nested loops.
-        out = bf_compile("[[+]]")
+        out = bf.compile("[[+]]")
         # Two while statements, with deeper indent on the inner one.
         test[the[out.count("while tape[ptr]:") == 2]]
         test[the["        tape[ptr] += 1" in out]]  # 8-space indent (nested)
 
-    with testset("bf_compile: I/O"):
-        out = bf_compile(".")
+    with testset("bf.compile: I/O"):
+        out = bf.compile(".")
         test[the["stdout.write(chr(tape[ptr]))" in out]]
-        out = bf_compile(",")
+        out = bf.compile(",")
         test[the["stdin.read(1)" in out]]
         # EOF convention: empty string fallback to "\x00".
         test[the['"\\x00"' in out]]
 
-    with testset("bf_compile: comments"):
+    with testset("bf.compile: comments"):
         # Non-command text on its own line becomes a Python comment.
-        out = bf_compile("hello world\n+")
+        out = bf.compile("hello world\n+")
         test[the["# hello world" in out]]
         test[the["tape[ptr] += 1" in out]]
 
         # Inline comment between command runs.
-        out = bf_compile("+++ move right >>>")
+        out = bf.compile("+++ move right >>>")
         lines = out.splitlines()
         # Expect: `tape[ptr] += 3`, then `# move right`, then `ptr += 3`.
         idx_plus = next(i for i, ln in enumerate(lines) if "tape[ptr] += 3" in ln)
@@ -136,12 +137,12 @@ def runtests():
         test[the[idx_plus] < idx_cmt < idx_gt]
 
         # Author-written `#` comment does not get doubled.
-        out = bf_compile("# a note\n+")
+        out = bf.compile("# a note\n+")
         test[the["# a note" in out]]
         test[the["# # a note" not in out]]
 
-    with testset("bf_compile: reset"):
-        out = bf_compile("+\nreset\n+")
+    with testset("bf.compile: reset"):
+        out = bf.compile("+\nreset\n+")
         # Reset emits a labeled block.
         test[the["# reset" in out]]
         test[the["tape.clear()" in out]]
@@ -150,24 +151,24 @@ def runtests():
         test[the[out.count("tape[ptr] += 1") == 2]]
 
         # reset inside a loop is an error.
-        test_raises[SyntaxError, bf_compile("[\nreset\n]")]
+        test_raises[SyntaxError, bf.compile("[\nreset\n]")]
 
         # reset as substring of a longer word does NOT trigger.
-        out = bf_compile("# we may reset here eventually\n+")
+        out = bf.compile("# we may reset here eventually\n+")
         test[the["tape.clear()" not in out]]
 
-    with testset("bf_compile: errors"):
-        test_raises[SyntaxError, bf_compile("[")]
-        test_raises[SyntaxError, bf_compile("]")]
-        test_raises[SyntaxError, bf_compile("[[]")]
+    with testset("bf.compile: errors"):
+        test_raises[SyntaxError, bf.compile("[")]
+        test_raises[SyntaxError, bf.compile("]")]
+        test_raises[SyntaxError, bf.compile("[[]")]
 
-    with testset("bf_compile: execution — classic P-printer"):
+    with testset("bf.compile: execution — classic P-printer"):
         # `++++++++[>++++++++++<-]>.` — the standard building block.
         # Sets cell 1 to 8 * 10 = 80, then prints chr(80) = 'P'.
         out = _run_bf("++++++++[>++++++++++<-]>.")
         test[the[out] == "P"]
 
-    with testset("bf_compile: execution — single-cell string printer"):
+    with testset("bf.compile: execution — single-cell string printer"):
         out = _run_bf(_print_string_program("Hi!"))
         test[the[out] == "Hi!"]
 
@@ -175,16 +176,16 @@ def runtests():
         out = _run_bf(_print_string_program("Hello from bf!"))
         test[the[out] == "Hello from bf!"]
 
-    with testset("bf_compile: execution — reset between programs"):
+    with testset("bf.compile: execution — reset between programs"):
         # Two programs in one file, separated by `reset`.
         # First prints 'A' (65), second prints 'B' (66).
         src = "+" * 65 + ".\nreset\n" + "+" * 66 + "."
         out = _run_bf(src)
         test[the[out] == "AB"]
 
-    with testset("bf_compile: execution — input with EOF"):
+    with testset("bf.compile: execution — input with EOF"):
         # `,.` reads one char and echoes it.
-        code = bf_compile(",.")
+        code = bf.compile(",.")
         ns = {}
         # Feed one char, then EOF.
         buf = io.StringIO()

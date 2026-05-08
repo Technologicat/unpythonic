@@ -58,11 +58,11 @@ from unpythonic.dialects.bf import dialects, BF  # noqa: F401
 The same compiler is available as a plain function:
 
 ```python
-from unpythonic.dialects.bf import bf_compile
-print(bf_compile(bf_program_str))
+from unpythonic.dialects import bf
+print(bf.compile(bf_program_str))
 ```
 
-`bf_compile(src)` returns self-contained runnable Python — useful for reading a non-trivial BF program by rewriting it in a language a human can actually read.
+`bf.compile(src)` returns self-contained runnable Python — useful for reading a non-trivial BF program by rewriting it in a language a human can actually read. The qualified `bf.compile` form is recommended over `from … import compile` to avoid shadowing `builtins.compile` in the importer's namespace.
 
 For example, the program above compiles to:
 
