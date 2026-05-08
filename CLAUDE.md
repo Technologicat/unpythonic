@@ -94,6 +94,13 @@ Part of unpythonic's **public API** (`unpythonic.test.fixtures`, `unpythonic.tes
 - The helper is smart enough to skip trivial captures (literal values), so `test[4 in the[(1, 2, 3)]]` won't clutter the output with `(1, 2, 3) = (1, 2, 3)`.
 - **Not supported** inside `test_raises`, `test_signals`, `fail`, `error`, or `warn` — only in `test[...]` and `with test:` blocks.
 
+**Common `the[]` mistakes** (anti-patterns — pattern-match against your draft before committing):
+
+- `test[the["X" in out]]` — wraps the *whole* `in` expression, so the capture is the boolean result. On failure, the message tells you the assertion was false, but doesn't show `out`. **Fix**: `test["X" in the[out]]` — captures `out` itself.
+- `test[the[X == Y]]` — same shape, same bug, just with `==`. **Fix**: `test[X == Y]` — auto-capture wraps the LHS for you.
+- `test[the[X] == "Y"]` — redundant: auto-capture already wraps the LHS. **Fix**: `test[X == "Y"]`. (Decide explicitly only when you want a *different* term captured than the LHS, per the *Compound LHS* bullet above.)
+- `test[the[a] < b < c]` — chained comparison, only `a` is captured. If the failure is between `b` and `c`, the message shows neither's value. **Fix**: wrap every term you'd want to see: `test[the[a] < the[b] < the[c]]`.
+
 **Debugging cheat sheet**: a small number of **Warn**s on CI is expected (optional dependencies, version gates). **Fail** means a real expectation mismatch — read the captured values from `the[]` in the message. **Error** is the one you should *always* look at first: it means control flow in the test went somewhere unexpected, and the count alone won't tell you where. The log above the summary line has the actual traceback.
 
 ## Linting

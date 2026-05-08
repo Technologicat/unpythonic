@@ -2564,6 +2564,15 @@ The `the[]` mechanism is smart enough to skip reporting trivialities for literal
 
 Because the implicit `the[]` wraps the leftmost term *as-written*, for a compound LHS such as `test[reply["status"] == "ok"]` the captured subexpression is `reply["status"]`, not the whole `reply`. If you would rather see the full container on failure (e.g. to read a `"reason"` field the server attached alongside `"status": "failed"`), wrap it explicitly: `test[the[reply]["status"] == "ok"]`. Note that adding any explicit `the[]` disables the implicit LHS capture, so in the latter form only `reply` is captured, not both `reply` and `reply["status"]`. The choice between the two forms is a debugging-granularity judgment: leaf captures are enough when the leaf is self-explanatory (`timer.dt == 0.0`), whereas wrapping the container is better when the leaf value alone is lossy.
 
+##### Common `the[]` mistakes
+
+A few anti-patterns recur often enough to call out explicitly. Each captures something less useful than the form it should be:
+
+- **`test[the["X" in out]]`** — wraps the *whole* `in` expression, so the capture is the boolean result. On failure, the message tells you the assertion was false but does not show `out`. Use `test["X" in the[out]]` to capture `out` itself.
+- **`test[the[X == Y]]`** — same shape with `==`: captures the boolean result. Use `test[X == Y]`; auto-capture wraps the LHS for you.
+- **`test[the[X] == "Y"]`** — redundant: auto-capture already wraps the LHS. Use `test[X == "Y"]`. Reach for explicit `the[]` only when you want a *different* term captured than the LHS (see the compound-LHS discussion above).
+- **`test[the[a] < b < c]`** — for a chained comparison, only `a` is captured, so a failure between `b` and `c` shows neither's value. Wrap every term you would want to see: `test[the[a] < the[b] < the[c]]`.
+
 If nothing but such trivialities were captured, the failure message will instead report the value of the whole expression. The captures still remain inspectable in the exception instance.
 
 To make testing/debugging macro code more convenient, the `the[]` mechanism automatically unparses an AST value into its source code representation for display in the test failure message. This is meant for debugging macro utilities, to which a test case hands some quoted code (i.e. code lifted into its AST representation using mcpyrate's `q[]` macro). See [`unpythonic.syntax.tests.test_letdoutil`](unpythonic/syntax/tests/test_letdoutil.py) for some examples. Note the unparsing is done for display only; the raw value remains inspectable in the exception instance.
