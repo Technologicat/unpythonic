@@ -18,7 +18,7 @@ from ..misc import (pack,
                     slurp,
                     callsite_filename,
                     safeissubclass,
-                    maybe_open,
+                    maybe_open, redirect_stdin,
                     UnionFilter,
                     si_prefix)
 from ..fun import withself
@@ -164,6 +164,43 @@ def runtests():
         with maybe_open(None, "r", fallback) as f:
             test[f is fallback]
             test[the[f.read()] == "fallback content"]
+
+    # --------------------------------------------------------------------------
+    # redirect_stdin
+
+    with testset("redirect_stdin"):
+        import io as _io_for_redirect
+        original_stdin = sys.stdin
+
+        # Basic: redirect sys.stdin, read from input(), restore on exit.
+        with redirect_stdin(_io_for_redirect.StringIO("42\n")):
+            test[the[input()] == "42"]
+            test[sys.stdin is not original_stdin]
+        test[sys.stdin is original_stdin]
+
+        # Yields the target (matches stdlib redirect_stdout / redirect_stderr).
+        target = _io_for_redirect.StringIO("hello")
+        with redirect_stdin(target) as yielded:
+            test[yielded is target]
+        test[sys.stdin is original_stdin]
+
+        # Exception inside the block still restores sys.stdin.
+        try:
+            with redirect_stdin(_io_for_redirect.StringIO("data")):
+                raise RuntimeError("boom")
+        except RuntimeError:
+            pass
+        test[sys.stdin is original_stdin]
+
+        # Nested re-entry on the same instance unwinds via the per-instance
+        # _old_targets stack inherited from contextlib._RedirectStream.
+        rs = redirect_stdin(_io_for_redirect.StringIO("data"))
+        with rs:
+            with rs:
+                test[sys.stdin is rs._new_target]
+            # After inner exit, still redirected (outer with is active).
+            test[sys.stdin is rs._new_target]
+        test[sys.stdin is original_stdin]
 
     # --------------------------------------------------------------------------
     # UnionFilter

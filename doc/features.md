@@ -123,6 +123,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [`safeissubclass`](#safeissubclass), convenience function.
 - [`environ_override`: temporarily override environment variables](#environ_override-temporarily-override-environment-variables)
 - [`maybe_open`: open a file or use a fallback stream](#maybe_open-open-a-file-or-use-a-fallback-stream)
+- [`redirect_stdin`: feed `sys.stdin` from a stream](#redirect_stdin-feed-sysstdin-from-a-stream)
 - [`UnionFilter`: OR-combine logging filters](#unionfilter-or-combine-logging-filters)
 - [`pack`: multi-arg constructor for tuple](#pack-multi-arg-constructor-for-tuple)
 - [`namelambda`: rename a function](#namelambda-rename-a-function)
@@ -5417,6 +5418,23 @@ def process(filename=None):
 process("data.txt")  # reads from file
 process()            # reads from stdin
 ```
+
+
+### `redirect_stdin`: feed `sys.stdin` from a stream
+
+**Added in v2.2.0.**
+
+Context manager that feeds `sys.stdin` from a given stream — the third sibling of [`contextlib.redirect_stdout`](https://docs.python.org/3/library/contextlib.html#contextlib.redirect_stdout) (Python 3.4) and [`contextlib.redirect_stderr`](https://docs.python.org/3/library/contextlib.html#contextlib.redirect_stderr) (Python 3.5). The standard library ships those two but not this one; this fills the gap. Subclasses `contextlib._RedirectStream` so behavior matches the stdlib siblings exactly, including the per-instance stack that supports nested re-entry on the same instance.
+
+```python
+from io import StringIO
+from unpythonic import redirect_stdin
+
+with redirect_stdin(StringIO("42\n")):
+    value = input()  # reads "42"
+```
+
+Like its stdlib siblings, this redirects the global `sys.stdin` and is **not** safe under concurrent use from multiple threads — parallel redirects from different threads will stomp on each other. For test code (the typical use case), single-threaded use is the norm.
 
 
 ### `UnionFilter`: OR-combine logging filters

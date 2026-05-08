@@ -9,7 +9,7 @@ __all__ = ["pack",
            "slurp",
            "callsite_filename",
            "safeissubclass",
-           "maybe_open",
+           "maybe_open", "redirect_stdin",
            "UnionFilter",
            "si_prefix"]
 
@@ -345,6 +345,34 @@ def maybe_open(filename: str | pathlib.Path | None,
             yield f
     else:
         yield fallback
+
+
+class redirect_stdin(contextlib._RedirectStream):
+    """Context manager that feeds ``sys.stdin`` from *target*.
+
+    The third sibling: the standard library ships
+    `contextlib.redirect_stdout` (Python 3.4) and
+    `contextlib.redirect_stderr` (Python 3.5), but not
+    `redirect_stdin`. This fills the gap, sharing machinery with its
+    stdlib siblings so the behavior matches exactly — including the
+    per-instance stack that supports nested re-entry on the same
+    instance.
+
+    Like its stdlib siblings, this redirects the global ``sys.stdin``
+    and is **not** safe under concurrent use from multiple threads;
+    parallel redirects from different threads will stomp on each other.
+    For tests (the primary use case), single-threaded use is the norm.
+
+    Example::
+
+        from io import StringIO
+        from unpythonic import redirect_stdin
+
+        with redirect_stdin(StringIO("42\\n")):
+            value = input()  # reads "42"
+    """
+    _stream = "stdin"
+
 
 # --------------------------------------------------------------------------------
 # Logging utilities

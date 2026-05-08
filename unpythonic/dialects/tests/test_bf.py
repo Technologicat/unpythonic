@@ -2,24 +2,14 @@
 """Test the bf dialect: Tape class, bf_compile, and dialect activation."""
 
 import io
-import sys
-from contextlib import contextmanager, redirect_stdout
+from contextlib import redirect_stdout
 
 from mcpyrate.compiler import create_module, run
-
-
-@contextmanager
-def _redirect_stdin(stream):
-    """Local stand-in — `contextlib` has no `redirect_stdin`, only stdout/stderr."""
-    saved, sys.stdin = sys.stdin, stream
-    try:
-        yield
-    finally:
-        sys.stdin = saved
 
 from ...syntax import macros, test, test_raises, the  # noqa: F401
 from ...test.fixtures import session, testset
 
+from ...misc import redirect_stdin
 from ..bf import BF, Tape, bf_compile  # noqa: F401
 
 
@@ -198,13 +188,13 @@ def runtests():
         ns = {}
         # Feed one char, then EOF.
         buf = io.StringIO()
-        with redirect_stdout(buf), _redirect_stdin(io.StringIO("Z")):
+        with redirect_stdout(buf), redirect_stdin(io.StringIO("Z")):
             exec(compile(code, "<bf-input>", "exec"), ns)
         test[the[buf.getvalue()] == "Z"]
 
         # Empty stdin → EOF → cell stays 0 → `.` prints chr(0).
         buf = io.StringIO()
-        with redirect_stdout(buf), _redirect_stdin(io.StringIO("")):
+        with redirect_stdout(buf), redirect_stdin(io.StringIO("")):
             exec(compile(code, "<bf-eof>", "exec"), ns)
         test[the[buf.getvalue()] == "\x00"]
 
