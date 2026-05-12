@@ -19,7 +19,7 @@ license = { text = "BSD" }
 dynamic = ["version"]
 
 dependencies = [
-    "mcpyrate>=4.1.1",
+    "mcpyrate>=4.2.0",
     "sympy>=1.13"
 ]
 keywords=["functional-programming", "language-extension", "syntactic-macros",

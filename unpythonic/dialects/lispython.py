@@ -42,13 +42,8 @@ class Lispython(Dialect):
 
         # Beginning with 3.6.0, `mcpyrate` makes available the source location info
         # of the dialect-import that imported this dialect.
-        if hasattr(self, "lineno"):  # mcpyrate 3.6.0+
-            tree.body = splice_dialect(tree.body, template, "__paste_here__",
-                                       lineno=self.lineno, col_offset=self.col_offset,
-                                       end_lineno=getattr(self, "end_lineno", None),
-                                       end_col_offset=getattr(self, "end_col_offset", None))
-        else:
-            tree.body = splice_dialect(tree.body, template, "__paste_here__")
+        tree.body = splice_dialect(tree.body, template, "__paste_here__",
+                                   reference=self.location_ref)
 
         return tree
 
@@ -81,12 +76,7 @@ class Lispy(Dialect):
 
         # Beginning with 3.6.0, `mcpyrate` makes available the source location info
         # of the dialect-import that imported this dialect.
-        if hasattr(self, "lineno"):  # mcpyrate 3.6.0+
-            tree.body = splice_dialect(tree.body, template, "__paste_here__",
-                                       lineno=self.lineno, col_offset=self.col_offset,
-                                       end_lineno=getattr(self, "end_lineno", None),
-                                       end_col_offset=getattr(self, "end_col_offset", None))
-        else:
-            tree.body = splice_dialect(tree.body, template, "__paste_here__")
+        tree.body = splice_dialect(tree.body, template, "__paste_here__",
+                                   reference=self.location_ref)
 
         return tree
