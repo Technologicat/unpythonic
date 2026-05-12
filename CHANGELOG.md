@@ -1,6 +1,6 @@
 # Changelog
 
-**2.2.0** (in progress):
+**2.2.0** (12 May 2026) — *"Hail Eris"* edition:
 
 **New**:
 
