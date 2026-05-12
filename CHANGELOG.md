@@ -27,9 +27,11 @@
 **Changed**:
 
 - `unpythonic.funutil.call` and `callwith` now unpack `Values` in their positional arguments: each `Values` expands in place (left-to-right), splicing its `rets` into the positional arguments and merging its `kwrets` into the keyword arguments. Across multiple `Values` and the explicit `kwargs`, rightmost wins per unique keyword name. Mirrors the spread/merge semantics of Python's `[*a, *b, c]` and `{**a, **b}`; lets a `Values` produced by one function be applied as the arguments to another.
+- `lispython`, `listhell`, and `pytkell` dialects now propagate the Python 3.8+ source-location fields `end_lineno` / `end_col_offset` through `splice_dialect`, alongside the existing `lineno` / `col_offset`. Tooling that consumes precise source ranges (debuggers, traceback formatters with PEP 657 column offsets) gets richer information for code coming from a dialect template. Closes #83.
 
 **Internal**:
 
+- `unpythonic.syntax.letdoutil`: the letrec-bindings rebuild path now uses `ast.copy_location`, which copies whichever of the four source-location fields are present on the source node. Replaces the manual `lineno=` / `col_offset=` threading and removes the `if/else` guard for missing fields.
 - `unpythonic.llist.cons`: dropped the internal `_immutable` sentinel; the read-only `car`/`cdr` are now installed via `object.__setattr__` in `__init__`, and `__setattr__` is a one-liner that always raises.
 - `unpythonic.env.env`: dropped the `_direct_write` whitelist that allowed internal slots (`_env`, `_finalized`) to bypass `__setattr__`. Internal initialisation and `finalize()` now use `object.__setattr__` directly. Client code attempting `e._env = ...` or `e._finalized = ...` is now rejected by the reserved-name check (was silently allowed via the whitelist).
 - `doc/macros.md`: new "Topology of continuations: how the wiring works" subsection (with inlined `callcc_topology.png` diagram explaining the `cc`/`pcc` machinery) and "Scoping of locals in continuations" subsection (the rule, the box workaround, the three load-bearing limits that ruled out auto-`nonlocal` propagation). Closes #82.

@@ -7,7 +7,8 @@ __all__ = ["canonize_bindings",  # used by the macro interface layer
            "ExpandedLetView", "ExpandedDoView"]
 
 from ast import (Call, Name, Subscript, Compare, In,
-                 Tuple, List, Constant, BinOp, LShift, Lambda)
+                 Tuple, List, Constant, BinOp, LShift, Lambda,
+                 copy_location)
 
 from mcpyrate import unparse
 from mcpyrate.astcompat import NamedExpr
@@ -753,12 +754,11 @@ class ExpandedLetView:
                     # update name in the namelambda(...)
                     thev.func.args[0] = Constant(value=f"letrec_binding_{newk_string}")  # Python 3.8+: ast.Constant
                 # Macro-generated nodes may be missing source location information,
-                # in which case we let `mcpyrate` fix it later.
+                # in which case we let `mcpyrate` fix it later. `ast.copy_location`
+                # copies whichever of `lineno`/`col_offset`/`end_lineno`/`end_col_offset`
+                # are present on `oldb`, leaving the rest unset.
                 # This is mainly an issue for the unit tests of this module, which macro-generate the "old" data.
-                if getattr(oldb, "lineno", None) is not None and getattr(oldb, "col_offset", None) is not None:
-                    newelts.append(Tuple(elts=[newk, thev], lineno=oldb.lineno, col_offset=oldb.col_offset))
-                else:
-                    newelts.append(Tuple(elts=[newk, thev]))
+                newelts.append(copy_location(Tuple(elts=[newk, thev]), oldb))
             thebindings.elts = newelts
         else:
             thebindings.elts = newbindings.elts
