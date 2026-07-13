@@ -109,8 +109,6 @@ Part of unpythonic's **public API** (`unpythonic.test.fixtures`, `unpythonic.tes
 ruff check <changed .py files>   # primary linter (config in pyproject.toml)
 ```
 
-Legacy `flake8rc` also present (used by Emacs flycheck, not by CI or CC).
-
 ## Code structure and conventions
 
 - **Regular code** in `unpythonic/`, **macros** in `unpythonic/syntax/`, **REPL networking** in `unpythonic/net/`, **dialects** in `unpythonic/dialects/`.

@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a variety of Python versions
 # For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
 #
-# This version is customized to install with pdm, use the local flake8rc, and test with unpythonic.setup.fixtures.
+# This version is customized to install with pdm, lint with ruff, and test with unpythonic.test.fixtures.
 
 name: Python package
 
