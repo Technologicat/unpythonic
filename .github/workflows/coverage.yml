@@ -45,7 +45,7 @@ jobs:
         pdm run python -m pip install coverage
     - name: Generate coverage report
       run: |
-        pdm run python -m coverage run --source=. -m runtests
+        pdm run python -m coverage run -m runtests
         pdm run python -m coverage xml
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
