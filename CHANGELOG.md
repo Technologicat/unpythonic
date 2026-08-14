@@ -1,5 +1,12 @@
 # Changelog
 
+**2.3.1** (in progress):
+
+*No user-visible changes yet.*
+
+
+---
+
 **2.3.0** (14 August 2026) — *"Mind the gap"* edition:
 
 **New**:
