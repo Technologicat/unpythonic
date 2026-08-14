@@ -398,7 +398,8 @@ class UnionFilter(logging.Filter):
 # --------------------------------------------------------------------------------
 # Number formatting
 
-def si_prefix(number: int | float, precision: int = 2, binary: bool = False) -> str:
+def si_prefix(number: int | float, precision: int = 2, binary: bool = False,
+              separator: str = " ", always_separate: bool = False) -> str:
     """Format a number with an SI decimal or IEC binary prefix.
 
     Returns a string like ``"1.50 k"``, ``"23.40 M"``, ``"500.00 m"``
@@ -410,6 +411,21 @@ def si_prefix(number: int | float, precision: int = 2, binary: bool = False) -> 
                 with base 1024 instead of SI decimal prefixes with
                 base 1000.  Sub-unity binary prefixes (mi, µi, ni, ...)
                 follow the same convention.
+    ``separator``: what to put between the number and the prefix.
+                   Defaults to a space, per SI.  Pass ``""`` for the
+                   compact form some UIs prefer (``"1.50k"``).
+    ``always_separate``: if ``True``, emit the separator even when there
+                         is no prefix, so that ``"42.00 "`` lines up with
+                         ``"1.50 k"``.
+
+    The last one is for callers appending a unit of measurement — watts,
+    bytes, hertz.  ``f"{si_prefix(n)}W"`` gives ``"1.50 kW"`` but
+    ``"42.00W"``, because in the second case there is no prefix to
+    separate from; ``always_separate=True`` makes the spacing uniform so
+    the unit can simply be appended::
+
+        f"{si_prefix(1536, binary=True, always_separate=True)}B"  # "1.50 KiB"
+        f"{si_prefix(512, binary=True, always_separate=True)}B"   # "512.00 B"
 
     Negative numbers and zero are handled correctly.
 
@@ -428,6 +444,9 @@ def si_prefix(number: int | float, precision: int = 2, binary: bool = False) -> 
         si_prefix(1536, binary=True)       # "1.50 Ki"
         si_prefix(2_621_440, binary=True)  # "2.50 Mi"
         si_prefix(0.5, binary=True)        # "512.00 mi"
+        si_prefix(1500, separator="")      # "1.50k"
+
+    ``separator`` and ``always_separate`` were added in v2.3.0.
     """
     if binary:
         base = 1024
@@ -437,25 +456,26 @@ def si_prefix(number: int | float, precision: int = 2, binary: bool = False) -> 
         base = 1000
         large = ('', 'k', 'M', 'G', 'T', 'P', 'E', 'Z', 'Y', 'R', 'Q')
         small = ('m', 'µ', 'n', 'p', 'f', 'a', 'z', 'y', 'r', 'q')
+    def render(value: int | float, prefix: str) -> str:
+        # The empty prefix is the only case where the separator is in question: with nothing to separate
+        # from, SI writes the bare number, while a caller appending a unit wants the spacing kept uniform.
+        if prefix or always_separate:
+            return f"{value:.{precision}f}{separator}{prefix}"
+        return f"{value:.{precision}f}"
+
     if number == 0:
-        return f"{0:.{precision}f}"
+        return render(0, "")
     sign = -1 if number < 0 else 1
     magnitude = abs(number)
     if magnitude >= 1:
         for prefix in large:
             if magnitude < base:
-                value = sign * magnitude
-                if prefix:
-                    return f"{value:.{precision}f} {prefix}"
-                return f"{value:.{precision}f}"
+                return render(sign * magnitude, prefix)
             magnitude /= base
-        value = sign * magnitude
-        return f"{value:.{precision}f} {large[-1]}"
+        return render(sign * magnitude, large[-1])
     else:
         for prefix in small:
             magnitude *= base
             if magnitude >= 1:
-                value = sign * magnitude
-                return f"{value:.{precision}f} {prefix}"
-        value = sign * magnitude
-        return f"{value:.{precision}f} {small[-1]}"
+                return render(sign * magnitude, prefix)
+        return render(sign * magnitude, small[-1])

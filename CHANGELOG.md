@@ -1,8 +1,12 @@
 # Changelog
 
-**2.2.1** (in progress):
+**2.3.0** (in progress):
 
-*No user-visible changes yet.*
+**New**:
+
+- `unpythonic.misc.si_prefix`: new parameters `separator` and `always_separate`, for callers that append a unit of measurement.
+  - `separator` (default `" "`, per SI) is what goes between the number and the prefix; `separator=""` gives the compact `"1.50k"` that some UIs prefer.
+  - `always_separate` emits the separator even where the magnitude needs no prefix, so `f"{si_prefix(n, always_separate=True)}W"` reads `"1.50 kW"` and `"42.00 W"` rather than `"1.50 kW"` and `"42.00W"`. Without it the spacing depends on the magnitude, which is exactly what a caller appending a unit does not want.
 
 
 ---

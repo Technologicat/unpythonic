@@ -282,6 +282,20 @@ def runtests():
         test[the[si_prefix(1 / 1024**9, binary=True)] == "1.00 ri"]
         test[the[si_prefix(1 / 1024**10, binary=True)] == "1.00 qi"]  # chi
 
+        # Custom separator
+        test[the[si_prefix(1500, separator="")] == "1.50k"]
+        test[the[si_prefix(1500, separator="\N{NO-BREAK SPACE}")] == "1.50\N{NO-BREAK SPACE}k"]
+        test[the[si_prefix(42, separator="")] == "42.00"]  # no prefix -> nothing to separate
+
+        # Separator emitted even without a prefix, so that appending a unit of measurement (W, B, Hz)
+        # spaces the same way whether or not the magnitude called for a prefix
+        test[the[si_prefix(42, always_separate=True)] == "42.00 "]
+        test[the[si_prefix(0, always_separate=True)] == "0.00 "]
+        test[the[si_prefix(1500, always_separate=True)] == "1.50 k"]  # unchanged where a prefix exists
+        test[the[si_prefix(42, separator="", always_separate=True)] == "42.00"]  # empty separator, still empty
+        test[the[f"{si_prefix(1536, binary=True, precision=1, always_separate=True)}B"] == "1.5 KiB"]
+        test[the[f"{si_prefix(512, binary=True, precision=0, always_separate=True)}B"] == "512 B"]
+
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
         runtests()
