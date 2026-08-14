@@ -1,6 +1,6 @@
 # Changelog
 
-**2.3.0** (in progress):
+**2.3.0** (14 August 2026) — *"Separation of concerns"* edition:
 
 **New**:
 
