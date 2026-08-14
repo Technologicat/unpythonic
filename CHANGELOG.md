@@ -1,6 +1,6 @@
 # Changelog
 
-**2.3.0** (14 August 2026) — *"Separation of concerns"* edition:
+**2.3.0** (14 August 2026) — *"Mind the gap"* edition:
 
 **New**:
 
