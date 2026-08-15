@@ -19,25 +19,24 @@ from .symbol import gensym
 _fill = gensym("fill")
 
 # explicit list better for tooling support
-_exports = ["FrozenAttributeError",
-            "cons", "nil",
-            "LinkedListIterator", "LinkedListOrCellIterator", "TailIterator",
-            "BinaryTreeIterator", "ConsIterator",
-            "car", "cdr",
-            "caar", "cadr", "cdar", "cddr",
-            "caaar", "caadr", "cadar", "caddr", "cdaar", "cdadr", "cddar", "cdddr",
-            "caaaar", "caaadr", "caadar", "caaddr", "cadaar", "cadadr", "caddar", "cadddr",
-            "cdaaar", "cdaadr", "cdadar", "cdaddr", "cddaar", "cddadr", "cdddar", "cddddr",
-            "ll", "llist", "lreverse", "lappend", "lzip"]
+__all__ = ["FrozenAttributeError",
+           "cons", "nil",
+           "LinkedListIterator", "LinkedListOrCellIterator", "TailIterator",
+           "BinaryTreeIterator", "ConsIterator",
+           "car", "cdr",
+           "caar", "cadr", "cdar", "cddr",
+           "caaar", "caadr", "cadar", "caddr", "cdaar", "cdadr", "cddar", "cdddr",
+           "caaaar", "caaadr", "caadar", "caaddr", "cadaar", "cadadr", "caddar", "cadddr",
+           "cdaaar", "cdaadr", "cdadar", "cdaddr", "cddaar", "cddadr", "cdddar", "cddddr",
+           "ll", "llist", "lreverse", "lappend", "lzip"]
 #from itertools import product, repeat
 #_ads = lambda n: product(*repeat("ad", n))
 #_c2r = ["c{}{}r".format(*x) for x in _ads(2)]
 #_c3r = ["c{}{}{}r".format(*x) for x in _ads(3)]
 #_c4r = ["c{}{}{}{}r".format(*x) for x in _ads(4)]
-#_exports.extend(_c2r)
-#_exports.extend(_c3r)
-#_exports.extend(_c4r)
-__all__ = _exports
+#__all__.extend(_c2r)
+#__all__.extend(_c3r)
+#__all__.extend(_c4r)
 
 class FrozenAttributeError(TypeError, FrozenInstanceError):
     """Raised on a write/delete attempt against a frozen-instance type.
