@@ -2,6 +2,10 @@
 
 **2.3.1** (in progress):
 
+**Changed**:
+
+- `env.finalize()` now returns `self` instead of `None`, so it can be chained: `e = env(x=42).finalize()`. Matches the existing instance passthrough on `<<`.
+
 **Fixed**:
 
 - The macro documentation now warns that `begin`/`begin0` are not recognized by the macro layer, so macro-enabled code should sequence with `do[]`/`do0[]`. The functions' own docstrings already said so; the macro docs, where a macro user actually reads, did not.

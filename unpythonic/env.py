@@ -215,7 +215,7 @@ class env:
         self.set(name, value)
         return self
 
-    def finalize(self) -> None:
+    def finalize(self) -> "env":
         """Finalize environment.
 
         This stops the instance from accepting any more new bindings,
@@ -223,9 +223,16 @@ class env:
 
         Existing bindings can still be given new values even in a finalized
         environment.
+
+        **Changed in v2.3.1**: returns `self`, so that it can be chained::
+
+            e = env(x=42).finalize()
+
+        Earlier versions returned `None`.
         """
         # Bypass our own `__setattr__`, which would refuse `_finalized` as a reserved name.
         object.__setattr__(self, "_finalized", True)
+        return self
 
     # For rebind syntax: "e.foo << newval" --> "e.foo.__lshift__(newval)",
     # so foo.__lshift__() must be set up to rebind e.foo.
