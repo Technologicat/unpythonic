@@ -127,6 +127,29 @@ than next to the thing it is about.**
   it has to be discovered by trying it. This is the most user-facing of the four — `env` is one of the
   most-used things in the library.
 
+  **What the 3.0.0 fix would actually cost, measured rather than estimated (2026-08-16).** Six
+  submodules already sit in the state `env` would move to — `llist`, `let`, `fix`, `fup`, `gtco`,
+  `assignonce` are all shadowed by a same-named symbol from the star-import — so the question is
+  answerable by experiment rather than argument. Testing against `llist`: `from unpythonic.llist
+  import cons` works, `sys.modules["unpythonic.llist"]` works, and the internal `from ..llist import`
+  form works. **Exactly one route breaks: attribute-style `unpythonic.llist.cons`**, because the
+  import machinery resolves submodules through `sys.modules` while attribute access sees whatever the
+  star-import left behind.
+
+  Applied to `env`, that residual cost is close to nil, because `unpythonic/env.py`'s `__all__` is
+  exactly `["env"]`. The only name anyone could want attribute-style is `unpythonic.env.env` — which
+  the change turns into `unpythonic.env`, i.e. the thing we want. So "it becomes clumsy or impossible
+  to refer to the module" does not really bind here: there is nothing else in the module to refer to.
+
+  Note also that the macro layer is *not* an argument for the change. Nothing in `unpythonic/syntax/`
+  matches `env` by name, and `syntax/lambdatools.py:25` reaches the class explicitly with
+  `from ..env import env`. The case rests on call-site ergonomics and on consistency with the six
+  modules above, not on macro visibility.
+
+  What remains is ordinary backward compat: code doing `from unpythonic import env` and then
+  `env.env(...)`, or `import unpythonic.env` followed by `unpythonic.env.env(...)`, breaks. That is
+  the 3.0.0 gate, and it is the whole of it.
+
   **Two fixes here, and only one of them is cheap** (Juha, 2026-08-16). Documenting the gotcha at the
   site is non-breaking and can land in any release. *Actually* re-exporting the class would change
   what `from unpythonic import env` returns, which breaks anyone relying on getting the module — so
