@@ -6,7 +6,8 @@
 
 - The macro documentation now warns that `begin`/`begin0` are not recognized by the macro layer, so macro-enabled code should sequence with `do[]`/`do0[]`. The functions' own docstrings already said so; the macro docs, where a macro user actually reads, did not.
 - `env` now documents that it must be imported as `from unpythonic.env import env` — the module shares the class's name, so `from unpythonic import env` yields the module and `env(x=1)` then fails with an error that does not hint at the cause.
-- `amb.forall` and `assignonce` now say what to prefer instead — the `unpythonic.syntax.forall` macro and plain `env`, respectively — and `forall` notes that "nondeterministic" here is the `amb` sense (every branch explored) rather than the modern colloquial one (stochastic).
+- `amb.forall` now points at the `unpythonic.syntax.forall` macro as the clean design of the same feature, and notes that "nondeterministic" here is the `amb` sense (every branch explored) rather than the modern colloquial one (stochastic).
+- `assignonce` now says the macro layer supports plain `env` far better, and that `env.finalize()` is not a substitute: finalization freezes the set of names while leaving bindings rebindable, whereas `assignonce` fixes each binding's first value while leaving the set of names open.
 - The `prefix` documentation now says it is experimental and not for production use, as its module docstring already did, and warns that its `q`/`u` markers are unrelated to `mcpyrate`'s quasiquote operators of the same names.
 
 

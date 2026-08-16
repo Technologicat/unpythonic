@@ -10,9 +10,15 @@ from .env import env as _envcls
 class assignonce(_envcls):
     """Environment with assign-once names.
 
-    **Prefer plain ``env``** unless the assign-once discipline is itself the
-    point: the macro layer supports ``env`` far more thoroughly, so reaching for
+    **Reach for this only when you want the assign-once discipline itself.**
+    The macro layer supports plain ``env`` far more thoroughly, so choosing
     ``assignonce`` costs you that support.
+
+    Note ``env.finalize()`` is *not* a substitute, and the two guarantees are
+    orthogonal: ``finalize()`` freezes the *set of names* (no additions, no
+    deletions) while leaving existing bindings rebindable, whereas this class
+    fixes each binding's *first value* while leaving the set of names open.
+    Pick by which of the two you actually need.
 
     In Scheme terms, this makes ``define`` and ``set!`` look different::
 
