@@ -183,13 +183,6 @@ than next to the thing it is about.**
   `unpythonic.syntax.prefix` has prefix-mode markers of the same names, described with the same words
   ("quote", "unquote"). Neither side cross-references the other.
 
-- **`begin` / `begin0` are invisible to the macro layer, and nothing says so.** They are published as
-  pure-Python functions in `unpythonic.seq`, and `unpythonic/syntax/` contains no reference to either
-  — so inside a macro block they are ordinary calls, receiving none of the transformations `do[]` and
-  `do0[]` get. The names are close enough to the macros to be reached for by mistake, the failure is
-  silent, and `doc/macros.md` does not mention it. This is the sharpest of them: the other three
-  cost a reader some confusion, this one can cost correctness. A line in `begin`'s docstring pointing
-  at `do[]` for macro-using code, and a note in `doc/macros.md`, would cover it.
 
 The cheap fix for all of them is a sentence at each site, not new documents. Note the audience this
 serves is not only human: an agent reading the library through `help()` or an API inventory sees

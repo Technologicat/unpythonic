@@ -2,7 +2,9 @@
 
 **2.3.1** (in progress):
 
-*No user-visible changes yet.*
+**Fixed**:
+
+- The macro documentation now warns that `begin`/`begin0` are not recognized by the macro layer, so macro-enabled code should sequence with `do[]`/`do0[]`. The functions' own docstrings already said so; the macro docs, where a macro user actually reads, did not.
 
 
 ---

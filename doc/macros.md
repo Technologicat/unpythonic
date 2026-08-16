@@ -655,6 +655,13 @@ However, this only works for variables created by the innermost `let` (viewed fr
 
 Macros that run multiple expressions, in sequence, in place of one expression.
 
+**In macro-enabled code, sequence with `do[]` / `do0[]`, not with `begin` / `begin0`.** The
+pure-Python layer publishes `begin`, `begin0`, `lazy_begin` and `lazy_begin0` (in
+[`unpythonic.seq`](../unpythonic/seq.py)), and the macro layer does not recognize any of them as a
+sequencing abstraction — to a macro they are ordinary function calls, so none of the transformations
+described below apply inside one. Each of those functions carries this caution in its docstring; it
+is repeated here because a reader arriving from the macro side has no reason to open them.
+
 ### `do` as a macro: stuff imperative code into an expression, *with style*
 
 **Changed in v0.15.3.** *Env-assignments now use the walrus syntax `x := 42`. The old syntax `x << 42` is still supported for backward compatibility.*
