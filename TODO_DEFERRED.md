@@ -141,14 +141,30 @@ than next to the thing it is about.**
   the change turns into `unpythonic.env`, i.e. the thing we want. So "it becomes clumsy or impossible
   to refer to the module" does not really bind here: there is nothing else in the module to refer to.
 
-  Note also that the macro layer is *not* an argument for the change. Nothing in `unpythonic/syntax/`
-  matches `env` by name, and `syntax/lambdatools.py:25` reaches the class explicitly with
-  `from ..env import env`. The case rests on call-site ergonomics and on consistency with the six
-  modules above, not on macro visibility.
+  On the macro layer, state the observation and not more than it supports: nothing in
+  `unpythonic/syntax/` currently matches `env` by name, and `syntax/lambdatools.py:25` reaches the
+  class explicitly with `from ..env import env`. That is *not* evidence that macros do not need it
+  (Juha, 2026-08-16) — the macros predate any heavy direct use of `env`, Raven included, so the
+  absence may record what nobody needed at the time rather than what is unnecessary. A macro wanting
+  to recognize a user-constructed `env` at a call site would want exactly the name-matching a
+  package-level re-export makes possible. So treat this as neutral-to-favourable, not as a reason
+  against.
 
-  What remains is ordinary backward compat: code doing `from unpythonic import env` and then
-  `env.env(...)`, or `import unpythonic.env` followed by `unpythonic.env.env(...)`, breaks. That is
-  the 3.0.0 gate, and it is the whole of it.
+  **The backward-compat cost is smaller than it looks, because the broken forms were never the
+  recommended ones.** `from unpythonic import env` then `env.env(...)`, and `import unpythonic.env`
+  then `unpythonic.env.env(...)`, both break — and both have always been discouraged. The form the
+  change is *for* is `from unpythonic import env` then `env()`, which is the consistent spelling and
+  does not work today.
+
+  **A separate problem that this change does not fix, and that should be sized alongside it.** Some
+  `unpythonic` functions take a parameter named `env`, which shadows the class of the same name in
+  that scope. `unpythonic` already works around it internally: `lispylet.py:11` imports
+  `from .env import env as _envcls` so that line 225's `env` parameter and line 228's `_envcls()`
+  can coexist. Downstream, **9 Raven modules** carry `from unpythonic.env import env as envcls` for
+  the same reason — a call site needs to construct an `env` to pass into a parameter called `env`.
+  Re-exporting the class does nothing for this: the collision is parameter-versus-name in a local
+  scope, independent of how the class was imported. Renaming that parameter is its own API break, so
+  if both are wanted, 3.0.0 is where they go together.
 
   **Two fixes here, and only one of them is cheap** (Juha, 2026-08-16). Documenting the gotcha at the
   site is non-breaking and can land in any release. *Actually* re-exporting the class would change
