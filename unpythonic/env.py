@@ -14,6 +14,12 @@ from .lazyutil import passthrough_lazy_args
 class env:
     """Environment for let-like constructs.
 
+    **Import as** ``from unpythonic.env import env``. This module shares its name
+    with this class, and the top-level package does not re-export the class, so
+    ``from unpythonic import env`` gives you the *module* instead - after which
+    ``env(x=1)`` fails with ``TypeError: 'module' object is not callable``, which
+    does not hint at the cause.
+
     Names must be identifiers (see str.isidentifier()), even when introduced
     by subscripting the env instance.
 

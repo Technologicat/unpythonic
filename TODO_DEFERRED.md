@@ -174,18 +174,17 @@ than next to the thing it is about.**
   here, so `grep -rn "TODO(3.0.0)" unpythonic/` is the inventory command. As of 2026-08-16 it finds
   one (the `MonadicList` alias in `amb.py`), which is almost certainly an undercount — the markers
   only exist where someone remembered to leave one.
-- **"Not for production" is documented away from the construct.** `design-notes.md` explains that
-  `unpythonic.amb.forall` is the overly-complicated non-macro version and `unpythonic.syntax.forall`
-  is the clean one — but `amb`'s own docstring reads as a straight feature. Same for `prefix` and
-  `assignonce`, where the recommendation against them is not written down at all. A reader arriving
-  via `help()`, an IDE, or an API listing sees no signal.
-- **`q` and `u` mean different things in two places.** `mcpyrate.quotes` has quasiquote/unquote;
-  `unpythonic.syntax.prefix` has prefix-mode markers of the same names, described with the same words
-  ("quote", "unquote"). Neither side cross-references the other.
 
+The remaining work is the 3.0.0 half above. The documentation half is done: the fix was a sentence
+at each site rather than new documents, and the sites were the ones a reader actually stands on —
+`env`'s class docstring and its `features.md` section for the import gotcha, `amb.forall` and
+`assignonce` docstrings for "prefer the other thing", `macros.md` for `prefix` being experimental
+and for the `q`/`u` collision, and `macros.md`'s Sequencing section for `begin`/`begin0`.
 
-The cheap fix for all of them is a sentence at each site, not new documents. Note the audience this
-serves is not only human: an agent reading the library through `help()` or an API inventory sees
-exactly the docstring, and nothing else.
+Worth keeping as the lesson: in every one of these the caveat either existed somewhere already
+(`prefix`'s module docstring, `begin`'s `CAUTION`, `design-notes.md` on `amb`) or was implied by an
+example nobody would read as a warning. The gap was never that the author did not know — it was that
+the note was not on the path the reader takes. Note the audience is not only human: an agent reading
+the library through `help()` or an API inventory sees exactly the docstring, and nothing else.
 
-Raised 2026-08-16.
+Raised 2026-08-16, documentation half resolved the same day.

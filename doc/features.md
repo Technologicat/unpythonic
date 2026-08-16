@@ -387,6 +387,11 @@ letrec[[evenp << (lambda x:
 
 The environment used by all the `let` constructs and `assignonce` (but **not** by `dyn`) is essentially a bunch with iteration, subscripting and context manager support. It is somewhat similar to [`types.SimpleNamespace`](https://docs.python.org/3/library/types.html#types.SimpleNamespace), but with many extra features. For details, see `unpythonic.env.env` (and note the unfortunate module name).
 
+**Import it as `from unpythonic.env import env`.** The module shares its name with the class, and the
+top-level package does not re-export the class, so `from unpythonic import env` hands you the
+*module* — after which `env(x=1)` fails with `TypeError: 'module' object is not callable`. The error
+does not hint at the cause, so it is worth knowing in advance.
+
 Our `env` allows things like:
 
 ```python

@@ -10,6 +10,10 @@ from .env import env as _envcls
 class assignonce(_envcls):
     """Environment with assign-once names.
 
+    **Prefer plain ``env``** unless the assign-once discipline is itself the
+    point: the macro layer supports ``env`` far more thoroughly, so reaching for
+    ``assignonce`` costs you that support.
+
     In Scheme terms, this makes ``define`` and ``set!`` look different::
 
         with assignonce() as e:

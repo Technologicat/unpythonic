@@ -1894,6 +1894,16 @@ The `call_cc[]` explicitly suggests that these are (almost) the only places wher
 
 Write Python almost like Lisp!
 
+Experimental, and not for use in production code — as the module docstring of
+[`unpythonic.syntax.prefix`](../unpythonic/syntax/prefix.py) also says. It is one of the components
+of the [Listhell](dialects/listhell.md) dialect.
+
+**Note the name collision on `q` and `u`.** The `q`, `u` and `kw` below are prefix-mode markers,
+and are unrelated to `mcpyrate`'s quasiquote operators `q` and `u`, despite sharing both the names
+and the words "quote" and "unquote". The two sets can genuinely meet: `prefix.py` itself imports
+`mcpyrate`'s pair for its own implementation while exporting its own. A module that needs both must
+alias one at the macro-import.
+
 Lexically inside a `with prefix` block, any literal tuple denotes a function call, unless quoted. The first element is the operator, the rest are arguments. Bindings of the `let` macros and the top-level tuple in a `do[]` are left alone, but `prefix` recurses inside them (in the case of let-bindings, on each RHS).
 
 The rest is best explained by example:

@@ -60,8 +60,16 @@ def choice(**binding: Iterable) -> Choice:
 def forall(*lines: Choice | Callable) -> tuple:
     """Nondeterministically evaluate lines.
 
+    *Nondeterministic* here is the `amb` sense, not the modern colloquial one:
+    nothing is stochastic, and results do not vary between runs. Every branch is
+    explored and every solution returned - multiversal rather than random.
+
     This is essentially a bastardized variant of Haskell's do-notation,
     specialized for the list monad.
+
+    **Prefer the macro version**, ``unpythonic.syntax.forall``, when the macro
+    layer is available: it is the same feature with a clean design, whereas this
+    one is complicated by having to avoid macros. See ``doc/design-notes.md``.
 
     Examples::
 
