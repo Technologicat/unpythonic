@@ -188,3 +188,26 @@ the note was not on the path the reader takes. Note the audience is not only hum
 the library through `help()` or an API inventory sees exactly the docstring, and nothing else.
 
 Raised 2026-08-16, documentation half resolved the same day.
+
+## Should `runtests.py` clear the bytecode caches?
+
+`unpythonic`'s `runtests.py` does no cache clearing. `mcpyrate`'s does, via
+`runtests(clear_bytecode_cache=True)` calling `mcpyrate.pycachecleaner.deletepycachedirs`, so the
+mechanism is already available to import.
+
+The argument for adopting it: with a warm cache the expander does not run, so any test whose subject
+is *expansion-time* behaviour silently tests nothing. That is not hypothetical — checking both
+projects for AST-constructor deprecations under `-W error::DeprecationWarning` required clearing the
+caches by hand first, and a run without that step proves nothing while looking identical.
+
+The argument against: re-expanding everything roughly doubles the suite's runtime, and the common
+case is a developer re-running tests after touching one runtime-level function, where expansion
+genuinely has not changed.
+
+So the decision needs a measurement (how much is "roughly doubles", actually?) and a choice of
+default — always clear, clear only in CI, or a flag defaulting to off with the reason documented at
+the call site. Note that whichever way it goes, a suite that *can* skip expansion needs to say so in
+its output the way `mcpyrate`'s does ("Using existing bytecode"), because the failure is invisible
+otherwise.
+
+Discovered during the Python 3.15 AST survey (2026-08-16).
