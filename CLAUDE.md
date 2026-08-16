@@ -98,8 +98,11 @@ Part of unpythonic's **public API** (`unpythonic.test.fixtures`, `unpythonic.tes
 
 - `test[the["X" in out]]` — wraps the *whole* `in` expression, so the capture is the boolean result. On failure, the message tells you the assertion was false, but doesn't show `out`. **Fix**: `test["X" in the[out]]` — captures `out` itself.
 - `test[the[X == Y]]` — same shape, same bug, just with `==`. **Fix**: `test[X == Y]` — auto-capture wraps the LHS for you.
-- `test[the[X] == "Y"]` — redundant: auto-capture already wraps the LHS. **Fix**: `test[X == "Y"]`. (Decide explicitly only when you want a *different* term captured than the LHS, per the *Compound LHS* bullet above.)
 - `test[the[a] < b < c]` — chained comparison, only `a` is captured. If the failure is between `b` and `c`, the message shows neither's value. **Fix**: wrap every term you'd want to see: `test[the[a] < the[b] < the[c]]`.
+
+All three hide a value you would want on failure, which is what makes them bugs rather than style.
+
+**Not a mistake, though it looks like one**: `test[the[X] == "Y"]`, where the mark lands on the term auto-capture would have taken anyway. It is redundant mechanically and allowed deliberately — an explicit mark tells a *reader* which value the test is about, and that is sometimes worth the characters even when it changes nothing at runtime. `the[]`'s own docstring says so. Prefer the short form when the LHS speaks for itself; reach for the mark when the expression is compound enough that it does not. Where you want a *different* term than the LHS, see the *Compound LHS* bullet above — that case is not optional.
 
 **Debugging cheat sheet**: a small number of **Warn**s on CI is expected (optional dependencies, version gates). **Fail** means a real expectation mismatch — read the captured values from `the[]` in the message. **Error** is the one you should *always* look at first: it means control flow in the test went somewhere unexpected, and the count alone won't tell you where. The log above the summary line has the actual traceback.
 
