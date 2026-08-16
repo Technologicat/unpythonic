@@ -94,15 +94,9 @@ Part of unpythonic's **public API** (`unpythonic.test.fixtures`, `unpythonic.tes
 - The helper is smart enough to skip trivial captures (literal values), so `test[4 in the[(1, 2, 3)]]` won't clutter the output with `(1, 2, 3) = (1, 2, 3)`.
 - **Not supported** inside `test_raises`, `test_signals`, `fail`, `error`, or `warn` — only in `test[...]` and `with test:` blocks.
 
-**Common `the[]` mistakes** (anti-patterns — pattern-match against your draft before committing):
+**The canonical account is `the[]`'s own docstring**, which now carries the common mistakes and their fixes. Read it — `help(the)`, or `unpythonic/syntax/testingtools.py` — and pattern-match your draft against it before committing. It lives there rather than here because that is the copy library users can actually see; keeping a second copy in this file is what let the two drift apart once already, with this file calling a form a mistake while the docstring called it deliberate.
 
-- `test[the["X" in out]]` — wraps the *whole* `in` expression, so the capture is the boolean result. On failure, the message tells you the assertion was false, but doesn't show `out`. **Fix**: `test["X" in the[out]]` — captures `out` itself.
-- `test[the[X == Y]]` — same shape, same bug, just with `==`. **Fix**: `test[X == Y]` — auto-capture wraps the LHS for you.
-- `test[the[a] < b < c]` — chained comparison, only `a` is captured. If the failure is between `b` and `c`, the message shows neither's value. **Fix**: wrap every term you'd want to see: `test[the[a] < the[b] < the[c]]`.
-
-All three hide a value you would want on failure, which is what makes them bugs rather than style.
-
-**Not a mistake, though it looks like one**: `test[the[X] == "Y"]`, where the mark lands on the term auto-capture would have taken anyway. It is redundant mechanically and allowed deliberately — an explicit mark tells a *reader* which value the test is about, and that is sometimes worth the characters even when it changes nothing at runtime. `the[]`'s own docstring says so. Prefer the short form when the LHS speaks for itself; reach for the mark when the expression is compound enough that it does not. Where you want a *different* term than the LHS, see the *Compound LHS* bullet above — that case is not optional.
+The house workflow on top of it: the three shapes it lists as mistakes all hide a value you would want on failure, so treat those as bugs. Marking a term auto-capture would have taken anyway is *not* one of them — it is style, and a draft carrying one is not broken.
 
 **Debugging cheat sheet**: a small number of **Warn**s on CI is expected (optional dependencies, version gates). **Fail** means a real expectation mismatch — read the captured values from `the[]` in the message. **Error** is the one you should *always* look at first: it means control flow in the test went somewhere unexpected, and the count alone won't tell you where. The log above the summary line has the actual traceback.
 

@@ -99,6 +99,12 @@ def the(tree, **kw):
     A `test[...]` may have multiple `the[...]`; the captured values are
     gathered in a list that is shown upon test failure.
 
+    Trivial captures are skipped: a capture whose source code reads the same as
+    the `repr` of its value tells you nothing the assertion does not already
+    show. This is what happens with literals - in `test[4 in (1, 2, 3)]` the
+    auto-captured `4` would report `4 = 4`, so it is suppressed. Likewise for a
+    literal you mark yourself.
+
     In case of nested tests, each `the[...]` is understood as belonging to
     the lexically innermost surrounding test.
 
