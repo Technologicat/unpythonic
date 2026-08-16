@@ -84,3 +84,30 @@ Discovered during #76 (2026-05-05).
 As part of the monads port, `MonadicList` was moved to `unpythonic.monads.List` with a varargs constructor (`List(1, 2, 3)` instead of `MonadicList([1, 2, 3])`). A silent alias `MonadicList = List` is kept in `unpythonic/amb.py` for backward-name compatibility during the 2.x series. Remove the alias in 3.0.0 along with the accompanying `TODO(3.0.0)` comment at the alias site. Users must then import `List` directly from `unpythonic.monads`. Note: this is name-only compat — the constructor signature changed at 2.0.0, so existing callers of `MonadicList([...])` already needed to switch to varargs or `from_iterable(...)` at 2.0.0.
 
 Noted 2026-04-17.
+
+
+## `isec` misses non-bare-name escape continuations, and does so silently
+
+`unpythonic/syntax/util.py`'s `isec` matches an escape continuation only through
+`getname(..., accept_attr=False)`, and says so itself: "**CAUTION**: Only bare-name references are
+supported." So an ec reached as `obj.ec(...)` is not recognized as an escape, and the `tco` /
+`continuations` machinery does not transform the call.
+
+**The right fix is to resolve statically what the binding points to**, where that can be done (Juha,
+2026-08-16). What that leaves open is the case where it cannot — an ec stored in a container, chosen
+at runtime, or reached through a name the expander cannot follow.
+
+**A cheap interim step, before solving the hard half.** The failure is currently silent, and a missed
+rewrite is not a mild degradation: the construct is rewritten *because* it needs rewriting, so what
+follows is a crash, or worse, quietly wrong behaviour. `dbg` already handles the same class the other
+way — a custom print function given as anything but a bare name raises `SyntaxError("Custom debug
+print function must be specified by a bare name")`, with an in-source TODO recording that `Attribute`
+support is wanted and why it is awkward (AST nodes do not compare). Making `isec` loud in the same
+style would convert an invisible miss into a diagnosable one, and is independent of whether the
+static resolution ever gets built.
+
+Worth checking whether other `accept_attr=False` sites share the problem. Most do not: `prefix`'s
+`q`/`u`/`kw`, the `let` binding scanners and `autoref`'s internal markers all match names that can
+only be bare, so there is nothing to resolve there.
+
+Discovered while writing the fleet's `unpythonic` skill (2026-08-16).
