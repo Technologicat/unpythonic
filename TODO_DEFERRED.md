@@ -111,3 +111,32 @@ Worth checking whether other `accept_attr=False` sites share the problem. Most d
 only be bare, so there is nothing to resolve there.
 
 Discovered while writing the fleet's `unpythonic` skill (2026-08-16).
+
+
+## Documentation gaps found by writing an outside summary of the library
+
+Writing the fleet's `unpythonic` and `macro-enabled-python` skills was, incidentally, a test of whether
+the docs communicate to a reader who has not written the library. Most of it held up — the
+troubleshooting entries, `main.md` on macro-imports, and "macro expansion time where exactly?" all
+landed on one reading. Four things did not, and they share a shape: **the caveat lives somewhere other
+than next to the thing it is about.**
+
+- **`from unpythonic import env` gives the *module*, not the class.** `__init__.py` never star-imports
+  `.env`, so the submodule attribute is what survives, and `env(x=1)` fails with "module is not
+  callable". The correct form is `from unpythonic.env import env`. Nothing in the docs says this;
+  it has to be discovered by trying it. This is the most user-facing of the four — `env` is one of the
+  most-used things in the library.
+- **"Not for production" is documented away from the construct.** `design-notes.md` explains that
+  `unpythonic.amb.forall` is the overly-complicated non-macro version and `unpythonic.syntax.forall`
+  is the clean one — but `amb`'s own docstring reads as a straight feature. Same for `prefix` and
+  `assignonce`, where the recommendation against them is not written down at all. A reader arriving
+  via `help()`, an IDE, or an API listing sees no signal.
+- **`q` and `u` mean different things in two places.** `mcpyrate.quotes` has quasiquote/unquote;
+  `unpythonic.syntax.prefix` has prefix-mode markers of the same names, described with the same words
+  ("quote", "unquote"). Neither side cross-references the other.
+
+The cheap fix for all four is a sentence at each site, not new documents. Note the audience this
+serves is not only human: an agent reading the library through `help()` or an API inventory sees
+exactly the docstring, and nothing else.
+
+Raised 2026-08-16.
