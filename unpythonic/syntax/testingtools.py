@@ -65,11 +65,36 @@ def the(tree, **kw):
 
     Note the above rules mean that if there is just one interesting
     subexpression, and it is the leftmost term of a comparison, `the[...]`
-    is optional, although allowed (to explicitly document intent).
-    These have the same effect::
+    is unnecessary. It is allowed, and has no effect on behavior, but the
+    shorter form is preferred. These have the same effect::
 
         test[the[computeitem(...)] in myitems]
         test[computeitem(...) in myitems]
+
+    **Common mistakes.** All of these come from marking the wrong thing, and
+    they fail the same way: the test still passes or fails correctly, but the
+    failure message reports something useless::
+
+        test[the["X" in out]]     # captures the *boolean*, so `out` is never shown
+        test[the[x == 42]]        # same shape, same problem
+        test[the[a] < b < c]      # chained: only `a` captured, `b` and `c` invisible
+
+    The fixes are, respectively: mark the term you actually want to see, drop
+    the mark and let auto-capture take the LHS, and mark every term whose value
+    would be worth having::
+
+        test["X" in the[out]]
+        test[x == 42]
+        test[the[a] < the[b] < the[c]]
+
+    Marking an already-auto-captured LHS, as in ``test[the[x] == 42]``, is
+    harmless but redundant; prefer ``test[x == 42]``.
+
+    The question to ask is *what value would I want to see if this failed?*, then
+    mark that. The answer is sometimes the container rather than the leaf: in
+    ``test[the[response]["status"] == "ok"]``, auto-capture would report only
+    ``"failed"``, which is true and useless, whereas marking ``response`` shows
+    the whole dict.
 
     The `the[...]` mark passes the value through, and does not affect the
     evaluation order of user code.
