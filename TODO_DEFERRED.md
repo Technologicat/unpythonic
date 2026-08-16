@@ -118,13 +118,13 @@ Discovered while writing the fleet's `unpythonic` skill (2026-08-16).
 Writing the fleet's `unpythonic` and `macro-enabled-python` skills was, incidentally, a test of whether
 the docs communicate to a reader who has not written the library. Most of it held up — the
 troubleshooting entries, `main.md` on macro-imports, and "macro expansion time where exactly?" all
-landed on one reading. Four things did not, and they share a shape: **the caveat lives somewhere other
+landed on one reading. Several things did not, and they share a shape: **the caveat lives somewhere other
 than next to the thing it is about.**
 
 - **`from unpythonic import env` gives the *module*, not the class.** `__init__.py` never star-imports
   `.env`, so the submodule attribute is what survives, and `env(x=1)` fails with "module is not
   callable". The correct form is `from unpythonic.env import env`. Nothing in the docs says this;
-  it has to be discovered by trying it. This is the most user-facing of the four — `env` is one of the
+  it has to be discovered by trying it. This is the most user-facing of them — `env` is one of the
   most-used things in the library.
 
   **What the 3.0.0 fix would actually cost, measured rather than estimated (2026-08-16).** Six
@@ -183,7 +183,15 @@ than next to the thing it is about.**
   `unpythonic.syntax.prefix` has prefix-mode markers of the same names, described with the same words
   ("quote", "unquote"). Neither side cross-references the other.
 
-The cheap fix for all four is a sentence at each site, not new documents. Note the audience this
+- **`begin` / `begin0` are invisible to the macro layer, and nothing says so.** They are published as
+  pure-Python functions in `unpythonic.seq`, and `unpythonic/syntax/` contains no reference to either
+  — so inside a macro block they are ordinary calls, receiving none of the transformations `do[]` and
+  `do0[]` get. The names are close enough to the macros to be reached for by mistake, the failure is
+  silent, and `doc/macros.md` does not mention it. This is the sharpest of them: the other three
+  cost a reader some confusion, this one can cost correctness. A line in `begin`'s docstring pointing
+  at `do[]` for macro-using code, and a note in `doc/macros.md`, would cover it.
+
+The cheap fix for all of them is a sentence at each site, not new documents. Note the audience this
 serves is not only human: an agent reading the library through `help()` or an API inventory sees
 exactly the docstring, and nothing else.
 
