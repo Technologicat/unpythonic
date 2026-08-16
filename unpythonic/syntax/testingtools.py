@@ -65,7 +65,7 @@ def the(tree, **kw):
 
     Note the above rules mean that if there is just one interesting
     subexpression, and it is the leftmost term of a comparison, `the[...]`
-    is optional, although allowed (to explicitly document intent).
+    is redundant, although allowed (to explicitly document intent).
     These have the same effect::
 
         test[the[computeitem(...)] in myitems]
