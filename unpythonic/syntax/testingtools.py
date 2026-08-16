@@ -65,8 +65,8 @@ def the(tree, **kw):
 
     Note the above rules mean that if there is just one interesting
     subexpression, and it is the leftmost term of a comparison, `the[...]`
-    is unnecessary. It is allowed, and has no effect on behavior, but the
-    shorter form is preferred. These have the same effect::
+    is optional, although allowed (to explicitly document intent).
+    These have the same effect::
 
         test[the[computeitem(...)] in myitems]
         test[computeitem(...) in myitems]
@@ -86,9 +86,6 @@ def the(tree, **kw):
         test["X" in the[out]]
         test[x == 42]
         test[the[a] < the[b] < the[c]]
-
-    Marking an already-auto-captured LHS, as in ``test[the[x] == 42]``, is
-    harmless but redundant; prefer ``test[x == 42]``.
 
     The question to ask is *what value would I want to see if this failed?*, then
     mark that. The answer is sometimes the container rather than the leaf: in

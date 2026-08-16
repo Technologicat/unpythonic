@@ -8,7 +8,7 @@
 
 **Fixed**:
 
-- `the[]`'s docstring now covers the common `the[]` mistakes — marking the whole assertion (which captures the boolean and hides the value you wanted), and under-marking a chained comparison — with the fix for each. Previously these were written down only in the project's own `CLAUDE.md`, where library users never see them.
+- `unpythonic.test.fixtures`: `the[]`'s docstring now covers the common `the[]` mistakes — marking the whole assertion (which captures the boolean and hides the value you wanted), and under-marking a chained comparison — with the fix for each. Previously these were written down only in the project's own `CLAUDE.md`, where library users never see them.
 - The macro documentation now warns that `begin`/`begin0` are not recognized by the macro layer, so macro-enabled code should sequence with `do[]`/`do0[]`. The functions' own docstrings already said so; the macro docs, where a macro user actually reads, did not.
 - `env` now documents that it must be imported as `from unpythonic.env import env` — the module shares the class's name, so `from unpythonic import env` yields the module and `env(x=1)` then fails with an error that does not hint at the cause.
 - `amb.forall` now points at the `unpythonic.syntax.forall` macro as the clean design of the same feature, and notes that "nondeterministic" here is the `amb` sense (every branch explored) rather than the modern colloquial one (stochastic).
