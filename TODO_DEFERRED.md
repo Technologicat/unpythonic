@@ -126,6 +126,15 @@ than next to the thing it is about.**
   callable". The correct form is `from unpythonic.env import env`. Nothing in the docs says this;
   it has to be discovered by trying it. This is the most user-facing of the four — `env` is one of the
   most-used things in the library.
+
+  **Two fixes here, and only one of them is cheap** (Juha, 2026-08-16). Documenting the gotcha at the
+  site is non-breaking and can land in any release. *Actually* re-exporting the class would change
+  what `from unpythonic import env` returns, which breaks anyone relying on getting the module — so
+  the real fix waits for **3.0.0**, and wants to go in together with whatever other API-breakage debt
+  has accumulated. Size that first: the convention is an in-source `TODO(3.0.0)` marker plus an item
+  here, so `grep -rn "TODO(3.0.0)" unpythonic/` is the inventory command. As of 2026-08-16 it finds
+  one (the `MonadicList` alias in `amb.py`), which is almost certainly an undercount — the markers
+  only exist where someone remembered to leave one.
 - **"Not for production" is documented away from the construct.** `design-notes.md` explains that
   `unpythonic.amb.forall` is the overly-complicated non-macro version and `unpythonic.syntax.forall`
   is the clean one — but `amb`'s own docstring reads as a straight feature. Same for `prefix` and
