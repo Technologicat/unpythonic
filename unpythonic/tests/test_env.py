@@ -54,12 +54,12 @@ def runtests():
 
             # modify existing binding
             test[e.set("x", 42) == 42]  # returns the new value
-            test[the[e << ("x", 23) is e]]   # instance passthrough for chaining
+            test[e << ("x", 23) is e]   # instance passthrough for chaining
 
         # `finalize` also passes the instance through, so it can be chained
         with env(x=1) as e:
-            test[the[e.finalize() is e]]
-        test[the[env(x=42).finalize().x] == 42]
+            test[e.finalize() is e]
+        test[env(x=42).finalize().x == 42]
 
         # delete a binding with subscript syntax
         with env(x=1) as e:
