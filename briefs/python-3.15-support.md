@@ -2,6 +2,8 @@
 
 Companion to `mcpyrate/briefs/python-3.15-support.md`, which carries the full AST survey and the expander-side work. This one is the unpythonic half, written to stand on its own for anyone looking only at this repo.
 
+Three fleet projects read the Python AST directly and so are the ones a CPython minor version can break: `mcpyrate`, `unpythonic`, and `pyan` (which has its own brief at `pyan/briefs/python-3.15-support.md`, and is the only one with a confirmed 3.15 crash).
+
 ## Context
 
 CPython 3.15 reached rc1 in August 2026. `unpythonic`'s `requires-python = ">=3.10,<3.15"` cap is deliberate and stays until this work lands: a macro layer running against an AST grammar it does not know invites a crash, or worse, a silent misexpansion. Raising the cap is the last step.
