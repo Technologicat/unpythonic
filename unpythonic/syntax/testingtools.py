@@ -71,21 +71,28 @@ def the(tree, **kw):
         test[the[computeitem(...)] in myitems]
         test[computeitem(...) in myitems]
 
-    **Common mistakes.** All of these come from marking the wrong thing, and
-    they fail the same way: the test still passes or fails correctly, but the
-    failure message reports something useless::
+    **Common mistakes.** All of these come from marking the wrong thing, or
+    from not marking where a mark was needed. They fail the same way: the test
+    still passes or fails correctly, but the failure message reports something
+    useless::
 
         test[the["X" in out]]     # captures the *boolean*, so `out` is never shown
         test[the[x == 42]]        # same shape, same problem
+        test[4 in mycollection]   # auto-capture takes the LHS - a literal, so useless
         test[the[a] < b < c]      # chained: only `a` captured, `b` and `c` invisible
 
     The fixes are, respectively: mark the term you actually want to see, drop
-    the mark and let auto-capture take the LHS, and mark every term whose value
-    would be worth having::
+    the mark and let auto-capture take the LHS, mark the collection rather than
+    leaning on auto-capture, and mark every term whose value would be worth
+    having::
 
         test["X" in the[out]]
         test[x == 42]
+        test[4 in the[mycollection]]
         test[the[a] < the[b] < the[c]]
+
+    Note the first and third are the same error approached from opposite sides -
+    over-marking and under-marking - and have the same fix.
 
     The question to ask is *what value would I want to see if this failed?*, then
     mark that. The answer is sometimes the container rather than the leaf: in
@@ -101,9 +108,11 @@ def the(tree, **kw):
 
     Trivial captures are skipped: a capture whose source code reads the same as
     the `repr` of its value tells you nothing the assertion does not already
-    show. This is what happens with literals - in `test[4 in (1, 2, 3)]` the
-    auto-captured `4` would report `4 = 4`, so it is suppressed. Likewise for a
-    literal you mark yourself.
+    show, so it is dropped and the value of the whole expression is reported
+    instead. This is what happens with literals, and `test[4 in mycollection]`
+    above is why the rule exists - the auto-captured `4` would otherwise report
+    `4 = 4`. The suppression keeps the message honest, but the collection is
+    still not shown; only marking it does that.
 
     In case of nested tests, each `the[...]` is understood as belonging to
     the lexically innermost surrounding test.
