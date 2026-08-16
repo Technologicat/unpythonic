@@ -44,7 +44,11 @@ All of these need a real 3.15 to settle; they cannot be resolved by reading. Pyt
 
 1. **`lazify` with a `Starred` comprehension element.** `lazify.py` has no comprehension-specific handling at all, and its `Starred` handling is scoped to call arguments (line 537) and container literals (line 770). A `Starred` in `elt` position is a new shape reaching the generic path. The hazard is wrapping the starred value in a promise, since `*promise` fails at unpacking. Test `with lazify:` over all four new comprehension forms.
 2. **`autocurry` and `tailtools` over the same forms.** Same question, same reason; `tailtools.py:1011,1026` already reasons about `Starred` in a different context.
-3. **Any macro that dereferences `DictComp.value` directly.** The walkers are safe, but a macro reading the field is not. Re-grep once 3.15 can parse the new forms into test fixtures.
+3. **Any macro that dereferences a `DictComp` field directly.** The walkers are safe, but a macro reading the fields is not, and there are two distinct ways to be wrong:
+   - assuming `value` is a node — it is `None` for the unpacking form;
+   - assuming `key` is a key — in the unpacking form it holds the whole mapping expression, so the field name lies.
+
+   The second is the easier one to miss, because nothing raises: the code runs and quietly treats a mapping as a key. Note also that the convention is mirrored from the dict *literal* encoding, where `{**a}` is `Dict(keys=[None], values=[Name('a')])` — `None` in `keys`, mapping in `values`, i.e. the opposite halves from the comprehension. Reasoning from the literal to the comprehension gives the wrong answer. Audit both fields, and re-grep once 3.15 can parse the new forms into test fixtures.
 4. **Test modules for the new syntax**, version-suffix gated so they skip on older interpreters — the same mechanism `mcpyrate` uses for `test_020_unparser_3_13.py` / `_3_14.py`.
 5. **Raise the cap, last.** `pyproject.toml`: `>=3.10,<3.15` → `>=3.10,<3.16`, plus the `Programming Language :: Python :: 3.15` classifier, plus the CI matrix. Keep the upper bound rather than removing it — an unbounded floor makes the resolver seek a version valid for every future Python, and it will silently fall back to an ancient release rather than fail.
 
