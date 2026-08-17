@@ -90,7 +90,24 @@ kept rather than rediscovered, and move the version metadata.
 
 ## Work items
 
-Items 1-3 are settled as above and need tests rather than fixes. Python 3.15.0rc1 is installed on the personal machine.
+Items 1-3 are settled as above and need tests rather than fixes. Python 3.15.0rc1 is installed on both machines.
+
+**Release ordering is forced, and the CI matrix has to wait for it.** `unpythonic` declares
+`mcpyrate>=4.2.0`, and **mcpyrate 4.2.0 as published cannot import any module under 3.15** —
+verified by installing it into a clean 3.15 venv, where importing an ordinary module dies with
+`TypeError: source_to_xcode() takes 3 positional arguments but 4 were given`. So a 3.15 job in
+`unpythonic`'s CI would resolve `mcpyrate` from PyPI, get 4.2.0, and fail for reasons that have
+nothing to do with the code under test. The sequence is therefore:
+
+1. Land unpythonic's code changes — tests, `requires-python` cap, classifier. No CI matrix entry.
+2. Release **mcpyrate 4.2.1** (its work is already done and waiting).
+3. In `unpythonic`, bump the pin to `mcpyrate>=4.2.1` **and** add `"3.15"` to the CI matrix with
+   `allow-prereleases: true`, in one commit. Only now can that job pass.
+4. Release **unpythonic 2.3.1**.
+
+"Released together" therefore means same sitting, verified against each other — not simultaneous.
+The verification itself is already done: unpythonic's suite was run against the working-tree
+mcpyrate and passed 3862/3862.
 
 1. **`lazify` with a `Starred` comprehension element.** `lazify.py` has no comprehension-specific handling at all, and its `Starred` handling is scoped to call arguments (line 537) and container literals (line 770). A `Starred` in `elt` position is a new shape reaching the generic path. The hazard is wrapping the starred value in a promise, since `*promise` fails at unpacking. Test `with lazify:` over all four new comprehension forms.
 2. **`autocurry` and `tailtools` over the same forms.** Same question, same reason; `tailtools.py:1011,1026` already reasons about `Starred` in a different context.

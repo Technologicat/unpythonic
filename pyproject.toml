@@ -4,7 +4,7 @@ description = "Supercharge your Python with parts of Lisp and Haskell."
 authors = [
     { name = "Juha Jeronen", email = "juha.m.jeronen@gmail.com" },
 ]
-requires-python = ">=3.10,<3.15"
+requires-python = ">=3.10,<3.16"
 
 # the `read` function and long_description_content_type from setup.py are no longer needed,
 # modern build tools like pdm/hatch already know how to handle markdown if you point them at a .md file
@@ -38,6 +38,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Libraries",
@@ -96,6 +97,12 @@ exclude = [
     "build",
     "dist",
     ".venv",
+    # PEP 798 comprehension unpacking, which ruff 0.15.10 cannot handle, and a syntax
+    # error cannot be silenced with `# noqa`. Two separate obstacles: it rejects the
+    # list form as too new for `target-version` above, and it cannot parse the dict,
+    # set and generator forms at all ("Expected `}`, found `for`"). Retry dropping
+    # this once ruff both parses those and is told a new enough target.
+    "unpythonic/syntax/tests/test_comprehension_unpacking_3_15.py",
 ]
 
 [tool.ruff.lint]
