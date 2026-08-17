@@ -1,8 +1,8 @@
 # CC Brief: Python 3.15 support (unpythonic side)
 
-Companion to `mcpyrate/briefs/python-3.15-support.md`, which carries the full AST survey and the expander-side work. This one is the unpythonic half, written to stand on its own for anyone looking only at this repo.
+Companion to `mcpyrate/briefs/done/python-3.15-support.md`, which carries the full AST survey and the expander-side work. This one is the unpythonic half, written to stand on its own for anyone looking only at this repo.
 
-Three fleet projects read the Python AST directly and so are the ones a CPython minor version can break: `mcpyrate`, `unpythonic`, and `pyan` (which has its own brief at `pyan/briefs/python-3.15-support.md`, and is the only one with a confirmed 3.15 crash).
+Three fleet projects read the Python AST directly and so are the ones a CPython minor version can break: `mcpyrate`, `unpythonic`, and `pyan` (which has its own brief at `pyan/briefs/done/python-3.15-support.md`, and is the only one with a confirmed 3.15 crash).
 
 ## Context
 
