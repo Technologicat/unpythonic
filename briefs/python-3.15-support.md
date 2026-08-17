@@ -63,9 +63,34 @@ colorizer path.
 verified against each other; mcpyrate's 3.15 work is already sitting unreleased in its `4.2.1`
 in-progress section waiting for this. See the `release` skill.
 
+## Measured on 3.15.0rc1 (2026-08-17) — the open questions are answered
+
+**The suite is green on 3.15**: 3862 pass, 0 fail, 0 error, with bytecode caches cleared first
+so every macro genuinely re-expanded. For comparison 3.14.6 gives 3883 — the 21-test gap is
+SymPy and mpmath missing from the ad-hoc 3.15 venv, not a 3.15 difference. Note the earlier
+figure of 3830 in this brief came from a run under `-W error::DeprecationWarning`, where two
+errors cut their testsets short; it is not comparable.
+
+**That result is weaker than it looks, and does not close the work.** No existing test contains
+PEP 798 or PEP 810 syntax, so a green suite shows only that nothing *broke* — it never exercises
+the new forms at all. Probing them directly is what settles it, and that probe is now run:
+
+| construct | `lazify` | `autocurry` | `tco` |
+|---|---|---|---|
+| `[*items(k) for k in ks]` | ok | ok | ok |
+| `(*items(k) for k in ks)` | ok | — | — |
+| `{**mapping(k) for k in ks}` | ok | ok | ok |
+
+All produce correct values. **So items 1-3 below need no code change.** The specific hazard
+anticipated for `lazify` — wrapping the `Starred`'s value in a promise, so that `*promise` fails
+at unpacking — does not occur.
+
+What remains is therefore small: turn that probe into version-gated tests so the invariant is
+kept rather than rediscovered, and move the version metadata.
+
 ## Work items
 
-All of these need a real 3.15 to settle; they cannot be resolved by reading. Python 3.15.0rc1 is installed on the personal machine.
+Items 1-3 are settled as above and need tests rather than fixes. Python 3.15.0rc1 is installed on the personal machine.
 
 1. **`lazify` with a `Starred` comprehension element.** `lazify.py` has no comprehension-specific handling at all, and its `Starred` handling is scoped to call arguments (line 537) and container literals (line 770). A `Starred` in `elt` position is a new shape reaching the generic path. The hazard is wrapping the starred value in a promise, since `*promise` fails at unpacking. Test `with lazify:` over all four new comprehension forms.
 2. **`autocurry` and `tailtools` over the same forms.** Same question, same reason; `tailtools.py:1011,1026` already reasons about `Starred` in a different context.
