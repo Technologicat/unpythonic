@@ -40,6 +40,29 @@ Also, AST node constructors now raise `TypeError` for a missing required field o
 - **A value-less `DictComp` traverses safely.** `mcpyrate`'s `ASTVisitor` / `ASTTransformer` inherit CPython's `generic_visit`, which leaves a field alone when its value is neither a list nor an `AST` — so `value=None` passes through every walker in this library without special handling.
 - **`scopeanalyzer` needs no change.** Its comprehension branch (`scopeanalyzer.py:242`) reads only `generators`; its import branch (`:337`) reads only `names`. Neither `is_lazy` nor a value-less `DictComp` reaches it.
 
+## How to start (2026-08-17)
+
+**mcpyrate's side is done**, so this is unblocked: its import hook, unparser and lazy
+macro-import rejection all landed, and its suite is green on 3.15.0rc1. Two practical notes
+before touching anything.
+
+**Run the full suite on 3.15 first, before working from the list below.** The static survey in
+this brief is triage, not evidence of health. `pyan`'s equivalent brief predicted exactly one
+bug and there were two — the second being a `symtable` rename that broke every module
+containing a lambda, invisible to the ASDL diff (not a grammar change) and invisible to an
+import check (the import succeeds). Only running the suite found it. Clear the bytecode caches
+first (`macropython -C .`), or the expander does not re-run and the pass proves nothing.
+
+**Getting a 3.15 interpreter here needs a workaround until the cap moves.** `requires-python`
+is still `>=3.10,<3.15`, so `pdm venv create 3.15` will refuse. Either raise the cap first, or
+run against a standalone 3.15 venv with `PYTHONPATH` pointed at the repo — the latter needs
+`mcpyrate` importable and `colorama` installed, since `unpythonic` pulls in mcpyrate's
+colorizer path.
+
+**Do not tag a release for this alone.** `mcpyrate` and `unpythonic` ship together, once
+verified against each other; mcpyrate's 3.15 work is already sitting unreleased in its `4.2.1`
+in-progress section waiting for this. See the `release` skill.
+
 ## Work items
 
 All of these need a real 3.15 to settle; they cannot be resolved by reading. Python 3.15.0rc1 is installed on the personal machine.
