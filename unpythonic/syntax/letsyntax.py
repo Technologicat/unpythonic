@@ -442,7 +442,7 @@ def _substitute_templates(templates, tree):
             if type(tree) is Subscript and type(tree.value) is Name and tree.value.id == name:
                 return True
             # Parenthesis syntax for macro arguments (deprecated; kept for backward compatibility)
-            if type(tree) is Call and type(tree.func) is Name and tree.func.id == name:
+            if type(tree) is Call and type(tree.func) is Name and tree.func.id == name:  # noqa: SIM103 -- a second, deprecated syntax recognized separately; `or`-ing the two would strand the comment above and merge two distinct recognitions into one expression
                 return True
             return False
         def subst(tree):

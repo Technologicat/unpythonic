@@ -129,6 +129,9 @@ ignore = [
     "SIM910",  # dict.get with None default — explicit None documents programmer intent
     # Note: SIM103 (return condition directly) is intentionally NOT ignored here.
     # It is enabled as an advisory — CI runs it in a non-failing second pass.
+    # The two sites where it fires have been reviewed and carry a site-local
+    # `# noqa: SIM103` with the reason, so the advisory pass is currently empty
+    # and anything it reports from now on is new.
 ]
 
 [tool.ruff.lint.per-file-ignores]

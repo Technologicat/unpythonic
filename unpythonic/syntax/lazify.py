@@ -566,7 +566,7 @@ def _is_literal_container(tree, maps_only=False):
     if type(tree) is Dict:
         return True
     # Not reached in case of `lazyrec`, similarly as above.
-    if type(tree) is Call and any(isx(tree.func, s) for s in _ctorcalls_map):
+    if type(tree) is Call and any(isx(tree.func, s) for s in _ctorcalls_map):  # noqa: SIM103 -- last of several parallel guard clauses; collapsing only this one hides that shape
         return True
     return False
 
