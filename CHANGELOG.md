@@ -5,7 +5,7 @@
 **Changed**:
 
 - `env.finalize()` now returns `self` instead of `None`, so it can be chained: `e = env(x=42).finalize()`. Matches the existing instance passthrough on `<<`.
-- **Python 3.15 is supported**, and `requires-python` moves from `<3.15` to `<3.16`. The macros needed no changes for the new syntax: `lazify`, `autocurry` and `tco` all pass through comprehension unpacking (`{**mapping for x in xs}`, `[*items for item in xs]`, and the set and generator forms) correctly, and there are now tests to keep it that way. Requires `mcpyrate` 4.2.1 or newer, since earlier versions cannot import anything at all under 3.15.
+- **Python 3.15 is supported**, and `requires-python` moves from `<3.15` to `<3.16`. The macros needed no changes for the new syntax: `lazify`, `autocurry` and `tco` all pass through comprehension unpacking (`{**mapping for x in xs}`, `[*items for item in xs]`, and the set and generator forms) correctly, and there are now tests to keep it that way — checking the properties, so that a `lazify` that quietly went strict inside the new forms would be caught, not just a wrong value. `continuations` is covered too. Requires `mcpyrate` 4.3.0 or newer, since earlier versions cannot import anything at all under 3.15.
 
 **Fixed**:
 

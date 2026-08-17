@@ -60,8 +60,8 @@ run against a standalone 3.15 venv with `PYTHONPATH` pointed at the repo — the
 colorizer path.
 
 **Do not tag a release for this alone.** `mcpyrate` and `unpythonic` ship together, once
-verified against each other; mcpyrate's 3.15 work is already sitting unreleased in its `4.2.1`
-in-progress section waiting for this. See the `release` skill.
+verified against each other. mcpyrate went first because the dependency forces it: see the release
+ordering below. Its side shipped as 4.3.0 on 2026-08-17. See also the `release` skill.
 
 ## Measured on 3.15.0rc1 (2026-08-17) — the open questions are answered
 
@@ -99,11 +99,14 @@ verified by installing it into a clean 3.15 venv, where importing an ordinary mo
 `unpythonic`'s CI would resolve `mcpyrate` from PyPI, get 4.2.0, and fail for reasons that have
 nothing to do with the code under test. The sequence is therefore:
 
-1. Land unpythonic's code changes — tests, `requires-python` cap, classifier. No CI matrix entry.
-2. Release **mcpyrate 4.2.1** (its work is already done and waiting).
-3. In `unpythonic`, bump the pin to `mcpyrate>=4.2.1` **and** add `"3.15"` to the CI matrix with
-   `allow-prereleases: true`, in one commit. Only now can that job pass.
-4. Release **unpythonic 2.3.1**.
+1. ~~Land unpythonic's code changes — tests, `requires-python` cap, classifier. No CI matrix entry.~~ Done.
+2. ~~Release mcpyrate.~~ Done: **4.3.0** *"Weigh anchor"*, on PyPI 2026-08-17. Minor rather than
+   patch, since a newly supported language version is a capability.
+3. ~~Bump the pin to `mcpyrate>=4.3.0` **and** add `"3.15"` to the CI matrix with
+   `allow-prereleases: true`.~~ Done, in one commit — that CI job is the first check that resolves
+   mcpyrate from PyPI rather than from a working tree, so it is what actually verifies the two
+   released packages against each other.
+4. Release **unpythonic 2.3.1** — or a minor, on the same reasoning as mcpyrate's 4.3.0.
 
 "Released together" therefore means same sitting, verified against each other — not simultaneous.
 The verification itself is already done: unpythonic's suite was run against the working-tree

@@ -20,7 +20,7 @@ license-files = ["LICENSE.md"]
 dynamic = ["version"]
 
 dependencies = [
-    "mcpyrate>=4.2.0",
+    "mcpyrate>=4.3.0",
     "sympy>=1.13"
 ]
 keywords=["functional-programming", "language-extension", "syntactic-macros",
