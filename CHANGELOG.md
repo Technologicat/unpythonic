@@ -1,11 +1,18 @@
 # Changelog
 
-**2.3.1** (in progress):
+**2.4.0** (17 August 2026) — *"'Tis but a scratch"* [edition](https://en.wikipedia.org/wiki/Black_Knight_(Monty_Python)):
+
+Python 3.15 support. The language grew two pieces of syntax that change the AST, and the macro layer needed no overhaul to take them — `lazify`, `autocurry`, `tco` and `continuations` all pass the new comprehension forms through untouched. The work here is the tests that establish that, rather than any change to what the macros do.
+
+**New**:
+
+- **Python 3.15 is supported.** `requires-python` moves from `<3.15` to `<3.16`, and `mcpyrate` 4.3.0 or newer is now required, since earlier versions cannot import anything at all under 3.15.
+  - The macros needed no changes for the new syntax. `lazify`, `autocurry`, `tco` and `continuations` all pass comprehension unpacking (`{**mapping for x in xs}`, `[*items for item in xs]`, and the set and generator forms) through untouched.
+  - There are now tests to keep it that way, and they check the *properties* rather than the results — laziness by leaving a `1 / 0` unevaluated, currying by partially applying, TCO by recursing deeper than the stack allows. A `lazify` that had quietly gone strict inside the new forms would return the right answer and fail these.
 
 **Changed**:
 
 - `env.finalize()` now returns `self` instead of `None`, so it can be chained: `e = env(x=42).finalize()`. Matches the existing instance passthrough on `<<`.
-- **Python 3.15 is supported**, and `requires-python` moves from `<3.15` to `<3.16`. The macros needed no changes for the new syntax: `lazify`, `autocurry` and `tco` all pass through comprehension unpacking (`{**mapping for x in xs}`, `[*items for item in xs]`, and the set and generator forms) correctly, and there are now tests to keep it that way — checking the properties, so that a `lazify` that quietly went strict inside the new forms would be caught, not just a wrong value. `continuations` is covered too. Requires `mcpyrate` 4.3.0 or newer, since earlier versions cannot import anything at all under 3.15.
 
 **Fixed**:
 
