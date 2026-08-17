@@ -1,5 +1,12 @@
 # Changelog
 
+**2.4.1** (in progress):
+
+*No user-visible changes yet.*
+
+
+---
+
 **2.4.0** (17 August 2026) — *"'Tis but a scratch"* [edition](https://en.wikipedia.org/wiki/Black_Knight_(Monty_Python)):
 
 Python 3.15 support. The language grew two pieces of syntax that change the AST, and the macro layer needed no overhaul to take them — `lazify`, `autocurry`, `tco` and `continuations` all pass the new comprehension forms through untouched. The work here is the tests that establish that, rather than any change to what the macros do.
