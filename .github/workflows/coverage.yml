@@ -33,7 +33,12 @@ jobs:
         pip install pdm
     - name: Create in-project virtualenv and install dependencies
       run: |
-        pdm python install ${{ matrix.python-version }}
+        # Point PDM at the interpreter `setup-python` already installed, rather than
+        # letting it fetch a second one — its index has no prerelease build, so asking
+        # for a version like "3.15" fails while that very interpreter is on PATH.
+        # Ask Python for its own path: under Git Bash on Windows, `which python` gives
+        # an MSYS path that PDM, a native Windows program, cannot resolve.
+        pdm use -f "$(python -c 'import sys; print(sys.executable)')"
         # "When you run pdm install the first time on a new PDM-managed project, whose Python interpreter is not decided yet,
         #  PDM will create a virtualenv in <project_root>/.venv, and install dependencies into it."
         #     https://pdm-project.org/en/latest/usage/venv/

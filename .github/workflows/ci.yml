@@ -72,15 +72,15 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install pdm
-    - name: Determine Python version string for PDM
-      run: |
-        echo "TARGET_PYTHON_VERSION_FOR_PDM=${{ matrix.python-version }}" | tr - @ >> "$GITHUB_ENV"
-        # We need this hack at all because CI expects e.g. "pypy-3.10", whereas PDM expects "pypy@3.10".
-        # We send the result into an environment variable so that the next step can use it.
-        #     https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/workflow-commands-for-github-actions#setting-an-environment-variable
     - name: Create in-project virtualenv and install dependencies
       run: |
-        pdm python install "$TARGET_PYTHON_VERSION_FOR_PDM"
+        # Point PDM at the interpreter `setup-python` already installed, rather than
+        # letting it fetch a second one — its index has no prerelease build, so asking
+        # for a version like "3.15" fails while that very interpreter is on PATH. This
+        # also removes the need to translate CI's `pypy-3.11` into PDM's `pypy@3.11`.
+        # Ask Python for its own path: under Git Bash on Windows, `which python` gives
+        # an MSYS path that PDM, a native Windows program, cannot resolve.
+        pdm use -f "$(python -c 'import sys; print(sys.executable)')"
         # "When you run pdm install the first time on a new PDM-managed project, whose Python interpreter is not decided yet,
         #  PDM will create a virtualenv in <project_root>/.venv, and install dependencies into it."
         #     https://pdm-project.org/en/latest/usage/venv/
