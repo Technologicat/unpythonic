@@ -3,7 +3,7 @@
 #
 # This version is customized to install with pdm, lint with ruff, and test with unpythonic.test.fixtures.
 
-name: Python package
+name: CI
 
 on:
   push:
