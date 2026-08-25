@@ -98,6 +98,10 @@ def namedlambda(tree, *, syntax, expander, **kw):
           let syntax supported by unpythonic (here using the haskelly let-in
           just as an example).
 
+    The last two are env-assignment, which accepts ``f := (lambda ...: ...)`` as well; both spellings are
+    named. That looks like the walrus above and is a different thing - what tells them apart is whether an
+    unpythonic environment is in scope, not the operator.
+
     Support for other forms of assignment might or might not be added in a
     future version.
 
