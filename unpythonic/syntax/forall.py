@@ -25,13 +25,15 @@ def forall(tree, *, syntax, expander, **kw):
     Example::
 
         # pythagorean triples
-        pt = forall[z << range(1, 21),   # hypotenuse
-                    x << range(1, z+1),  # shorter leg
-                    y << range(x, z+1),  # longer leg
+        pt = forall[z := range(1, 21),   # hypotenuse
+                    x := range(1, z+1),  # shorter leg
+                    y := range(x, z+1),  # longer leg
                     insist(x*x + y*y == z*z),
                     (x, y, z)]
         assert tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                                      (8, 15, 17), (9, 12, 15), (12, 16, 20))
+
+    The classic spelling ``name << iterable``, from v0.15.0 to v0.15.2, is still accepted.
     """
     if syntax != "expr":
         raise SyntaxError("forall is an expr macro only")  # pragma: no cover

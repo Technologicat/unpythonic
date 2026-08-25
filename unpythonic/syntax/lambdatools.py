@@ -187,8 +187,8 @@ def quicklambda(tree, *, syntax, expander, **kw):
         from unpythonic.syntax import _  # optional, makes IDEs happy
 
         with quicklambda, multilambda:
-            func = fn[[local[x << _],
-                       local[y << _],
+            func = fn[[local[x := _],
+                       local[y := _],
                        x + y]]
             assert func(1, 2) == 3
 

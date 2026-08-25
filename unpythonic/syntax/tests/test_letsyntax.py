@@ -59,6 +59,34 @@ def runtests():
         # This test will either pass, or error out with an AttributeError.
         test[let_syntax[[alias << realthing] in Silly.alias] == 42]  # noqa: F821
 
+    with testset("modern env-assignment syntax"):
+        # `let_syntax` does not parse its bindings itself; it borrows `letdoutil.isenvassign` in
+        # `letsyntax_mode`, so it accepts both `name := value` and the classic `name << value`. The classic
+        # form is covered above; this is the modern one.
+        evaluations = 0
+        def verylongfunctionname(x=1):
+            nonlocal evaluations
+            evaluations += 1
+            return x
+
+        y = let_syntax[[f := verylongfunctionname]  # noqa: F821
+                       in [f(),  # noqa: F821
+                           f(17)]]  # noqa: F821
+        test[evaluations == 2]
+        test[y == 17]
+
+        y = let_syntax[[f(),  # noqa: F821
+                        f(23)],  # noqa: F821
+                       where[f := verylongfunctionname]]  # noqa: F821
+        test[evaluations == 4]
+        test[y == 23]
+
+        # **Templates cannot use the modern syntax, and never will**: a template binds `f[a]`, and Python's
+        # own grammar rejects a walrus with a subscript target - `(f[a] := ...)` is a `SyntaxError` before
+        # any macro sees it. So `<<` is not merely the older spelling here, it is the only one, and the
+        # advice to prefer `:=` stops at this one form.
+        test_raises[SyntaxError, compile("(f[a] := 1)", "<test>", "eval")]
+
     with testset("block variant"):
         with let_syntax:
             with block as make123:  # capture one or more statements

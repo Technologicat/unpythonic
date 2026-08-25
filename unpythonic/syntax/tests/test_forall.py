@@ -10,7 +10,12 @@ from ...syntax import insist  # not a macro
 
 def runtests():
     # forall: pure AST transformation, with real lexical variables
-    #   - assignment (with List-monadic magic) is ``var << iterable``
+    #   - assignment (with List-monadic magic) is ``var := iterable``, or ``var << iterable`` in the
+    #     classic syntax of v0.15.0 to v0.15.2, which is still accepted.
+    #
+    # Both spellings are exercised below, and deliberately: `forall` does not parse its bindings itself, it
+    # borrows `letdoutil.isenvassign` from `let` and `do`. So one checker serves three macros, and until
+    # 2026-08-25 the walrus form was covered where the checker lives and in neither macro that borrows it.
     with testset("basic usage"):
         out = forall[y << range(3),  # noqa: F821, `forall` defines the name on the LHS of the `<<`.
                      x << range(3),  # noqa: F821
@@ -35,6 +40,22 @@ def runtests():
 
     with testset("single item special case"):
         test[forall[range(3), ] == (range(3),)]
+
+    with testset("modern env-assignment syntax"):
+        out = forall[y := range(3),  # noqa: F821, `forall` defines the name on the LHS.
+                     x := range(3),  # noqa: F821
+                     insist(x % 2 == 0),  # noqa: F821
+                     (x, y)]  # noqa: F821
+        test[out == ((0, 0), (2, 0), (0, 1), (2, 1), (0, 2), (2, 2))]
+
+        # The same triples as above, to show the two spellings agree rather than merely both running.
+        pt = forall[z := range(1, 21),  # noqa: F821
+                    x := range(1, z + 1),  # noqa: F821
+                    y := range(x, z + 1),  # noqa: F821
+                    insist(x * x + y * y == z * z),  # noqa: F821
+                    (x, y, z)]  # noqa: F821
+        test[tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
+                                   (8, 15, 17), (9, 12, 15), (12, 16, 20))]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):
