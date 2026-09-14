@@ -135,6 +135,8 @@ This gives you a REPL, inside your live process, with all the power of Python. Y
 
 You can have multiple REPL sessions connected simultaneously. When your app exits (for any reason), the server automatically shuts down, closing all connections if any remain. But exiting the client leaves the server running, so you can connect again later - that's the whole point.
 
+The client reads piped stdin too, running each line in the session namespace, so a shell script can drive a live app with nobody at the keyboard. Note that the session echoes the value of an expression, and a statement has none - so a pipe made only of assignments looks the same whether it ran or not. See [the REPL docs](doc/repl.md) for how to check that it landed.
+
 Optionally, if you have [mcpyrate](https://github.com/Technologicat/mcpyrate), the REPL sessions support importing, invoking and defining macros.
 </details>  
 <details><summary>Industrial-strength scan and fold.</summary>

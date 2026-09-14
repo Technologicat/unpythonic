@@ -99,6 +99,22 @@ This connects to the REPL server running on `localhost`, and opens a REPL sessio
   - Due to technical reasons, remote Ctrl+C currently only works on CPython. Support for PyPy3 would be nice, but currently not possible. See `unpythonic.misc.async_raise` and [#58](https://github.com/Technologicat/unpythonic/issues/58) for details.
   - Be sure to press `Ctrl+C` **just once**. Hammering the key combo may raise a `KeyboardInterrupt` locally in the code that is trying to send the remote `KeyboardInterrupt` (or in code waiting for the server's response), thus forcibly terminating the client. Starting immediately after the server has responded, remote Ctrl+C is available again. (The server indicates this by sending the text `KeyboardInterrupt`, possibly with a stack trace, and then giving a new prompt, just like a standard interactive Python session does.)
 
+### Scripting the client
+
+The client also reads piped stdin, running each line in the session namespace, so a shell script can drive a live app with nobody sitting at an interactive session:
+
+```bash
+printf '%s\n' \
+  'import mymodule' \
+  'mymodule.retry_count = 5' \
+  'print("retry_count is now", mymodule.retry_count)' \
+  | python3 -m unpythonic.net.client 127.0.0.1
+```
+
+- **Have the pipe print something, and check for it.** The session echoes the *value* of an expression, and a statement has none — so `mymodule.retry_count = 5` shows nothing at all, where `print(...)` is visible because `print` writes to stdout itself. A pipe made only of assignments therefore looks exactly the same whether it ran or not: same banner, same prompts, same `Session closed.` at the end. Anything automated that depends on the pipe having landed needs something to grep for, or it cannot tell a working session from one that silently did nothing.
+- `python3 -m unpythonic.net.server`, the demo app above, is a convenient throwaway host to test a pipe against before pointing it at a process that matters.
+- Consider wrapping the client in `timeout` where a script must not block.
+
 ### Netcat compatibility
 
 If you don't need tab completion or `Ctrl+C` support, the main channel is also `netcat` compatible. Use `rlwrap` to get basic readline functionality (history):
