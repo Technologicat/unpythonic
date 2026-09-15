@@ -11,7 +11,7 @@ from pickle import dumps, loads
 import threading
 
 from ..collections import (box, ThreadLocalBox, Some, Shim, unbox,
-                           frozendict, view, roview, ShadowedSequence, mogrify, mogrify_in,
+                           frozendict, view, roview, ShadowedSequence, mogrify, mogrify_in, mogrify_in_to,
                            in_slice, index_in_slice)
 from ..env import env
 from ..fold import foldr
@@ -642,6 +642,26 @@ def runtests():
 
         with testset("empty path"):
             test[mogrify_in(double, (), 21) == 42]
+
+        # The rules for steps and rebuilding are shared with `mogrify_in`, and tested above.
+        with testset("mogrify_in_to"):
+            d = {"devices": {"tts": {"device": "cpu"}}}
+            tts = d["devices"]["tts"]
+            test[mogrify_in_to("cuda:0", ("devices", "tts", "device"), d) is d]
+            test[d == {"devices": {"tts": {"device": "cuda:0"}}}]
+            test[the[d["devices"]["tts"]] is tts]
+
+            Timeout = namedtuple("Timeout", "connect read")
+            e = env(timeout=Timeout(10.0, 120.0))
+            mogrify_in_to(5.0, ("timeout", "connect"), e)
+            test[e.timeout == Timeout(5.0, 120.0)]
+
+            f = lambda: None
+            e = env(x=1)
+            mogrify_in_to(f, ("x",), e)  # a callable value is stored, not called
+            test[the[e.x] is f]
+
+            test_raises[KeyError, mogrify_in_to(42, ("nonexistent",), {})]
 
         with testset("error cases"):
             test_raises[KeyError, mogrify_in(double, ("nonexistent",), {})]

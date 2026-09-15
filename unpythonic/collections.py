@@ -3,7 +3,7 @@
 
 __all__ = ["box", "ThreadLocalBox", "unbox", "Some", "Shim",
            "frozendict", "roview", "view", "ShadowedSequence",
-           "mogrify", "mogrify_in",
+           "mogrify", "mogrify_in", "mogrify_in_to",
            "get_abcs", "in_slice", "index_in_slice",
            "SequenceView", "MutableSequenceView"]  # ABCs
 
@@ -175,8 +175,9 @@ def mogrify_in(func: Callable, path: Iterable, container: Any) -> Any:
     Nothing is mutated until the final store, so if a step cannot be taken or
     a container cannot be written to, the input is left as it was.
 
+    To store a given value instead of applying a function, see ``mogrify_in_to``.
     For a functional update, which never mutates its input, see
-    ``unpythonic.fup.fupdate_in`` and ``unpythonic.fup.fupdate_in_with``.
+    ``unpythonic.fup.fupdate_in_with`` and ``unpythonic.fup.fupdate_in``.
 
     ``path`` is an iterable of steps, outermost first. Each step is looked up
     according to the container it is taken from:
@@ -205,9 +206,9 @@ def mogrify_in(func: Callable, path: Iterable, container: Any) -> Any:
 
     **Examples**::
 
-        d = {"devices": {"tts": {"device": "cpu"}}}
-        mogrify_in(lambda _: "cuda:0", ("devices", "tts", "device"), d)
-        assert d["devices"]["tts"]["device"] == "cuda:0"
+        d = {"stats": {"counts": [1, 2, 3]}}
+        mogrify_in(lambda x: x + 1, ("stats", "counts", -1), d)
+        assert d == {"stats": {"counts": [1, 2, 4]}}
 
         from collections import namedtuple
         Timeout = namedtuple("Timeout", "connect read")
@@ -216,6 +217,24 @@ def mogrify_in(func: Callable, path: Iterable, container: Any) -> Any:
         assert e.timeout == Timeout(5.0, 120.0)  # `e` updated in-place, the tuple rebuilt
     """
     return _update_in(func, path, container, inplace=True)
+
+def mogrify_in_to(value: Any, path: Iterable, container: Any) -> Any:
+    """In-place update of one item deep inside nested containers, to a given value.
+
+    Like ``mogrify_in``, but the item at the end of ``path`` is replaced by
+    ``value``, instead of by the result of a function. The same rules apply for
+    taking a step, for what is updated in-place and what is rebuilt, and for
+    what is returned.
+
+    This is the in-place counterpart of ``unpythonic.fup.fupdate_in``.
+
+    **Examples**::
+
+        d = {"devices": {"tts": {"device": "cpu"}}}
+        mogrify_in_to("cuda:0", ("devices", "tts", "device"), d)
+        assert d["devices"]["tts"]["device"] == "cuda:0"
+    """
+    return _update_in(lambda _: value, path, container, inplace=True)
 
 # The engine for `mogrify_in` and for `unpythonic.fup.fupdate_in`, which differ only in whether a mutable
 # container along the path is written to or copied first.

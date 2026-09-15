@@ -143,7 +143,8 @@ def fupdate_in(target: T, path: Iterable, value: Any) -> T:
 
     ``path`` is an iterable of steps, outermost first; how each step is looked
     up, and how each kind of immutable container is rebuilt, is described in
-    ``unpythonic.collections.mogrify_in``, which is the in-place variant.
+    ``unpythonic.collections.mogrify_in``. The in-place counterpart of this
+    function is ``unpythonic.collections.mogrify_in_to``.
 
     A step that names nothing raises (``KeyError``, ``IndexError``, or
     ``AttributeError``). A sequence view along the path raises ``TypeError``,
@@ -169,6 +170,8 @@ def fupdate_in(target: T, path: Iterable, value: Any) -> T:
 
 def fupdate_in_with(target: T, path: Iterable, func: Callable) -> T:
     """Like ``fupdate_in``, but the new item is ``func(old_item)``. This is Clojure's ``update-in``.
+
+    The in-place counterpart of this function is ``unpythonic.collections.mogrify_in``.
 
     **Examples**::
 
