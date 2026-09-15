@@ -3,10 +3,12 @@
 
 __all__ = ["box", "ThreadLocalBox", "unbox", "Some", "Shim",
            "frozendict", "roview", "view", "ShadowedSequence",
-           "mogrify",
+           "mogrify", "mogrify_in",
            "get_abcs", "in_slice", "index_in_slice",
            "SequenceView", "MutableSequenceView"]  # ABCs
 
+from copy import copy
+from dataclasses import FrozenInstanceError, is_dataclass, replace as dataclasses_replace
 from functools import wraps
 from itertools import repeat
 from abc import abstractmethod
@@ -154,6 +156,149 @@ def mogrify(func: Callable, container: Any) -> Any:
             return ctor({doit(elt) for elt in x})
         return func(x)  # atom
     return doit(container)
+
+def mogrify_in(func: Callable, path: Iterable, container: Any) -> Any:
+    """In-place update of one item deep inside nested containers.
+
+    Walk ``path`` into ``container``, apply ``func`` to the item found at the
+    end, and store the result there. Return the updated ``container``.
+
+    This is Clojure's ``update-in``, with the in-place semantics of ``mogrify``:
+
+      - Any **mutable** container along the path is updated in-place.
+      - Any **immutable** container along the path is rebuilt with the new
+        item, and the new copy is stored into *its* parent, and so on upward,
+        until a mutable container takes it. If the outermost container is
+        immutable, the return value is a new copy.
+
+    So every mutable container along the path keeps its object identity.
+    Nothing is mutated until the final store, so if a step cannot be taken or
+    a container cannot be written to, the input is left as it was.
+
+    For a functional update, which never mutates its input, see
+    ``unpythonic.fup.fupdate_in`` and ``unpythonic.fup.fupdate_in_with``.
+
+    ``path`` is an iterable of steps, outermost first. Each step is looked up
+    according to the container it is taken from:
+
+      - A ``Mapping`` (including ``env``): the step is a key.
+      - A ``Sequence`` (except ``str`` and ``bytes``) or a sequence view,
+        when the step is an ``int``: the step is an index. Negative indices work.
+      - Anything else, including a named tuple when the step is a ``str``: the
+        step is an attribute name.
+
+    A step that names nothing raises, as the lookup would: ``KeyError``,
+    ``IndexError``, or ``AttributeError``. No containers are created along the
+    way.
+
+    Immutable containers are rebuilt as follows:
+
+      - Named tuple, by field name: ``._replace``. By index: ``._make``.
+      - Other immutable sequences: the type's constructor, given an iterable.
+      - Immutable mappings (such as ``frozendict``): the type's constructor,
+        given a ``dict``.
+      - Frozen dataclasses: ``dataclasses.replace``.
+      - ``cons``, by ``"car"`` or ``"cdr"``: a new ``cons``.
+
+    An empty ``path`` means the container itself, so the result is
+    ``func(container)``.
+
+    **Examples**::
+
+        d = {"devices": {"tts": {"device": "cpu"}}}
+        mogrify_in(lambda _: "cuda:0", ("devices", "tts", "device"), d)
+        assert d["devices"]["tts"]["device"] == "cuda:0"
+
+        from collections import namedtuple
+        Timeout = namedtuple("Timeout", "connect read")
+        e = env(timeout=Timeout(10.0, 120.0))
+        mogrify_in(lambda x: x / 2, ("timeout", "connect"), e)
+        assert e.timeout == Timeout(5.0, 120.0)  # `e` updated in-place, the tuple rebuilt
+    """
+    return _update_in(func, path, container, inplace=True)
+
+# The engine for `mogrify_in` and for `unpythonic.fup.fupdate_in`, which differ only in whether a mutable
+# container along the path is written to or copied first.
+def _update_in(func: Callable, path: Iterable, container: Any, *, inplace: bool) -> Any:
+    if isinstance(path, (str, bytes)):  # iterable, and nearly always a caller who meant a one-step path
+        raise TypeError(f"Expected `path` to be an iterable of steps, got {type(path)} {path!r}; for a single step, use `({path!r},)`.")
+
+    # Down, remembering each container and the step taken out of it, because a rebuilt immutable container
+    # has to be stored back into its parent.
+    trail = []
+    item = container
+    for step in path:
+        trail.append((item, step))
+        item = _getstep(item, step)
+
+    # Up again. In-place, the first container that takes its new item without being rebuilt ends the walk,
+    # since everything above it already holds it. Nothing was mutated before that store, which is what
+    # leaves the input untouched when a step on the way raises.
+    new_item = func(item)
+    for parent, step in reversed(trail):
+        updated = _setstep(parent, step, new_item, inplace=inplace)
+        if inplace and updated is parent:
+            return container
+        new_item = updated
+    return new_item
+
+def _is_indexable_sequence(x: Any) -> bool:
+    return (isinstance(x, (Sequence, SequenceView)) and not isinstance(x, (str, bytes)))
+
+def _getstep(container: Any, step: Any) -> Any:
+    if isinstance(container, Mapping):
+        return container[step]
+    if isinstance(step, int) and _is_indexable_sequence(container):
+        return container[step]
+    return getattr(container, step)
+
+def _setstep(container: Any, step: Any, item: Any, *, inplace: bool) -> Any:
+    """Store `item` under `step` in `container`. Return the container now holding it.
+
+    That is `container` itself, if updated in-place; else a new copy.
+    """
+    if isinstance(container, MutableMapping):
+        target = container if inplace else copy(container)
+        target[step] = item
+        return target
+    if isinstance(container, Mapping):
+        return type(container)({**container, step: item})
+
+    if isinstance(step, int) and isinstance(container, MutableSequence):
+        target = container if inplace else copy(container)
+        target[step] = item
+        return target
+    if isinstance(step, int) and isinstance(container, MutableSequenceView):
+        # A view writes through to the sequence it looks at, so it has no copy that is not also a write.
+        if not inplace:
+            raise TypeError(f"Cannot functionally update a view, since writing to one writes to the sequence it views; got {type(container)}.")
+        container[step] = item
+        return container
+    if isinstance(step, int) and _is_indexable_sequence(container):
+        index = range(len(container))[step]  # normalizes a negative index, and raises `IndexError` like a lookup would
+        cls = type(container)
+        ctor = cls._make if hasattr(cls, "_make") else cls  # namedtuple support (nonstandard constructor for a Sequence!)
+        return ctor(item if k == index else x for k, x in enumerate(container))
+
+    # `cons` is immutable, and its `FrozenAttributeError` is a `FrozenInstanceError`, so it must be handled
+    # before the frozen-dataclass case below would misread it as one.
+    if isinstance(container, cons):
+        if step == "car":
+            return cons(item, container.cdr)
+        if step == "cdr":
+            return cons(container.car, item)
+        raise AttributeError(f"A cons cell has only the attributes 'car' and 'cdr', got {step!r}.")
+    if isinstance(container, tuple) and hasattr(container, "_replace"):  # a named tuple's field, by name
+        return container._replace(**{step: item})
+
+    target = container if inplace else copy(container)
+    try:
+        setattr(target, step, item)
+    except FrozenInstanceError:
+        if not is_dataclass(container):
+            raise
+        return dataclasses_replace(container, **{step: item})
+    return target
 
 # -----------------------------------------------------------------------------
 

@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 """Functionally update sequences and mappings."""
 
-__all__ = ["fupdate"]
+__all__ = ["fupdate", "fupdate_in", "fupdate_in_with"]
 
-from collections.abc import Iterable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from copy import copy
 from typing import Any, TypeVar
 
-from .collections import frozendict, ShadowedSequence
+from .collections import frozendict, ShadowedSequence, _update_in
 
 T = TypeVar('T')
 
@@ -130,3 +130,51 @@ def fupdate(target: T, indices: "int | slice | Sequence[int | slice] | None" = N
         t.update(**bindings)
         return t
     return copy(target)
+
+def fupdate_in(target: T, path: Iterable, value: Any) -> T:
+    """Return a functionally updated copy of nested containers, with one item deep inside replaced.
+
+    Walk ``path`` into ``target``, and return a copy in which the item found at
+    the end is ``value``. This is Clojure's ``assoc-in``.
+
+    The input is never mutated. Each container along the path is shallow-copied
+    (a mutable one) or rebuilt (an immutable one), so the result shares
+    everything off the path with the input.
+
+    ``path`` is an iterable of steps, outermost first; how each step is looked
+    up, and how each kind of immutable container is rebuilt, is described in
+    ``unpythonic.collections.mogrify_in``, which is the in-place variant.
+
+    A step that names nothing raises (``KeyError``, ``IndexError``, or
+    ``AttributeError``). A sequence view along the path raises ``TypeError``,
+    since writing to a view writes to the sequence it views.
+
+    See also ``fupdate_in_with``, which applies a function to the item instead
+    of replacing it.
+
+    **Examples**::
+
+        d1 = {"devices": {"tts": {"device": "cpu"}, "stt": {"device": "cpu"}}}
+        d2 = fupdate_in(d1, ("devices", "tts", "device"), "cuda:0")
+        assert d1["devices"]["tts"]["device"] == "cpu"
+        assert d2["devices"]["tts"]["device"] == "cuda:0"
+        assert d2["devices"]["stt"] is d1["devices"]["stt"]  # off the path: shared
+
+        from collections import namedtuple
+        A = namedtuple("A", "p q")
+        out = fupdate_in([A(1, 2), A(3, 4)], (1, "q"), 42)
+        assert out == [A(1, 2), A(3, 42)]
+    """
+    return _update_in(lambda _: value, path, target, inplace=False)
+
+def fupdate_in_with(target: T, path: Iterable, func: Callable) -> T:
+    """Like ``fupdate_in``, but the new item is ``func(old_item)``. This is Clojure's ``update-in``.
+
+    **Examples**::
+
+        d1 = {"stats": {"count": 1}}
+        d2 = fupdate_in_with(d1, ("stats", "count"), lambda x: x + 1)
+        assert d1 == {"stats": {"count": 1}}
+        assert d2 == {"stats": {"count": 2}}
+    """
+    return _update_in(func, path, target, inplace=False)

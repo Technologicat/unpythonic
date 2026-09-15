@@ -3,14 +3,17 @@
 from ..syntax import macros, test, test_raises, the  # noqa: F401
 from ..test.fixtures import session, testset
 
+from collections import namedtuple
 from collections.abc import Mapping, MutableMapping, Hashable, Container, Iterable, Sized
+from dataclasses import dataclass
 from itertools import count, repeat
 from pickle import dumps, loads
 import threading
 
 from ..collections import (box, ThreadLocalBox, Some, Shim, unbox,
-                           frozendict, view, roview, ShadowedSequence, mogrify,
+                           frozendict, view, roview, ShadowedSequence, mogrify, mogrify_in,
                            in_slice, index_in_slice)
+from ..env import env
 from ..fold import foldr
 from ..gmemo import imemoize
 from ..symbol import sym
@@ -575,6 +578,82 @@ def runtests():
             t2.join()
             test[unbox(b) == 42]
         runtest()
+
+    # mogrify_in: in-place update of one item at a path (see docstring for details)
+    with testset("mogrify_in"):
+        double = lambda x: 2 * x
+
+        with testset("mutable containers are updated in-place"):
+            d = {"a": {"b": [1, 2, 3]}}
+            inner, lst = d["a"], d["a"]["b"]
+            test[mogrify_in(double, ("a", "b", 1), d) is d]
+            test[d == {"a": {"b": [1, 4, 3]}}]
+            test[the[d["a"]] is inner]
+            test[the[d["a"]["b"]] is lst]
+
+            e = env(x=env(y=21))
+            test[mogrify_in(double, ("x", "y"), e) is e]
+            test[e.x.y == 42]
+
+        with testset("immutable containers are rebuilt and stored into their parent"):
+            Timeout = namedtuple("Timeout", "connect read")
+            e = env(timeout=Timeout(10.0, 120.0))
+            test[mogrify_in(lambda x: x / 2, ("timeout", "connect"), e) is e]
+            test[e.timeout == Timeout(5.0, 120.0)]
+            test[type(e.timeout) is Timeout]
+
+            d = {"t": Timeout(10.0, 120.0)}
+            mogrify_in(double, ("t", 1), d)  # a named tuple by index, too
+            test[the[d["t"]] == Timeout(10.0, 240.0)]
+
+            @dataclass(frozen=True)
+            class Size:
+                width: int
+                height: int
+            d = {"size": Size(width=768, height=768)}
+            mogrify_in(lambda _: 1024, ("size", "width"), d)
+            test[the[d["size"]] == Size(width=1024, height=768)]
+
+            d = {"fd": frozendict(a=1, b=2)}
+            mogrify_in(double, ("fd", "a"), d)
+            test[the[d["fd"]] == frozendict(a=2, b=2)]
+            test[type(d["fd"]) is frozendict]
+
+            d = {"c": ll(1, 2)}
+            mogrify_in(double, ("c", "cdr", "car"), d)
+            test[the[d["c"]] == ll(1, 4)]
+
+        with testset("an immutable outermost container is returned as a new copy"):
+            tup = ((1, 2), (3, 4))
+            out = mogrify_in(double, (-1, 0), tup)  # negative index
+            test[out == ((1, 2), (6, 4))]
+            test[tup == ((1, 2), (3, 4))]
+
+        with testset("a sequence view writes through to the sequence it views"):
+            lst = [1, 2, 3]
+            v = view(lst)[1:]
+            mogrify_in(double, (0,), v)
+            test[lst == [1, 4, 3]]
+
+        with testset("an int step names a key, not an index, in a mapping"):
+            d = {32: 256, 64: 128}
+            mogrify_in(double, (32,), d)
+            test[d == {32: 512, 64: 128}]
+
+        with testset("empty path"):
+            test[mogrify_in(double, (), 21) == 42]
+
+        with testset("error cases"):
+            test_raises[KeyError, mogrify_in(double, ("nonexistent",), {})]
+            test_raises[IndexError, mogrify_in(double, (5,), [1, 2, 3])]
+            test_raises[AttributeError, mogrify_in(double, ("nonexistent",), env(x=1))]
+            test_raises[AttributeError, mogrify_in(double, ("head",), cons(1, 2))]
+            test_raises[TypeError, mogrify_in(double, "ab", {"ab": 1})]  # a string is not a path
+
+            # A failing step leaves the input as it was, because nothing is mutated before the final store.
+            d = {"a": [1, 2, 3], "t": (1, 2)}
+            test_raises[IndexError, mogrify_in(double, ("t", 7), d)]
+            test[d == {"a": [1, 2, 3], "t": (1, 2)}]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

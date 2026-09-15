@@ -62,8 +62,10 @@ The exception are the features marked **[M]**, which are primarily intended as a
 - [`fup`: functional update; `ShadowedSequence`](#fup-functional-update-shadowedsequence): like `collections.ChainMap`, but for sequences.
   - [`fup`](#fup): the high-level syntactic sugar to update a sequence functionally.
   - [`fupdate`](#fupdate): the low-level workhorse.
+  - [`fupdate_in`, `fupdate_in_with`](#fupdate_in-fupdate_in_with): functionally update one item deep inside nested containers.
 - [`view`: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment.
 - [`mogrify`: update a mutable container in-place](#mogrify-update-a-mutable-container-in-place)
+- [`mogrify_in`: update one item at a path, in-place](#mogrify_in-update-one-item-at-a-path-in-place)
 - [`s`, `imathify`, `gmathify`, `slift1`, `slift2`: lazy mathematical sequences with infix arithmetic](#s-imathify-gmathify-slift1-slift2-lazy-mathematical-sequences-with-infix-arithmetic)
 - [`sym`, `gensym`, `Singleton`: symbols and singletons](#sym-gensym-Singleton-symbols-and-singletons)
 
@@ -2460,6 +2462,29 @@ Named tuples export only a sequence interface, so they **cannot** be treated as 
 
 Support for `namedtuple` uses an extra feature of `fupdate`, which is available for custom classes, too. When constructing the output sequence, `fupdate` first checks whether the type of the input sequence has a `._make()` method, and if so, hands the iterable containing the final data to that to construct the output. Otherwise the regular constructor is called (and it must accept a single iterable).
 
+#### `fupdate_in`, `fupdate_in_with`
+
+**Added in v2.5.0.**
+
+Functionally update one item deep inside nested containers, like Clojure's [`assoc-in`](https://clojuredocs.org/clojure.core/assoc-in) and [`update-in`](https://clojuredocs.org/clojure.core/update-in). `fupdate_in` replaces the item with a value; `fupdate_in_with` replaces it with the result of calling a function on it.
+
+```python
+d1 = {"devices": {"tts": {"device": "cpu"}, "stt": {"device": "cpu"}}}
+d2 = fupdate_in(d1, ("devices", "tts", "device"), "cuda:0")
+assert d1["devices"]["tts"]["device"] == "cpu"
+assert d2["devices"]["tts"]["device"] == "cuda:0"
+assert d2["devices"]["stt"] is d1["devices"]["stt"]  # off the path: shared
+
+d3 = fupdate_in_with(d2, ("devices", "stt", "device"), str.upper)
+assert d3["devices"]["stt"]["device"] == "CPU"
+```
+
+The path is an iterable of steps, outermost first. The containers along it may be of any mix of kinds: a step is a key into a mapping (including `env`), an index into a sequence when the step is an `int`, and an attribute name otherwise — which also covers a named tuple's fields by name.
+
+The input is never mutated. Every container along the path is shallow-copied if mutable, or rebuilt if immutable (named tuples, `frozendict`, frozen dataclasses, `cons`, and other immutable sequences), so the result shares everything off the path with the input. A step that names nothing raises, as the lookup would.
+
+For the in-place variant, see [`mogrify_in`](#mogrify_in-update-one-item-at-a-path-in-place).
+
 
 ### `view`: writable, sliceable view into a sequence
 
@@ -2545,6 +2570,38 @@ For convenience, we support some special cases:
   - The `cons` container from the module `unpythonic.llist`, including linked lists created using `ll` or `llist`. This is treated with the general tree strategy, so nested linked lists will be flattened, and the final `nil` is also processed.
 
     Note that since `cons` is immutable, anyway, if you know you have a long linked list where you need to update the values, just iterate over it and produce a new copy - that will work as intended.
+
+
+### `mogrify_in`: update one item at a path, in-place
+
+**Added in v2.5.0.**
+
+Like [`update-in`](https://clojuredocs.org/clojure.core/update-in) from Clojure, but with the update semantics of `mogrify`: walk a path into nested containers, apply a function to the item found at the end, and store the result there.
+
+```python
+from collections import namedtuple
+from unpythonic import mogrify_in
+from unpythonic.env import env
+
+d = {"devices": {"tts": {"device": "cpu"}}}
+mogrify_in(lambda _: "cuda:0", ("devices", "tts", "device"), d)
+assert d["devices"]["tts"]["device"] == "cuda:0"
+
+Timeout = namedtuple("Timeout", "connect read")
+e = env(timeout=Timeout(10.0, 120.0))
+mogrify_in(lambda x: x / 2, ("timeout", "connect"), e)
+assert e.timeout == Timeout(5.0, 120.0)
+```
+
+Any **mutable** container along the path is updated in-place, and keeps its object identity. Any **immutable** container along the path is rebuilt with the new item, and the copy is stored into its parent, and so on upward until a mutable container takes it. In the second example, the named tuple is rebuilt, and the `env` holding it is updated in-place. If the outermost container is immutable, the new copy is returned.
+
+Nothing is mutated until the final store, so if a step cannot be taken, the input is left as it was.
+
+Steps are looked up as in `fupdate_in`: a key into a mapping, an index into a sequence (or a sequence `view`) when the step is an `int`, and an attribute name otherwise. Negative indices work. A step that names nothing raises (`KeyError`, `IndexError`, or `AttributeError`); no containers are created along the way.
+
+The parameter order is curry-friendly: `mogrify_in(func, path, container)`. To store a constant, pass `const(value)` as the function.
+
+For a functional update, which never mutates its input, see [`fupdate_in` and `fupdate_in_with`](#fupdate_in-fupdate_in_with).
 
 
 ### `s`, `imathify`, `gmathify`, `slift1`, `slift2`: lazy mathematical sequences with infix arithmetic

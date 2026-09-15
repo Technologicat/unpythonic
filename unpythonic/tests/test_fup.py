@@ -6,8 +6,9 @@ from ..test.fixtures import session, testset
 from itertools import count, repeat
 from collections import namedtuple
 
-from ..fup import fupdate
-from ..collections import frozendict
+from ..fup import fupdate, fupdate_in, fupdate_in_with
+from ..collections import frozendict, view
+from ..env import env
 from ..gmemo import imemoize
 
 def runtests():
@@ -130,6 +131,58 @@ def runtests():
         # not memoized, cannot read a general iterable backwards
         tup = (1, 2, 3, 4, 5)
         test_raises[IndexError, fupdate(tup, slice(None, None, -1), count(start=10))]
+
+    # fupdate_in: functional update of one item at a path. The rules for taking a step and rebuilding an
+    # immutable container are shared with `mogrify_in`, and tested there; what is tested here is that
+    # nothing is mutated, and that what is off the path is shared.
+    with testset("fupdate_in"):
+        with testset("the input is not mutated"):
+            d1 = {"devices": {"tts": {"device": "cpu"}, "stt": {"device": "cpu"}}}
+            d2 = fupdate_in(d1, ("devices", "tts", "device"), "cuda:0")
+            test[d1 == {"devices": {"tts": {"device": "cpu"}, "stt": {"device": "cpu"}}}]
+            test[d2 == {"devices": {"tts": {"device": "cuda:0"}, "stt": {"device": "cpu"}}}]
+
+        with testset("containers on the path are copies, and everything off it is shared"):
+            d1 = {"devices": {"tts": {"device": "cpu"}, "stt": {"device": "cpu"}}}
+            d2 = fupdate_in(d1, ("devices", "tts", "device"), "cuda:0")
+            test[the[d2] is not the[d1]]
+            test[the[d2["devices"]] is not the[d1["devices"]]]
+            test[the[d2["devices"]["tts"]] is not the[d1["devices"]["tts"]]]
+            test[the[d2["devices"]["stt"]] is the[d1["devices"]["stt"]]]
+
+            e1 = env(x=env(y=21), z=[1, 2])
+            e2 = fupdate_in(e1, ("x", "y"), 42)
+            test[e1.x.y == 21]
+            test[e2.x.y == 42]
+            test[type(e2) is env]
+            test[the[e2.z] is the[e1.z]]
+
+        with testset("immutable containers along the path"):
+            A = namedtuple("A", "p q")
+            lst = [A(1, 2), A(3, 4)]
+            out = fupdate_in(lst, (1, "q"), 42)
+            test[out == [A(1, 2), A(3, 42)]]
+            test[lst == [A(1, 2), A(3, 4)]]
+
+            fd = frozendict(a=(1, 2))
+            out = fupdate_in(fd, ("a", -1), 42)
+            test[out == frozendict(a=(1, 42))]
+            test[fd == frozendict(a=(1, 2))]
+
+        with testset("fupdate_in_with"):
+            d1 = {"stats": {"count": 1}}
+            d2 = fupdate_in_with(d1, ("stats", "count"), lambda x: x + 1)
+            test[d1 == {"stats": {"count": 1}}]
+            test[d2 == {"stats": {"count": 2}}]
+
+        with testset("error cases"):
+            test_raises[KeyError, fupdate_in({}, ("nonexistent",), 42)]
+            test_raises[TypeError, fupdate_in({"ab": 1}, "ab", 42)]  # a string is not a path
+
+            # A copy of a view would still write through to the sequence it views.
+            lst = [1, 2, 3]
+            test_raises[TypeError, fupdate_in(view(lst), (0,), 42)]
+            test[lst == [1, 2, 3]]
 
 if __name__ == '__main__':  # pragma: no cover
     with session(__file__):

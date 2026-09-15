@@ -1,6 +1,12 @@
 # Changelog
 
-**2.4.1** (in progress):
+**2.5.0** (in progress):
+
+**New**:
+
+- **Update one item deep inside nested containers**, like Clojure's `update-in` and `assoc-in`. The path is a sequence of steps — keys, indices, and attribute names, in any mix — so dicts, lists, `env`s, named tuples, frozen dataclasses and `frozendict`s can all be walked through in one call.
+  - `mogrify_in(func, path, container)` updates in-place, with `mogrify`'s semantics: every mutable container along the path keeps its identity, and an immutable one is rebuilt and stored back into its parent.
+  - `fupdate_in(target, path, value)` and `fupdate_in_with(target, path, func)` are the functional variants, which never mutate their input and share everything off the path with it.
 
 **Fixed**:
 
