@@ -307,6 +307,11 @@ def _setstep(container: Any, step: Any, item: Any, *, inplace: bool) -> Any:
         if step == "cdr":
             return cons(container.car, item)
         raise AttributeError(f"A cons cell has only the attributes 'car' and 'cdr', got {step!r}.")
+    # A named tuple is rebuilt even in-place, because it is genuinely immutable: its fields read the tuple's
+    # item array, and 3.13's `copy.replace` is its `_replace`, a copy. Writing into the item array through
+    # `ctypes` would work, and would corrupt things: a tuple's hash comes from its contents, so one used as a
+    # dict key or set member silently goes missing, and CPython shares a constant tuple between every run of
+    # the line that makes it.
     if isinstance(container, tuple) and hasattr(container, "_replace"):  # a named tuple's field, by name
         return container._replace(**{step: item})
 
