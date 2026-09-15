@@ -2546,8 +2546,8 @@ Unlike `map` and its cousins, **`mogrify` only supports a single input container
 from unpythonic import mogrify
 
 lst1 = [1, 2, 3]
-lst2 = mogrify(lst1, lambda x: x**2)
-assert lst2 == [2, 4, 6]
+lst2 = mogrify(lambda x: x**2, lst1)
+assert lst2 == [1, 4, 9]
 assert lst2 is lst1
 ```
 
