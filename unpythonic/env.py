@@ -76,6 +76,21 @@ class env:
         for name, value in bindings.items():
             setattr(self, name, value)
 
+    def __copy__(self) -> "env":
+        """Shallow copy: the copy has bindings of its own, bound to the same values.
+
+        As ``dict.copy``, so rebinding a name in the copy leaves the original alone.
+        A finalized env copies as finalized.
+        """
+        # The default shallow copy would copy the instance `__dict__` one level deep, which shares the
+        # `_env` dict between the two — an alias rather than a copy.
+        cls = type(self)
+        new = cls.__new__(cls)
+        for name, value in self.__dict__.items():  # the internal slots, and anything a subclass keeps beside them
+            object.__setattr__(new, name, value)
+        object.__setattr__(new, "_env", dict(self._env))
+        return new
+
     # item access by name
     # https://docs.python.org/3/reference/datamodel.html#object.__setattr__
     # https://docs.python.org/3/reference/datamodel.html#object.__getattr__

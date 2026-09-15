@@ -3,7 +3,10 @@
 from ..syntax import macros, test, test_raises, the  # noqa: F401
 from ..test.fixtures import session, testset
 
+from copy import copy
+
 from ..env import env
+from ..fup import fupdate
 
 def runtests():
     with testset("basic usage"):
@@ -106,6 +109,28 @@ def runtests():
         with env(x=1) as e:
             e.setdefault("x", 3)
             test[e.x == 1]  # already exists, so not updated by `setdefault`.
+
+    with testset("copy"):
+        lst = [1, 2]
+        e1 = env(x=1, lst=lst)
+        e2 = copy(e1)
+        e2.x = 42
+        test[e1.x == 1]  # the copy has bindings of its own...
+        test[the[e2.lst] is lst]  # ...bound to the same values
+        test[type(e2) is env]
+
+        e1.finalize()
+        e2 = copy(e1)
+        e2.x = 23  # rebinding is allowed in a finalized env
+        test[e1.x == 1]
+        with test_raises[AttributeError, "a copy of a finalized environment should be finalized too"]:
+            e2.y = 3
+
+        # `fupdate` copies a mutable mapping before updating it, so this is where an aliasing copy showed.
+        e1 = env(x=1)
+        e2 = fupdate(e1, x=42)
+        test[e1.x == 1]
+        test[e2.x == 42]
 
     with testset("error cases"):
         with env(x=1) as e:
