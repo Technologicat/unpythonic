@@ -359,7 +359,7 @@ def multishot(tree, syntax, expander, **kw):
                 if (type(tree) is ast.Assign and len(tree.targets) == 1
                         and is_myield_from_expr(tree.value)):
                     return _build_myield_from_expansion(getslice(tree.value),
-                                                       target=tree.targets[0])
+                                                        target=tree.targets[0])
                 if type(tree) is ast.Expr and is_myield_from_expr(tree.value):
                     return _build_myield_from_expansion(getslice(tree.value), target=None)
 

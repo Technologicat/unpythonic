@@ -117,7 +117,7 @@ def runtests():
             with autoreturn:
                 with monadic_do[Maybe] as result:
                     [x := Maybe(4),
-                    Maybe(x + 6)]
+                     Maybe(x + 6)]
                 return result
         test[compute() == Maybe(10)]
 
@@ -125,7 +125,7 @@ def runtests():
         with envify:
             with monadic_do[Maybe] as result:
                 [x := Maybe(5),
-                Maybe(x + 1)]
+                 Maybe(x + 1)]
         test[result == Maybe(6)]
 
     with testset("smoke: autoref + monadic_do"):

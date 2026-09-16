@@ -164,17 +164,17 @@ def runtests():
 
         # guard / filter
         filtered = List(1, 2, 3, 4) >> (lambda x:
-                   List.guard(x % 2 == 0).then(List(x)))
+                   List.guard(x % 2 == 0).then(List(x)))  # noqa: E128 -- bind chain laid out as do-notation
         test[filtered == List(2, 4)]
 
         # Pythagorean triples (the canonical List-monad example)
         def r(low, high):
             return List.from_iterable(range(low, high))
         pt = r(1, 21) >> (lambda z:
-             r(1, z + 1) >> (lambda x:
-             r(x, z + 1) >> (lambda y:
-             List.guard(x * x + y * y == z * z).then(
-             List((x, y, z))))))
+             r(1, z + 1) >> (lambda x:  # noqa: E128 -- bind chain laid out as do-notation
+             r(x, z + 1) >> (lambda y:  # noqa: E128 -- bind chain laid out as do-notation
+             List.guard(x * x + y * y == z * z).then(  # noqa: E128 -- bind chain laid out as do-notation
+             List((x, y, z))))))  # noqa: E122 -- bind chain laid out as do-notation
         test[tuple(sorted(pt)) == ((3, 4, 5), (5, 12, 13), (6, 8, 10),
                                    (8, 15, 17), (9, 12, 15), (12, 16, 20))]
 
@@ -215,8 +215,8 @@ def runtests():
         # Basic chain
         chain = (bump
                  >> (lambda a: bump
-                 >> (lambda b: bump
-                 >> (lambda c: State.unit((a, b, c))))))
+                 >> (lambda b: bump  # noqa: E128 -- bind chain laid out as do-notation
+                 >> (lambda c: State.unit((a, b, c))))))  # noqa: E128 -- bind chain laid out as do-notation
         data, final = chain.run(10)
         test[data == (10, 11, 12)]
         test[final == 13]
