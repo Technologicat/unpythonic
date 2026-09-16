@@ -257,7 +257,7 @@ def runtests():
     with testset("myield_from: assignment form binds inner's StopIteration value"):
         with continuations:
             @multishot
-            def inner():
+            def inner():  # noqa: F811 -- each testset defines its own, and uses it before the next one does
                 myield[1]
                 return 99
 
@@ -272,7 +272,7 @@ def runtests():
     with testset("myield_from: gi_yieldfrom tracks the inner iterator while delegating"):
         with continuations:
             @multishot
-            def inner():
+            def inner():  # noqa: F811 -- each testset defines its own, and uses it before the next one does
                 myield[1]
                 myield[2]
 
@@ -303,7 +303,7 @@ def runtests():
     with testset("myield_from: send forwards value into inner"):
         with continuations:
             @multishot
-            def inner():
+            def inner():  # noqa: F811 -- each testset defines its own, and uses it before the next one does
                 v = myield[10]
                 myield[v]   # echo the sent value
 
@@ -318,7 +318,7 @@ def runtests():
     with testset("myield_from: throw forwards exception into inner; uncaught propagates out"):
         with continuations:
             @multishot
-            def inner():
+            def inner():  # noqa: F811 -- each testset defines its own, and uses it before the next one does
                 myield[1]
                 myield[2]   # throw fires here; inner doesn't catch
 
@@ -342,7 +342,7 @@ def runtests():
         # both see inner's full sequence.
         with continuations:
             @multishot
-            def inner():
+            def inner():  # noqa: F811 -- each testset defines its own, and uses it before the next one does
                 myield[1]
                 myield[2]
                 myield[3]
