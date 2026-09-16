@@ -65,7 +65,7 @@ The exception are the features marked **[M]**, which are primarily intended as a
   - [`fupdate_in_to`, `fupdate_in_with`](#fupdate_in_to-fupdate_in_with): functionally update one item deep inside nested containers.
 - [`view`: writable, sliceable view into a sequence](#view-writable-sliceable-view-into-a-sequence) with scalar broadcast on assignment.
 - [`mogrify`: update a mutable container in-place](#mogrify-update-a-mutable-container-in-place)
-- [`mogrify_in_with`, `mogrify_in_to`: update one item at a path, in-place](#mogrify_in_with-mogrify_in_to-update-one-item-at-a-path-in-place)
+- [`mogrify_in_to`, `mogrify_in_with`: update one item at a path, in-place](#mogrify_in_to-mogrify_in_with-update-one-item-at-a-path-in-place)
 - [`s`, `imathify`, `gmathify`, `slift1`, `slift2`: lazy mathematical sequences with infix arithmetic](#s-imathify-gmathify-slift1-slift2-lazy-mathematical-sequences-with-infix-arithmetic)
 - [`sym`, `gensym`, `Singleton`: symbols and singletons](#sym-gensym-Singleton-symbols-and-singletons)
 
@@ -2483,7 +2483,7 @@ The path is an iterable of steps, outermost first. The containers along it may b
 
 The input is never mutated. Every container along the path is shallow-copied if mutable, or rebuilt if immutable (named tuples, `frozendict`, frozen dataclasses, `cons`, and other immutable sequences), so the result shares everything off the path with the input. A step that names nothing raises, as the lookup would.
 
-For the in-place variants, see [`mogrify_in_with` and `mogrify_in_to`](#mogrify_in_with-mogrify_in_to-update-one-item-at-a-path-in-place). All four path updates are named on the same pattern — `_to` stores a value, `_with` applies a function:
+For the in-place variants, see [`mogrify_in_to` and `mogrify_in_with`](#mogrify_in_to-mogrify_in_with-update-one-item-at-a-path-in-place). All four path updates are named on the same pattern — `_to` stores a value, `_with` applies a function:
 
 |                  | to a value                              | with a function                         |
 |------------------|-----------------------------------------|-----------------------------------------|
@@ -2579,15 +2579,15 @@ For convenience, we support some special cases:
     Note that since `cons` is immutable, anyway, if you know you have a long linked list where you need to update the values, just iterate over it and produce a new copy - that will work as intended.
 
 
-### `mogrify_in_with`, `mogrify_in_to`: update one item at a path, in-place
+### `mogrify_in_to`, `mogrify_in_with`: update one item at a path, in-place
 
 **Added in v2.5.0.**
 
-Like [`update-in`](https://clojuredocs.org/clojure.core/update-in) and [`assoc-in`](https://clojuredocs.org/clojure.core/assoc-in) from Clojure, but with the update semantics of `mogrify`: walk a path into nested containers, and replace the item found at the end. `mogrify_in_with` replaces it with the result of calling a function on it; `mogrify_in_to` replaces it with a value.
+Like [`assoc-in`](https://clojuredocs.org/clojure.core/assoc-in) and [`update-in`](https://clojuredocs.org/clojure.core/update-in) from Clojure, but with the update semantics of `mogrify`: walk a path into nested containers, and replace the item found at the end. `mogrify_in_to` replaces it with a value; `mogrify_in_with` replaces it with the result of calling a function on it.
 
 ```python
 from collections import namedtuple
-from unpythonic import mogrify_in_with, mogrify_in_to
+from unpythonic import mogrify_in_to, mogrify_in_with
 from unpythonic.env import env
 
 d = {"devices": {"tts": {"device": "cpu"}}}
@@ -2606,7 +2606,7 @@ Nothing is mutated until the final store, so if a step cannot be taken, the inpu
 
 Steps are looked up as in `fupdate_in_to`: a key into a mapping, an index into a sequence (or a sequence `view`) when the step is an `int`, and an attribute name otherwise. Negative indices work. A step that names nothing raises (`KeyError`, `IndexError`, or `AttributeError`); no containers are created along the way.
 
-The parameter order is curry-friendly: `mogrify_in_with(func, path, container)` and `mogrify_in_to(value, path, container)`.
+The parameter order is curry-friendly: `mogrify_in_to(value, path, container)` and `mogrify_in_with(func, path, container)`.
 
 For a functional update, which never mutates its input, see [`fupdate_in_to` and `fupdate_in_with`](#fupdate_in_to-fupdate_in_with), which also has a table of all four path updates.
 
