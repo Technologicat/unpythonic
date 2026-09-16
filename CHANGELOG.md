@@ -1,5 +1,12 @@
 # Changelog
 
+**2.5.1** (in progress):
+
+*No user-visible changes yet.*
+
+
+---
+
 **2.5.0** (16 September 2026) — *"[Turtles](https://en.wikipedia.org/wiki/Teenage_Mutant_Ninja_Turtles) all the way down"* [edition](https://en.wikipedia.org/wiki/Turtles_all_the_way_down):
 
 **New**:
