@@ -11,6 +11,7 @@
 **Fixed**:
 
 - A shallow copy of an `env` — `copy.copy`, or `fupdate` given an `env` — now has bindings of its own. It used to share them with the original, so rebinding a name in the copy rebound it in the original too.
+- `namedlambda`'s docstring now says it names a lambda bound in an env-assignment or `let` binding in either spelling, `:=` or `<<`. It listed only `<<`, right after a bullet where `:=` meant Python's own named expression, so a reader could conclude the walrus form is not named.
 - The REPL documentation now says that the client reads piped stdin, running each line in the session namespace — so a shell script can drive a live app with nobody at the keyboard. The docs described only the interactive session, which is the smaller half of what the client does.
   - It also names the trap that makes an automated check necessary: the session echoes the *value* of an expression and a statement has none, so a pipe made only of assignments prints nothing and looks identical whether it ran or not. Have such a script `print` something and check for it; `python3 -m unpythonic.net.server` is a throwaway host to test the pipe against first.
 
