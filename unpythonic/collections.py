@@ -3,7 +3,7 @@
 
 __all__ = ["box", "ThreadLocalBox", "unbox", "Some", "Shim",
            "frozendict", "roview", "view", "ShadowedSequence",
-           "mogrify", "mogrify_in", "mogrify_in_to",
+           "mogrify", "mogrify_in_with", "mogrify_in_to",
            "get_abcs", "in_slice", "index_in_slice",
            "SequenceView", "MutableSequenceView"]  # ABCs
 
@@ -157,7 +157,7 @@ def mogrify(func: Callable, container: Any) -> Any:
         return func(x)  # atom
     return doit(container)
 
-def mogrify_in(func: Callable, path: Iterable, container: Any) -> Any:
+def mogrify_in_with(func: Callable, path: Iterable, container: Any) -> Any:
     """In-place update of one item deep inside nested containers.
 
     Walk ``path`` into ``container``, apply ``func`` to the item found at the
@@ -177,7 +177,7 @@ def mogrify_in(func: Callable, path: Iterable, container: Any) -> Any:
 
     To store a given value instead of applying a function, see ``mogrify_in_to``.
     For a functional update, which never mutates its input, see
-    ``unpythonic.fup.fupdate_in_with`` and ``unpythonic.fup.fupdate_in``.
+    ``unpythonic.fup.fupdate_in_with`` and ``unpythonic.fup.fupdate_in_to``.
 
     ``path`` is an iterable of steps, outermost first. Each step is looked up
     according to the container it is taken from:
@@ -207,13 +207,13 @@ def mogrify_in(func: Callable, path: Iterable, container: Any) -> Any:
     **Examples**::
 
         d = {"stats": {"counts": [1, 2, 3]}}
-        mogrify_in(lambda x: x + 1, ("stats", "counts", -1), d)
+        mogrify_in_with(lambda x: x + 1, ("stats", "counts", -1), d)
         assert d == {"stats": {"counts": [1, 2, 4]}}
 
         from collections import namedtuple
         Timeout = namedtuple("Timeout", "connect read")
         e = env(timeout=Timeout(10.0, 120.0))
-        mogrify_in(lambda x: x / 2, ("timeout", "connect"), e)
+        mogrify_in_with(lambda x: x / 2, ("timeout", "connect"), e)
         assert e.timeout == Timeout(5.0, 120.0)  # `e` updated in-place, the tuple rebuilt
     """
     return _update_in(func, path, container, inplace=True)
@@ -221,12 +221,12 @@ def mogrify_in(func: Callable, path: Iterable, container: Any) -> Any:
 def mogrify_in_to(value: Any, path: Iterable, container: Any) -> Any:
     """In-place update of one item deep inside nested containers, to a given value.
 
-    Like ``mogrify_in``, but the item at the end of ``path`` is replaced by
+    Like ``mogrify_in_with``, but the item at the end of ``path`` is replaced by
     ``value``, instead of by the result of a function. The same rules apply for
     taking a step, for what is updated in-place and what is rebuilt, and for
     what is returned.
 
-    This is the in-place counterpart of ``unpythonic.fup.fupdate_in``.
+    This is the in-place counterpart of ``unpythonic.fup.fupdate_in_to``.
 
     **Examples**::
 
@@ -236,8 +236,9 @@ def mogrify_in_to(value: Any, path: Iterable, container: Any) -> Any:
     """
     return _update_in(lambda _: value, path, container, inplace=True)
 
-# The engine for `mogrify_in` and for `unpythonic.fup.fupdate_in`, which differ only in whether a mutable
-# container along the path is written to or copied first.
+# The engine for `mogrify_in_with`, `mogrify_in_to`, and `unpythonic.fup.fupdate_in_with`, `fupdate_in_to`.
+# The `_to` variants pass a constant function, so the only real difference is whether a mutable container
+# along the path is written to or copied first.
 def _update_in(func: Callable, path: Iterable, container: Any, *, inplace: bool) -> Any:
     if isinstance(path, (str, bytes)):  # iterable, and nearly always a caller who meant a one-step path
         raise TypeError(f"Expected `path` to be an iterable of steps, got {type(path)} {path!r}; for a single step, use `({path!r},)`.")

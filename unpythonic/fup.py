@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """Functionally update sequences and mappings."""
 
-__all__ = ["fupdate", "fupdate_in", "fupdate_in_with"]
+__all__ = ["fupdate", "fupdate_in_to", "fupdate_in_with"]
 
 from collections.abc import Callable, Iterable, Sequence
 from copy import copy
@@ -131,7 +131,7 @@ def fupdate(target: T, indices: "int | slice | Sequence[int | slice] | None" = N
         return t
     return copy(target)
 
-def fupdate_in(target: T, path: Iterable, value: Any) -> T:
+def fupdate_in_to(target: T, path: Iterable, value: Any) -> T:
     """Return a functionally updated copy of nested containers, with one item deep inside replaced.
 
     Walk ``path`` into ``target``, and return a copy in which the item found at
@@ -143,7 +143,7 @@ def fupdate_in(target: T, path: Iterable, value: Any) -> T:
 
     ``path`` is an iterable of steps, outermost first; how each step is looked
     up, and how each kind of immutable container is rebuilt, is described in
-    ``unpythonic.collections.mogrify_in``. The in-place counterpart of this
+    ``unpythonic.collections.mogrify_in_with``. The in-place counterpart of this
     function is ``unpythonic.collections.mogrify_in_to``.
 
     A step that names nothing raises (``KeyError``, ``IndexError``, or
@@ -156,22 +156,22 @@ def fupdate_in(target: T, path: Iterable, value: Any) -> T:
     **Examples**::
 
         d1 = {"devices": {"tts": {"device": "cpu"}, "stt": {"device": "cpu"}}}
-        d2 = fupdate_in(d1, ("devices", "tts", "device"), "cuda:0")
+        d2 = fupdate_in_to(d1, ("devices", "tts", "device"), "cuda:0")
         assert d1["devices"]["tts"]["device"] == "cpu"
         assert d2["devices"]["tts"]["device"] == "cuda:0"
         assert d2["devices"]["stt"] is d1["devices"]["stt"]  # off the path: shared
 
         from collections import namedtuple
         A = namedtuple("A", "p q")
-        out = fupdate_in([A(1, 2), A(3, 4)], (1, "q"), 42)
+        out = fupdate_in_to([A(1, 2), A(3, 4)], (1, "q"), 42)
         assert out == [A(1, 2), A(3, 42)]
     """
     return _update_in(lambda _: value, path, target, inplace=False)
 
 def fupdate_in_with(target: T, path: Iterable, func: Callable) -> T:
-    """Like ``fupdate_in``, but the new item is ``func(old_item)``. This is Clojure's ``update-in``.
+    """Like ``fupdate_in_to``, but the new item is ``func(old_item)``. This is Clojure's ``update-in``.
 
-    The in-place counterpart of this function is ``unpythonic.collections.mogrify_in``.
+    The in-place counterpart of this function is ``unpythonic.collections.mogrify_in_with``.
 
     **Examples**::
 
