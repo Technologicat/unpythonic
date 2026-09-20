@@ -23,7 +23,6 @@ jobs:
     # Codecov wants one for a permanent branch even on a public repo, so without this the workflow
     # greets every contributor with a red run about a secret they were never meant to hold.
     if: github.repository == 'Technologicat/unpythonic'
-
     runs-on: ubuntu-latest
     strategy:
       matrix:
