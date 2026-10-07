@@ -1,11 +1,17 @@
 # Deferred TODOs
 
+<!-- New items go below this line. -->
+
 ## Dispatch: indistinguishable parametric ABC multimethods (GitHub #99)
+
+*Cluster: dispatch · Cost: ? · Gate: none · Filed: 2026-04-17 · See also: GitHub #99*
 
 Dispatch-layer improvements for parametric ABCs — warn/error on indistinguishable multimethods. Tricky because checkability is value-dependent (Sized vs opaque iterator). Typecheck-layer part is resolved.
 
 
 ## Type annotations — remaining hard-tier modules
+
+*Cluster: typing · Cost: L · Gate: none · Filed: 2026-04-17*
 
 As of v2.1.0, 32 of 34 pure-Python modules are annotated. Two remain — genuinely resistant to static typing:
 
@@ -18,6 +24,8 @@ Updated 2026-04-17.
 
 
 ## Tier 2 REPL tests (subprocess + pty) for `unpythonic.net` client/server
+
+*Cluster: repl-testing · Cost: M · Gate: a regression that tier 1 misses · Filed: 2026-04-15*
 
 Tier 1 coverage for `unpythonic.net.client` and `unpythonic.net.server` uses a server-in-thread + in-process client pattern (see `unpythonic/net/tests/`) with scripted input via a private `_input` seam on `client._connect(..., _input=fake_input)` and captured stdout/stderr via `io.StringIO`. Fast, single-process, no subprocess boundary needed — the server speaks TCP to `127.0.0.1` and the client loop runs in the same test process. **We might never need tier 2.**
 
@@ -58,6 +66,8 @@ Added 2026-04-15, alongside the tier 1 bring-up.
 
 ## Flexible view variant
 
+*Cluster: features · Cost: ? · Gate: none · Filed: 2026-04-16*
+
 An older, more flexible implementation of `view` exists somewhere in the ancient git history, supporting more advanced slicing at the cost of worse performance. Could be resurrected as an alternative for use cases where flexibility matters more than speed. Dig through the history to find it.
 
 Noted 2026-04-16.
@@ -65,12 +75,16 @@ Noted 2026-04-16.
 
 ## Audit bare `{path}` interpolation for repr/raw asymmetry on Windows
 
+*Cluster: windows-portability · Cost: M · Gate: none · Filed: 2026-04-17*
+
 Fleet-wide audit across all projects. The known failure mode (mcpyrate `cacbfd2`, 2026-04-15): an f-string interpolates a file path with bare `{__file__}`, producing raw backslashes (`C:\a\b`), while the other side of a comparison uses `repr()`/`unparse()` output with escaped backslashes (`C:\\a\\b`) — mismatch on Windows, passes on POSIX by accident. Fix is `{__file__!r}` so both sides speak the same dialect. The risk is NOT f-string reinterpretation (that's safe), but asymmetry when a bare-interpolated path is compared against, compiled as, or embedded into Python source. Grep hints: `__file__` in f-strings; also any path value interpolated into strings that later reach `compile()`, `eval()`, `ast.unparse()`, assertions, or similar.
 
 Noted 2026-04-17.
 
 
 ## Unify `accepts_arity` helpers across `excutil` and `conditions`
+
+*Cluster: refactoring · Cost: S · Gate: a policy decision per call site · Filed: 2026-05-05*
 
 `unpythonic.excutil._accepts_arity(f, n)` (introduced alongside `withf` in 2.2.0) is the single source of truth for `tryf` / `withf`'s "n-arg form vs 0-arg thunk" dispatch, with the policy "default to the n-arg form on `UnknownArity`". `unpythonic.conditions.signal` (around line 199) defines its own private `accepts_arg(f)` helper with the same shape (n=1 hardcoded, returns `True` on `UnknownArity`). It would be natural to share one helper.
 
@@ -81,12 +95,16 @@ Discovered during #76 (2026-05-05).
 
 ## Remove `unpythonic.amb.MonadicList` alias (3.0.0)
 
+*Cluster: 3.0.0 · Cost: S · Gate: 3.0.0 · Filed: 2026-04-17*
+
 As part of the monads port, `MonadicList` was moved to `unpythonic.monads.List` with a varargs constructor (`List(1, 2, 3)` instead of `MonadicList([1, 2, 3])`). A silent alias `MonadicList = List` is kept in `unpythonic/amb.py` for backward-name compatibility during the 2.x series. Remove the alias in 3.0.0 along with the accompanying `TODO(3.0.0)` comment at the alias site. Users must then import `List` directly from `unpythonic.monads`. Note: this is name-only compat — the constructor signature changed at 2.0.0, so existing callers of `MonadicList([...])` already needed to switch to varargs or `from_iterable(...)` at 2.0.0.
 
 Noted 2026-04-17.
 
 
 ## `isec` misses non-bare-name escape continuations, and does so silently
+
+*Cluster: macro-robustness · Cost: S for the loud interim, L for static resolution · Gate: none · Filed: 2026-08-16*
 
 `unpythonic/syntax/util.py`'s `isec` matches an escape continuation only through
 `getname(..., accept_attr=False)`, and says so itself: "**CAUTION**: Only bare-name references are
@@ -114,6 +132,8 @@ Discovered while writing the fleet's `unpythonic` skill (2026-08-16).
 
 
 ## Documentation gaps found by writing an outside summary of the library
+
+*Cluster: 3.0.0 · Cost: M · Gate: 3.0.0 · Filed: 2026-08-16*
 
 Writing the fleet's `unpythonic` and `macro-enabled-python` skills was, incidentally, a test of whether
 the docs communicate to a reader who has not written the library. Most of it held up — the
@@ -190,6 +210,8 @@ the library through `help()` or an API inventory sees exactly the docstring, and
 Raised 2026-08-16, documentation half resolved the same day.
 
 ## Should `runtests.py` clear the bytecode caches?
+
+*Cluster: testing · Cost: S · Gate: a measurement of the runtime cost · Filed: 2026-08-16*
 
 `unpythonic`'s `runtests.py` does no cache clearing. `mcpyrate`'s does, via
 `runtests(clear_bytecode_cache=True)` calling `mcpyrate.pycachecleaner.deletepycachedirs`, so the
