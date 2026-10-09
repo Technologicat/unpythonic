@@ -4,14 +4,24 @@
 
 ## Async support
 
-*Cluster: async · Cost: ? · Gate: none · Filed: 2026-10-09 · See also: `mcpyrate`'s `TODO_DEFERRED.md`, "Async support: block macros on `async with`, decorator macros on `async def`"*
+*Cluster: async · Cost: ? · Gate: none · Filed: 2026-10-09 · See also: GitHub #4 (open, "Help wanted for testing async support"); `mcpyrate`'s `TODO_DEFERRED.md`, "Async support: block macros on `async with`, decorator macros on `async def`"*
 
 Async is not supported much anywhere in the fleet (maintainer, 2026-10-09: there are places it would be
-useful), and `unpythonic` and `mcpyrate` are where adding it would be worth the most. Not yet surveyed here:
-`unpythonic.syntax` mentions async AST nodes in seven modules (`autocurry`, `letdo`, `tailtools`, `util`,
-`lambdatools`, `scopeanalyzer`, `lazify`), so some of its walkers know them, but which constructs work with
-`async def`, `await` and `async with`, at the macro layer and the runtime layer alike, is not known. Part of
-the macro layer depends on `mcpyrate` expanding macros on async constructs at all.
+useful), and `unpythonic` and `mcpyrate` are where adding it would be worth the most.
+
+What exists, from the history:
+
+- **`typecheck` knows the async types** (2026-03-12): `Awaitable`/`Coroutine`, `AsyncIterable`/`AsyncIterator`,
+  `AsyncGenerator` and `AsyncContextManager` work in `isoftype`, and so in `@generic` dispatch.
+- **Two constructs refuse async, on purpose**: `with continuations` raises `SyntaxError` on `async def` or
+  `await` inside its block (2021, citing #4), and multi-shot generators (2.2.0) document async as out of
+  scope.
+- **`unpythonic.syntax` mentions async AST nodes in seven modules** (`autocurry`, `letdo`, `tailtools`,
+  `util`, `lambdatools`, `scopeanalyzer`, `lazify`), so some walkers know them; what that amounts to per
+  macro has not been surveyed.
+- `async_raise` is unrelated despite its name: it injects an exception into another thread.
+
+Part of the macro layer depends on `mcpyrate` expanding macros on async constructs at all.
 
 ## Dispatch: indistinguishable parametric ABC multimethods (GitHub #99)
 
