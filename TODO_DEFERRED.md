@@ -2,6 +2,17 @@
 
 <!-- New items go below this line. -->
 
+## Async support
+
+*Cluster: async · Cost: ? · Gate: none · Filed: 2026-10-09 · See also: `mcpyrate`'s `TODO_DEFERRED.md`, "Async support: block macros on `async with`, decorator macros on `async def`"*
+
+Async is not supported much anywhere in the fleet (maintainer, 2026-10-09: there are places it would be
+useful), and `unpythonic` and `mcpyrate` are where adding it would be worth the most. Not yet surveyed here:
+`unpythonic.syntax` mentions async AST nodes in seven modules (`autocurry`, `letdo`, `tailtools`, `util`,
+`lambdatools`, `scopeanalyzer`, `lazify`), so some of its walkers know them, but which constructs work with
+`async def`, `await` and `async with`, at the macro layer and the runtime layer alike, is not known. Part of
+the macro layer depends on `mcpyrate` expanding macros on async constructs at all.
+
 ## Dispatch: indistinguishable parametric ABC multimethods (GitHub #99)
 
 *Cluster: dispatch · Cost: ? · Gate: none · Filed: 2026-04-17 · See also: GitHub #99*
